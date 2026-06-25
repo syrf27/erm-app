@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Sasaran {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProsesBisnis {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PemangkuKepentingan {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PeraturanPerundangan {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JenisRisiko {
+  id        Int      @id @default(autoincrement())
+  nama      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  identifikasiRisikos IdentifikasiRisiko[]
+}
+
+model SumberRisiko {
+  id        Int      @id @default(autoincrement())
+  nama      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  identifikasiRisikos IdentifikasiRisiko[]
+}
+
+model KategoriRisiko {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kriteriaKemungkinans KriteriaKemungkinan[]
+  kriteriaDampaks      KriteriaDampak[]
+  seleraRisikos        SeleraRisiko[]
+  identifikasiRisikos  IdentifikasiRisiko[]
+}
+
+model AreaDampak {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  identifikasiRisikos IdentifikasiRisiko[]
+}
+
+model LevelKemungkinan {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  skala     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kriteriaKemungkinans KriteriaKemungkinan[]
+  analisisRisikos      AnalisisRisiko[]
+  rencanaPenangananKemungkinans RencanaPenanganan[]
+}
+
+model LevelDampak {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  skala     Int      @default(1)
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kriteriaDampaks KriteriaDampak[]
+  analisisRisikos AnalisisRisiko[]
+  rencanaPenangananDampaks RencanaPenanganan[]
+}
+
+model LevelRisiko {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  analisisRisikos AnalisisRisiko[]
+}
+
+model OpsiPenanganan {
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model KriteriaKemungkinan {
+  id                     Int              @id @default(autoincrement())
+  kategoriRisikoId       Int
+  kategoriRisiko         KategoriRisiko   @relation(fields: [kategoriRisikoId], references: [id])
+  levelKemungkinanId     Int
+  levelKemungkinan       LevelKemungkinan @relation(fields: [levelKemungkinanId], references: [id])
+  persentaseKemungkinan  Int
+  deskripsi              String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model Kri {
+  id                    Int      @id @default(autoincrement())
+  namaIndikator         String
+  deskripsi             String?
+  batasHijau            Float?
+  batasKuning           Float?
+  batasMerah            Float?
+  nilaiAktual           Float?
+  frekuensiPemantauan   String?
+  identifikasiRisikoId  Int?
+  identifikasiRisiko    IdentifikasiRisiko? @relation(fields: [identifikasiRisikoId], references: [id])
+  penanggungJawab       String?
+  targetNilaiHarapan    Float?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model KriteriaDampak {
+  id               Int            @id @default(autoincrement())
+  kategoriRisikoId Int
+  kategoriRisiko   KategoriRisiko @relation(fields: [kategoriRisikoId], references: [id])
+  levelDampakId    Int
+  levelDampak      LevelDampak    @relation(fields: [levelDampakId], references: [id])
+  persentaseDampak Int
+  deskripsi        String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model SeleraRisiko {
+  id                    Int            @id @default(autoincrement())
+  kategoriRisikoId      Int
+  kategoriRisiko        KategoriRisiko @relation(fields: [kategoriRisikoId], references: [id])
+  besaranRisikoMinimum  Int
+  deskripsi             String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+}
+
+model IdentifikasiRisiko {
+  id              Int            @id @default(autoincrement())
+  risiko          String
+  jenisRisikoId   Int
+  jenisRisiko     JenisRisiko    @relation(fields: [jenisRisikoId], references: [id])
+  sumberRisikoId  Int
+  sumberRisiko    SumberRisiko   @relation(fields: [sumberRisikoId], references: [id])
+  kategoriRisikoId Int
+  kategoriRisiko  KategoriRisiko @relation(fields: [kategoriRisikoId], references: [id])
+  areaDampakId    Int
+  areaDampak      AreaDampak     @relation(fields: [areaDampakId], references: [id])
+  penyebab        String?
+  dampak          String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  analisisRisiko  AnalisisRisiko?
+  evaluasiRisiko  EvaluasiRisiko?
+  rencanaPenanganan RencanaPenanganan?
+  kris              Kri[]
+}
+
+model AnalisisRisiko {
+  id                Int              @id @default(autoincrement())
+  identifikasiRisikoId Int          @unique
+  identifikasiRisiko   IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
+  levelKemungkinanId   Int?
+  levelKemungkinan     LevelKemungkinan?  @relation(fields: [levelKemungkinanId], references: [id])
+  levelDampakId        Int?
+  levelDampak          LevelDampak?      @relation(fields: [levelDampakId], references: [id])
+  levelRisikoId        Int?
+  levelRisiko          LevelRisiko?      @relation(fields: [levelRisikoId], references: [id])
+  pengendalianUraian   String?
+  pengendalianEfektivitas String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model EvaluasiRisiko {
+  id                Int              @id @default(autoincrement())
+  identifikasiRisikoId Int          @unique
+  identifikasiRisiko   IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
+  responRisiko         String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model RencanaPenanganan {
+  id                Int              @id @default(autoincrement())
+  identifikasiRisikoId Int          @unique
+  identifikasiRisiko   IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
+  rencanaTidakPenanganan  String?
+  targetOutput         String?
+  targetWaktu          String?
+  penanggungJawab      String?
+  residualLevelKemungkinanId Int?
+  residualLevelKemungkinan   LevelKemungkinan? @relation(fields: [residualLevelKemungkinanId], references: [id])
+  residualLevelDampakId      Int?
+  residualLevelDampak        LevelDampak?      @relation(fields: [residualLevelDampakId], references: [id])
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}

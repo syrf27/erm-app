@@ -1,5 +1,5 @@
 import { DevtoolsProvider } from "@providers/devtools";
-import { GitHubBanner, Refine } from "@refinedev/core";
+import { Refine } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import routerProvider from "@refinedev/nextjs-router";
 import { Metadata } from "next";
@@ -8,6 +8,11 @@ import React, { Suspense } from "react";
 import { authProviderClient } from "@providers/auth-provider/auth-provider.client";
 import { dataProvider } from "@providers/data-provider";
 import "@styles/global.css";
+
+import { ColorSchemeScript, MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
+import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 
 export const metadata: Metadata = {
   title: "Refine",
@@ -23,51 +28,233 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ColorSchemeScript />
+      </head>
       <body>
-        <Suspense>
-          <GitHubBanner />
-          <RefineKbarProvider>
+        <RefineKbarProvider>
             <DevtoolsProvider>
-              <Refine
-                routerProvider={routerProvider}
-                dataProvider={dataProvider}
-                authProvider={authProviderClient}
-                resources={[
-                  {
-                    name: "blog_posts",
-                    list: "/blog-posts",
-                    create: "/blog-posts/create",
-                    edit: "/blog-posts/edit/:id",
-                    show: "/blog-posts/show/:id",
-                    meta: {
-                      canDelete: true,
+              <MantineProvider>
+                <Notifications position="bottom-right" />
+                <Suspense fallback={null}>
+                  <Refine
+                    routerProvider={routerProvider}
+                    dataProvider={dataProvider}
+                    authProvider={authProviderClient}
+                  resources={[
+                    {
+                      name: "dashboard",
+                      list: "/",
+                      meta: { label: "Dashboard" },
                     },
-                  },
-                  {
-                    name: "categories",
-                    list: "/categories",
-                    create: "/categories/create",
-                    edit: "/categories/edit/:id",
-                    show: "/categories/show/:id",
-                    meta: {
-                      canDelete: true,
+                    {
+                      name: "manajemen-risiko",
+                      meta: { label: "Manajemen Risiko" },
                     },
-                  },
-                ]}
-                options={{
-                  syncWithLocation: true,
-                  warnWhenUnsavedChanges: true,
-                  projectId: "ODAD4e-EHzpoU-bZP6wK",
-                }}
-              >
-                {children}
-                <RefineKbar />
-              </Refine>
+                    {
+                      name: "sasaran",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Sasaran",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "proses-bisnis",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Proses Bisnis",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "pemangku-kepentingan",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Pemangku Kepentingan",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "peraturan-perundangan",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Peraturan Perundangan",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "jenis-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Jenis Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "sumber-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Sumber Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "kategori-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Kategori Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "area-dampak",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Area Dampak",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "level-kemungkinan",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Level Kemungkinan",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "level-dampak",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Level Dampak",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "kriteria-kemungkinan",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Kriteria Kemungkinan",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "kriteria-dampak",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Kriteria Dampak",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "level-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Level Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "selera-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Selera Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "opsi-penanganan",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Opsi Penanganan",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
+                      name: "identifikasi-risiko",
+                      list: "/manajemen-risiko/identifikasi",
+                      meta: {
+                        label: "Identifikasi Risiko",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
+                      name: "analisis-risiko",
+                      list: "/manajemen-risiko/analisis",
+                      meta: {
+                        label: "Analisis Risiko",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
+                      name: "evaluasi-risiko",
+                      list: "/manajemen-risiko/evaluasi",
+                      meta: {
+                        label: "Evaluasi Risiko",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
+                      name: "rencana-penanganan",
+                      list: "/manajemen-risiko/rencana",
+                      meta: {
+                        label: "Rencana Penanganan",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
+                      name: "pemantauan-risiko",
+                      list: "/pemantauan-risiko",
+                      meta: { label: "Pemantauan Risiko" },
+                    },
+                    {
+                      name: "kri",
+                      list: "/kri",
+                      meta: { label: "KRI" },
+                    },
+                    {
+                      name: "penetapan-risiko",
+                      list: "/penetapan-risiko",
+                      meta: { label: "Penetapan Risiko" },
+                    },
+                    {
+                      name: "faq",
+                      list: "/faq",
+                      meta: { label: "FAQ" },
+                    },
+                  ]}
+                  options={{
+                    syncWithLocation: true,
+                    warnWhenUnsavedChanges: true,
+                  }}
+                >
+                  {children}
+                  <Suspense fallback={null}>
+                    <RefineKbar />
+                  </Suspense>
+                  </Refine>
+                </Suspense>
+              </MantineProvider>
             </DevtoolsProvider>
           </RefineKbarProvider>
-        </Suspense>
-      </body>
+          </body>
     </html>
   );
 }
