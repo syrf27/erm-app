@@ -8,7 +8,7 @@ import {
   useDelete,
   useList,
 } from "@refinedev/core";
-import type { CrudSort, Pagination } from "@refinedev/core";
+import type { CrudSort, Pagination as RefinePagination } from "@refinedev/core";
 import {
   Table,
   Button,
@@ -18,7 +18,6 @@ import {
   Stack,
   ActionIcon,
   Modal,
-  Pagination as MantinePagination,
   NumberInput,
   Loader,
   Text,
@@ -27,6 +26,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconEdit, IconTrash, IconPlus, IconCheck, IconX } from "@tabler/icons-react";
+import { Pagination } from "@/components/pagination";
 
 interface FieldConfig {
   key: string;
@@ -98,11 +98,13 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
   ],
   "level-dampak": [
     { key: "nama", label: "Nama", type: "text", required: true },
-    { key: "deskripsi", label: "Deskripsi", type: "text" },
+    { key: "skala", label: "Skala", type: "number", required: true },
   ],
   "level-risiko": [
-    { key: "nama", label: "Nama", type: "text", required: true },
-    { key: "deskripsi", label: "Deskripsi", type: "text" },
+    { key: "nama", label: "Level Risiko", type: "text", required: true },
+    { key: "rentang", label: "Rentang Besaran Risiko", type: "text" },
+    { key: "tindakan", label: "Tindakan", type: "text" },
+    { key: "warna", label: "Ket. Warna", type: "text" },
   ],
   "opsi-penanganan": [
     { key: "nama", label: "Nama", type: "text", required: true },
@@ -115,9 +117,7 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
     { key: "deskripsi", label: "Deskripsi", type: "text" },
   ],
   "kriteria-dampak": [
-    { key: "kategoriRisikoId", label: "Kategori Risiko", type: "select", required: true, relationResource: "kategori-risiko", relationField: "kategoriRisiko" },
-    { key: "levelDampakId", label: "Level Dampak", type: "select", required: true, relationResource: "level-dampak", relationField: "levelDampak" },
-    { key: "persentaseDampak", label: "Persentase Dampak", type: "number", required: true },
+    { key: "nama", label: "Nama", type: "text", required: true },
     { key: "deskripsi", label: "Deskripsi", type: "text" },
   ],
   "selera-risiko": [
@@ -144,15 +144,17 @@ export function CrudTable({ resource }: CrudTableProps) {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [modalKey, setModalKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [pageSize, setPageSize] = useState(20); // Default 20 items per page
 
-  const pagination: Pagination = { currentPage: 1, pageSize: 10, mode: "server" };
+  const pagination: RefinePagination = { currentPage: 1, pageSize, mode: "server" };
   const initialSort: CrudSort[] = [{ field: "id", order: "asc" }];
 
   const {
     result,
     currentPage,
     setCurrentPage,
-    pageSize,
+    pageSize: currentPageSize,
+    setPageSize: refineSetPageSize,
     tableQuery,
   } = useTable({
     resource,
@@ -166,7 +168,6 @@ export function CrudTable({ resource }: CrudTableProps) {
 
   const data = result?.data ?? [];
   const total = result?.total ?? 0;
-  const totalPages = Math.ceil(total / pageSize);
   const isLoading = tableQuery?.isPending ?? false;
   const label = resourceLabels[resource] ?? resource;
   const fields = fieldConfigs[resource] ?? [];
@@ -295,6 +296,12 @@ export function CrudTable({ resource }: CrudTableProps) {
     );
   }
 
+  function handlePageSizeChange(newSize: number) {
+    setPageSize(newSize);
+    refineSetPageSize(newSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+  }
+
   const isSaving = isCreating || isUpdating;
 
   return (
@@ -336,7 +343,31 @@ export function CrudTable({ resource }: CrudTableProps) {
                 <Table.Td>{item.id}</Table.Td>
                 {fields.map((f) => (
                   <Table.Td key={f.key}>
-                    {f.type === "select" ? getRelationLabel(item, f) : String(item[f.key] ?? "")}
+                    {f.key === "warna" ? (
+                      <Group gap="xs">
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            backgroundColor:
+                              item[f.key] === "Biru" || item[f.key] === "blue" ? "#228be6" :
+                              item[f.key] === "Hijau" || item[f.key] === "green" ? "#40c057" :
+                              item[f.key] === "Kuning" || item[f.key] === "yellow" ? "#fab005" :
+                              item[f.key] === "Jingga" || item[f.key] === "orange" ? "#fd7e14" :
+                              item[f.key] === "Merah" || item[f.key] === "red" ? "#fa5252" :
+                              item[f.key] || "#ccc",
+                            border: "1px solid rgba(0, 0, 0, 0.15)",
+                          }}
+                        />
+                        <span>{item[f.key]}</span>
+                      </Group>
+                    ) : f.type === "select" ? (
+                      getRelationLabel(item, f)
+                    ) : (
+                      String(item[f.key] ?? "")
+                    )}
                   </Table.Td>
                 ))}
                 <Table.Td>
@@ -363,14 +394,16 @@ export function CrudTable({ resource }: CrudTableProps) {
         </Table.Tbody>
       </Table>
 
-      {totalPages > 1 && (
-        <Group justify="center">
-          <MantinePagination
-            total={totalPages}
-            value={currentPage}
-            onChange={setCurrentPage}
-          />
-        </Group>
+      {total > 0 && (
+        <Pagination
+          current={currentPage}
+          total={total}
+          pageSize={currentPageSize}
+          onChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+          showSizeChanger
+          showTotal
+        />
       )}
 
       <CrudModal
@@ -392,7 +425,7 @@ export function CrudTable({ resource }: CrudTableProps) {
       >
         <Stack>
           <Text size="sm">
-            Apakah Anda yakin ingin menghapus <b>{deleteTarget?.nama ?? deleteTarget?.id}</b>?
+            Apakah Anda yakin ingin menghapus <b>{deleteTarget?.nama ?? deleteTarget?.namaIndikator ?? deleteTarget?.id}</b>?
           </Text>
           <Text size="sm" c="dimmed">
             Tindakan ini tidak dapat dibatalkan.
@@ -470,58 +503,57 @@ function CrudModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={title}>
+    <Modal opened={opened} onClose={onClose} title={title} size="lg">
       <form onSubmit={handleSubmit}>
         <Stack>
           {fields.map((f) => {
-            if (f.type === "select") {
-              return (
-                <Select
-                  key={f.key}
-                  label={f.label}
-                  required={f.required}
-                  data={getRelationOptions(f.relationResource)}
-                  value={values[f.key] as string}
-                  onChange={(v) => handleChange(f.key, v ?? "")}
-                  searchable
-                  clearable
-                />
-              );
-            }
             if (f.type === "number") {
               return (
                 <NumberInput
                   key={f.key}
                   label={f.label}
+                  value={values[f.key]}
+                  onChange={(val) => handleChange(f.key, val)}
                   required={f.required}
-                  value={values[f.key] as number | string}
-                  onChange={(v) => handleChange(f.key, v ?? "")}
-                  min={0}
                 />
               );
-            }
-            if (f.key === "deskripsi") {
+            } else if (f.type === "select") {
+              return (
+                <Select
+                  key={f.key}
+                  label={f.label}
+                  value={values[f.key]}
+                  onChange={(val) => handleChange(f.key, val)}
+                  data={getRelationOptions(f.relationResource)}
+                  required={f.required}
+                  searchable
+                  clearable
+                />
+              );
+            } else if (f.key === "deskripsi") {
               return (
                 <Textarea
                   key={f.key}
                   label={f.label}
+                  value={values[f.key]}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
                   required={f.required}
-                  value={values[f.key] as string}
-                  onChange={(e) => handleChange(f.key, e.currentTarget.value)}
+                  rows={3}
+                />
+              );
+            } else {
+              return (
+                <TextInput
+                  key={f.key}
+                  label={f.label}
+                  value={values[f.key]}
+                  onChange={(e) => handleChange(f.key, e.target.value)}
+                  required={f.required}
                 />
               );
             }
-            return (
-              <TextInput
-                key={f.key}
-                label={f.label}
-                required={f.required}
-                value={values[f.key] as string}
-                onChange={(e) => handleChange(f.key, e.currentTarget.value)}
-              />
-            );
           })}
-          <Group justify="flex-end" mt="md">
+          <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>
               Batal
             </Button>

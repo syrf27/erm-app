@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import { Title, Button, Group, Loader, Center, Stack, Text } from "@mantine/core";
+import Link from "next/link";
+import { Title, Button, Group, Loader, Center, Stack, Text, Card } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -53,7 +54,11 @@ export default function EvaluasiRisikoPage() {
         prioritas,
       ];
     });
-    setLocalData(mapped);
+    const padded = [...mapped];
+    while (padded.length < 30) {
+      padded.push([null, null, "", "", ""]);
+    }
+    setLocalData(padded);
   }, [loading, identifikasiData, evaluasiData, analisisData]);
 
   const saveAll = useCallback(async () => {
@@ -192,6 +197,15 @@ export default function EvaluasiRisikoPage() {
         fillHandle={false}
         enterMoves={{ col: 0, row: 1 }}
         tabMoves={{ col: 1, row: 0 }}
+        cells={function (row, col) {
+          const cellProperties: any = {};
+          const hot = this.instance;
+          const identId = hot.getDataAtCell(row, 0);
+          if (identId == null) {
+            cellProperties.readOnly = true;
+          }
+          return cellProperties;
+        }}
       />
     </Stack>
   );

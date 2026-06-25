@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resourceMap, includeMap } from "@/lib/resource-map";
 
+// Force recompile to load updated resource map
 function getDelegate(resource: string) {
   const model = resourceMap[resource];
   if (!model) throw new Error(`Unknown resource: ${resource}`);

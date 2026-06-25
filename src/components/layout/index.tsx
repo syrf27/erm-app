@@ -18,22 +18,28 @@ import {
   Avatar,
   Tooltip,
   useMantineColorScheme,
-  Center,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconDashboard,
   IconLogout,
   IconFileDescription,
-  IconEye,
+  IconActivity,
   IconTargetArrow,
   IconQuestionMark,
   IconChartBar,
   IconFolders,
-  IconSubtask,
+  IconSettings,
+  IconListSearch,
+  IconCalculator,
+  IconScale,
+  IconFileCheck,
+  IconHeartRateMonitor,
   IconSun,
   IconMoon,
-  IconLayoutSidebar,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconMenu2,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 
@@ -56,30 +62,39 @@ const menuItems: MenuItem[] = [
     children: [
       {
         label: "Penetapan Konteks",
-        icon: <IconSubtask size={16} />,
+        icon: <IconSettings size={16} />,
         href: "/manajemen-risiko/penetapan-konteks",
       },
       {
         label: "Identifikasi Risiko",
+        icon: <IconListSearch size={16} />,
         href: "/manajemen-risiko/identifikasi",
       },
       {
         label: "Analisis Risiko",
+        icon: <IconCalculator size={16} />,
         href: "/manajemen-risiko/analisis",
       },
       {
         label: "Evaluasi Risiko",
+        icon: <IconScale size={16} />,
         href: "/manajemen-risiko/evaluasi",
       },
       {
         label: "Rencana Penanganan",
+        icon: <IconFileCheck size={16} />,
         href: "/manajemen-risiko/rencana",
+      },
+      {
+        label: "Risk Appetite",
+        icon: <IconHeartRateMonitor size={16} />,
+        href: "/manajemen-risiko/risk-appetite",
       },
     ],
   },
   {
     label: "Pemantauan Risiko",
-    icon: <IconEye size={18} />,
+    icon: <IconActivity size={18} />,
     href: "/pemantauan-risiko",
   },
   {
@@ -88,9 +103,9 @@ const menuItems: MenuItem[] = [
     href: "/kri",
   },
   {
-    label: "Penetapan Risiko",
+    label: "Pelaporan Risiko",
     icon: <IconTargetArrow size={18} />,
-    href: "/penetapan-risiko",
+    href: "/pelaporan-risiko",
   },
   {
     label: "FAQ",
@@ -161,7 +176,7 @@ function renderMiniNavItems(items: MenuItem[], pathname: string) {
               size="lg"
               aria-label={child.label}
             >
-              {child.icon ?? <IconSubtask size={18} />}
+              {child.icon}
             </ActionIcon>
           </Tooltip>
         ));
@@ -207,29 +222,44 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
-          <Group>
+          <Group gap="sm">
+            {/* Mobile toggle */}
             <ActionIcon
               onClick={toggleMobile}
               hiddenFrom="sm"
               variant="subtle"
               size="lg"
-              aria-label="Toggle sidebar"
+              aria-label="Toggle mobile menu"
             >
-              <IconLayoutSidebar size={18} />
+              <IconMenu2 size={20} />
             </ActionIcon>
-            <ActionIcon
-              onClick={toggleDesktop}
-              visibleFrom="sm"
-              variant="subtle"
-              size="lg"
-              aria-label="Toggle sidebar"
+            
+            {/* Desktop toggle */}
+            <Tooltip 
+              label={desktopOpened ? "Collapse sidebar" : "Expand sidebar"} 
+              position="bottom"
             >
-              <IconLayoutSidebar size={18} />
-            </ActionIcon>
+              <ActionIcon
+                onClick={toggleDesktop}
+                visibleFrom="sm"
+                variant="subtle"
+                size="lg"
+                aria-label="Toggle sidebar"
+              >
+                {desktopOpened ? (
+                  <IconLayoutSidebarLeftCollapse size={20} />
+                ) : (
+                  <IconLayoutSidebarLeftExpand size={20} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+
+            {/* Logo and Title */}
             <IconFileDescription size={24} />
             <Title order={4}>ERM App</Title>
           </Group>
-          <Group>
+
+          <Group gap="sm">
             <Tooltip label={colorScheme === "dark" ? "Light mode" : "Dark mode"}>
               <ActionIcon
                 variant="light"
@@ -263,26 +293,16 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
           </Group>
         </Group>
       </AppShell.Header>
+
       <AppShell.Navbar p="xs">
-        <AppShell.Section>
-          <Center p="xs">
-            {desktopOpened ? (
-              <Group gap="xs">
-                <IconFileDescription size={24} />
-                <Title order={4}>ERM App</Title>
-              </Group>
-            ) : (
-              <IconFileDescription size={24} />
-            )}
-          </Center>
-        </AppShell.Section>
-        <AppShell.Section grow>
-          <Stack gap={4} align={desktopOpened ? "stretch" : "center"} pt="xs">
+        <AppShell.Section grow my="xs">
+          <Stack gap={4} align={desktopOpened ? "stretch" : "center"}>
             {desktopOpened
               ? renderNavItems(menuItems, pathname)
               : renderMiniNavItems(menuItems, pathname)}
           </Stack>
         </AppShell.Section>
+
         <AppShell.Section>
           {desktopOpened ? (
             <NavLink
@@ -305,6 +325,7 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
           )}
         </AppShell.Section>
       </AppShell.Navbar>
+
       <AppShell.Main>
         <Breadcrumb />
         {children}

@@ -220,6 +220,14 @@ export default async function RootLayout({
                       },
                     },
                     {
+                      name: "risk-appetite",
+                      list: "/manajemen-risiko/risk-appetite",
+                      meta: {
+                        label: "Risk Appetite",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
                       name: "pemantauan-risiko",
                       list: "/pemantauan-risiko",
                       meta: { label: "Pemantauan Risiko" },
@@ -230,9 +238,9 @@ export default async function RootLayout({
                       meta: { label: "KRI" },
                     },
                     {
-                      name: "penetapan-risiko",
-                      list: "/penetapan-risiko",
-                      meta: { label: "Penetapan Risiko" },
+                      name: "pelaporan-risiko",
+                      list: "/pelaporan-risiko",
+                      meta: { label: "Pelaporan Risiko" },
                     },
                     {
                       name: "faq",

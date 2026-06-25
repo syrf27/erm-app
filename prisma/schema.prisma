@@ -3,6 +3,10 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
+generator client_default {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
 }
@@ -62,7 +66,6 @@ model KategoriRisiko {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   kriteriaKemungkinans KriteriaKemungkinan[]
-  kriteriaDampaks      KriteriaDampak[]
   seleraRisikos        SeleraRisiko[]
   identifikasiRisikos  IdentifikasiRisiko[]
 }
@@ -85,6 +88,7 @@ model LevelKemungkinan {
   kriteriaKemungkinans KriteriaKemungkinan[]
   analisisRisikos      AnalisisRisiko[]
   rencanaPenangananKemungkinans RencanaPenanganan[]
+  matriksAnalisisRisikos MatriksAnalisisRisiko[]
 }
 
 model LevelDampak {
@@ -94,18 +98,22 @@ model LevelDampak {
   deskripsi String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  kriteriaDampaks KriteriaDampak[]
   analisisRisikos AnalisisRisiko[]
   rencanaPenangananDampaks RencanaPenanganan[]
+  matriksAnalisisRisikos MatriksAnalisisRisiko[]
 }
 
 model LevelRisiko {
   id        Int      @id @default(autoincrement())
   nama      String
   deskripsi String?
+  rentang   String?
+  tindakan  String?
+  warna     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   analisisRisikos AnalisisRisiko[]
+  matriksAnalisisRisikos MatriksAnalisisRisiko[]
 }
 
 model OpsiPenanganan {
@@ -146,15 +154,11 @@ model Kri {
 }
 
 model KriteriaDampak {
-  id               Int            @id @default(autoincrement())
-  kategoriRisikoId Int
-  kategoriRisiko   KategoriRisiko @relation(fields: [kategoriRisikoId], references: [id])
-  levelDampakId    Int
-  levelDampak      LevelDampak    @relation(fields: [levelDampakId], references: [id])
-  persentaseDampak Int
-  deskripsi        String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SeleraRisiko {
@@ -225,6 +229,24 @@ model RencanaPenanganan {
   residualLevelKemungkinan   LevelKemungkinan? @relation(fields: [residualLevelKemungkinanId], references: [id])
   residualLevelDampakId      Int?
   residualLevelDampak        LevelDampak?      @relation(fields: [residualLevelDampakId], references: [id])
+  realisasiWaktu       String?
+  realisasiOutput      String?
+  dokumenPendukung     String?
+  persetujuan          String?
+  disetujuiOleh        String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+}
+
+model MatriksAnalisisRisiko {
+  id                 Int              @id @default(autoincrement())
+  levelKemungkinanId Int
+  levelKemungkinan   LevelKemungkinan @relation(fields: [levelKemungkinanId], references: [id])
+  levelDampakId      Int
+  levelDampak        LevelDampak      @relation(fields: [levelDampakId], references: [id])
+  besaran            Int
+  levelRisikoId      Int
+  levelRisiko        LevelRisiko      @relation(fields: [levelRisikoId], references: [id])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 }

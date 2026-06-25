@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import { Title, Button, Group, Loader, Center, Stack, Text } from "@mantine/core";
+import Link from "next/link";
+import { Title, Button, Group, Loader, Center, Stack, Text, Card } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -88,7 +89,11 @@ export default function RencanaPenangananPage() {
         computeBesaran(residualLK?.skala, residualLD?.skala),
       ];
     });
-    setLocalData(mapped);
+    const padded = [...mapped];
+    while (padded.length < 30) {
+      padded.push([null, null, "", "", "", "", "", "", "", "", "", "", ""]);
+    }
+    setLocalData(padded);
   }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData, kemungkinanData, dampakData]);
 
   const saveAll = useCallback(async () => {
@@ -189,9 +194,9 @@ export default function RencanaPenangananPage() {
     { title: "Rencana ID", data: 1, type: "numeric", width: 1 },
     { title: "Prioritas", data: 2, type: "text", width: 130, readOnly: true },
     { title: "Risiko", data: 3, type: "text", width: 220, readOnly: true },
-    { title: "Aktual", data: 4, type: "text", width: 100, readOnly: true },
-    { title: "Residual", data: 5, type: "text", width: 100, readOnly: true },
-    { title: "Rencana Tidak Penanganan", data: 6, type: "text", width: 220 },
+    { title: "Besaran Risiko Aktual", data: 4, type: "text", width: 160, readOnly: true },
+    { title: "Besaran Risiko Residual", data: 5, type: "text", width: 160, readOnly: true },
+    { title: "Rencana Tindak Penanganan", data: 6, type: "text", width: 240 },
     { title: "Target Output", data: 7, type: "text", width: 180 },
     { title: "Target Waktu", data: 8, type: "text", width: 150 },
     { title: "Penanggung Jawab", data: 9, type: "text", width: 180 },
@@ -211,7 +216,7 @@ export default function RencanaPenangananPage() {
       width: 150,
       strict: true,
     },
-    { title: "Besaran Risiko", data: 12, type: "text", width: 120, readOnly: true },
+    { title: "Besaran Risiko", data: 12, type: "text", width: 130, readOnly: true },
   ];
 
   if (loading) {
@@ -242,9 +247,9 @@ export default function RencanaPenangananPage() {
           "Rencana ID",
           "Prioritas",
           "Risiko",
-          "Aktual",
-          "Residual",
-          "Rencana Tidak Penanganan",
+          "Besaran Risiko Aktual",
+          "Besaran Risiko Residual",
+          "Rencana Tindak Penanganan",
           "Target Output",
           "Target Waktu",
           "Penanggung Jawab",
@@ -287,6 +292,15 @@ export default function RencanaPenangananPage() {
         fillHandle={false}
         enterMoves={{ col: 0, row: 1 }}
         tabMoves={{ col: 1, row: 0 }}
+        cells={function (row, col) {
+          const cellProperties: any = {};
+          const hot = this.instance;
+          const identId = hot.getDataAtCell(row, 0);
+          if (identId == null) {
+            cellProperties.readOnly = true;
+          }
+          return cellProperties;
+        }}
       />
     </Stack>
   );

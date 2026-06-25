@@ -65,7 +65,11 @@ export default function IdentifikasiRisikoPage() {
         r.dampak ?? "",
       ];
     });
-    setLocalData(mapped.length > 0 ? mapped : [[null, "", "", "", "", "", "", ""]]);
+    const padded = [...mapped];
+    while (padded.length < 30) {
+      padded.push([null, "", "", "", "", "", "", ""]);
+    }
+    setLocalData(padded);
   }, [loading, existingData, jenisData, sumberData, kategoriData, areaData]);
 
   const saveAll = useCallback(async () => {

@@ -27,22 +27,36 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ resource: string; id: string }> }
 ) {
-  const { resource, id } = await params;
-  const body = await request.json();
-  const delegate = getDelegate(resource);
-  const item = await delegate.update({
-    where: { id: Number(id) },
-    data: body,
-  });
-  return NextResponse.json(item);
+  try {
+    const { resource, id } = await params;
+    const body = await request.json();
+    const delegate = getDelegate(resource);
+    const item = await delegate.update({
+      where: { id: Number(id) },
+      data: body,
+    });
+    return NextResponse.json(item);
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Unknown error" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ resource: string; id: string }> }
 ) {
-  const { resource, id } = await params;
-  const delegate = getDelegate(resource);
-  const item = await delegate.delete({ where: { id: Number(id) } });
-  return NextResponse.json(item);
+  try {
+    const { resource, id } = await params;
+    const delegate = getDelegate(resource);
+    const item = await delegate.delete({ where: { id: Number(id) } });
+    return NextResponse.json(item);
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Unknown error" },
+      { status: 500 }
+    );
+  }
 }

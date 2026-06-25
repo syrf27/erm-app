@@ -19,16 +19,19 @@ export const resourceMap: Record<string, string> = {
   "evaluasi-risiko": "evaluasiRisiko",
   "rencana-penanganan": "rencanaPenanganan",
   "kri": "kri",
+  "matriks-analisis-risiko": "matriksAnalisisRisiko",
+  "pelaporan-risiko": "rencanaPenanganan",
 };
 
 export const includeMap: Record<string, any> = {
+  "matriks-analisis-risiko": {
+    levelKemungkinan: { select: { id: true, skala: true } },
+    levelDampak: { select: { id: true, skala: true } },
+    levelRisiko: { select: { id: true, nama: true, warna: true } },
+  },
   "kriteria-kemungkinan": {
     kategoriRisiko: { select: { id: true, nama: true } },
     levelKemungkinan: { select: { id: true, nama: true } },
-  },
-  "kriteria-dampak": {
-    kategoriRisiko: { select: { id: true, nama: true } },
-    levelDampak: { select: { id: true, nama: true } },
   },
   "selera-risiko": {
     kategoriRisiko: { select: { id: true, nama: true } },
@@ -46,6 +49,11 @@ export const includeMap: Record<string, any> = {
     levelRisiko: { select: { id: true, nama: true } },
   },
   "rencana-penanganan": {
+    identifikasiRisiko: { select: { id: true, risiko: true } },
+    residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
+    residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+  },
+  "pelaporan-risiko": {
     identifikasiRisiko: { select: { id: true, risiko: true } },
     residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
     residualLevelDampak: { select: { id: true, nama: true, skala: true } },

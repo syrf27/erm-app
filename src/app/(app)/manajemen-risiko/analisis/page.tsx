@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import { Title, Button, Group, Loader, Center, Stack, Text } from "@mantine/core";
+import Link from "next/link";
+import { Title, Button, Group, Loader, Center, Stack, Text, Card } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -16,19 +17,21 @@ export default function AnalisisRisikoPage() {
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
 
-  const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
+   const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
   const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
 
   const levelKemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const levelDampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
   const levelRisikoList = useList({ resource: "level-risiko", pagination: { mode: "off" } });
+  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
     (analisisResult.query?.isPending ?? false) ||
     (levelKemungkinanList.query?.isPending ?? false) ||
     (levelDampakList.query?.isPending ?? false) ||
-    (levelRisikoList.query?.isPending ?? false);
+    (levelRisikoList.query?.isPending ?? false) ||
+    (matriksList.query?.isPending ?? false);
 
   const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
@@ -37,6 +40,7 @@ export default function AnalisisRisikoPage() {
   const kemungkinanData = useMemo(() => levelKemungkinanList.result?.data ?? [], [levelKemungkinanList.result?.data]);
   const dampakData = useMemo(() => levelDampakList.result?.data ?? [], [levelDampakList.result?.data]);
   const risikoData = useMemo(() => levelRisikoList.result?.data ?? [], [levelRisikoList.result?.data]);
+  const matriksData = useMemo(() => matriksList.result?.data ?? [], [matriksList.result?.data]);
 
   const kemungkinanNamaList = useMemo(() => kemungkinanData.map((o: any) => o.nama), [kemungkinanData]);
   const dampakNamaList = useMemo(() => dampakData.map((o: any) => o.nama), [dampakData]);
@@ -61,7 +65,11 @@ export default function AnalisisRisikoPage() {
         a?.pengendalianEfektivitas ?? "",
       ];
     });
-    setLocalData(mapped);
+    const padded = [...mapped];
+    while (padded.length < 30) {
+      padded.push([null, null, "", "", "", "", "", ""]);
+    }
+    setLocalData(padded);
   }, [loading, identifikasiData, analisisData, kemungkinanData, dampakData, risikoData]);
 
   const saveAll = useCallback(async () => {
@@ -248,7 +256,53 @@ export default function AnalisisRisikoPage() {
         fillHandle={false}
         enterMoves={{ col: 0, row: 1 }}
         tabMoves={{ col: 1, row: 0 }}
+        cells={function (row, col) {
+          const cellProperties: any = {};
+          const hot = this.instance;
+          const identId = hot.getDataAtCell(row, 0);
+          if (identId == null) {
+            cellProperties.readOnly = true;
+          }
+          return cellProperties;
+        }}
+        afterChange={(changes) => {
+          if (!changes) return;
+          const hot = hotRef.current?.hotInstance;
+          if (!hot) return;
+          for (const [row, col] of changes) {
+            if (col === 3 || col === 4) {
+              recalcAnalisisRow(hot, row, kemungkinanData, dampakData, matriksData);
+            }
+          }
+        }}
       />
     </Stack>
   );
 }
+
+function recalcAnalisisRow(
+  hot: Handsontable,
+  row: number,
+  kemungkinanData: any[],
+  dampakData: any[],
+  matriksData: any[]
+) {
+  const lkNama = hot.getDataAtCell(row, 3) as string;
+  const ldNama = hot.getDataAtCell(row, 4) as string;
+  const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
+  const ld = dampakData.find((o: any) => o.nama === ldNama);
+  
+  if (!lk || !ld) return;
+  
+  const match = matriksData.find(
+    (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
+  );
+  
+  if (!match) return;
+  
+  const lrNama = match.levelRisiko?.nama;
+  if (lrNama) {
+    hot.setDataAtCell(row, 5, lrNama, "recalc");
+  }
+}
+
