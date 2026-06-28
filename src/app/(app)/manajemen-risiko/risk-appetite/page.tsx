@@ -289,8 +289,9 @@ export default function RiskAppetitePage() {
                   display: "grid",
                   gridTemplateColumns: "40px 40px 110px repeat(5, 90px)",
                   gridTemplateRows: "35px 35px 45px repeat(5, 90px)",
-                  border: "1px solid #000",
-                  backgroundColor: "#fff",
+                  border: "1px solid var(--mantine-color-default-border)",
+                  backgroundColor: "var(--mantine-color-body)",
+                  color: "var(--mantine-color-text)",
                   fontFamily: "sans-serif",
                 }}
               >
@@ -299,8 +300,8 @@ export default function RiskAppetitePage() {
                   style={{
                     gridColumn: "1 / 4",
                     gridRow: "1 / 4",
-                    borderBottom: "2px solid #000",
-                    borderRight: "2px solid #000",
+                    borderBottom: "2px solid var(--mantine-color-default-border)",
+                    borderRight: "2px solid var(--mantine-color-default-border)",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -321,7 +322,7 @@ export default function RiskAppetitePage() {
                   style={{
                     gridColumn: "4 / 9",
                     gridRow: "1",
-                    borderBottom: "1px solid #000",
+                    borderBottom: "1px solid var(--mantine-color-default-border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -340,8 +341,8 @@ export default function RiskAppetitePage() {
                     style={{
                       gridColumn: 4 + idx,
                       gridRow: "2",
-                      borderBottom: "1px solid #000",
-                      borderRight: idx < 4 ? "1px solid #000" : undefined,
+                      borderBottom: "1px solid var(--mantine-color-default-border)",
+                      borderRight: idx < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -360,8 +361,8 @@ export default function RiskAppetitePage() {
                     style={{
                       gridColumn: 4 + idx,
                       gridRow: "3",
-                      borderBottom: "2px solid #000",
-                      borderRight: idx < 4 ? "1px solid #000" : undefined,
+                      borderBottom: "2px solid var(--mantine-color-default-border)",
+                      borderRight: idx < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -381,7 +382,7 @@ export default function RiskAppetitePage() {
                   style={{
                     gridColumn: "1",
                     gridRow: "4 / 9",
-                    borderRight: "1px solid #000",
+                    borderRight: "1px solid var(--mantine-color-default-border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -403,8 +404,8 @@ export default function RiskAppetitePage() {
                     style={{
                       gridColumn: "2",
                       gridRow: 4 + idx,
-                      borderBottom: idx < 4 ? "1px solid #000" : undefined,
-                      borderRight: "1px solid #000",
+                      borderBottom: idx < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                      borderRight: "1px solid var(--mantine-color-default-border)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -423,8 +424,8 @@ export default function RiskAppetitePage() {
                     style={{
                       gridColumn: "3",
                       gridRow: 4 + idx,
-                      borderBottom: idx < 4 ? "1px solid #000" : undefined,
-                      borderRight: "2px solid #000",
+                      borderBottom: idx < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                      borderRight: "2px solid var(--mantine-color-default-border)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "flex-start",
@@ -463,8 +464,8 @@ export default function RiskAppetitePage() {
                         key={idx}
                         style={{
                           backgroundColor: getColorHex(cell.warna),
-                          borderBottom: Math.floor(idx / 5) < 4 ? "1px solid #000" : undefined,
-                          borderRight: (idx % 5) < 4 ? "1px solid #000" : undefined,
+                          borderBottom: Math.floor(idx / 5) < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
+                          borderRight: (idx % 5) < 4 ? "1px solid var(--mantine-color-default-border)" : undefined,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",

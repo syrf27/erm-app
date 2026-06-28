@@ -3,19 +3,41 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
 import Link from "next/link";
-import { Title, Button, Group, Loader, Center, Stack, Text, Card } from "@mantine/core";
+import { Title, Button, Group, Loader, Center, Stack, Text, Card, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
-import { registerAllCellTypes } from "handsontable/cellTypes";
-registerAllCellTypes();
+import { registerAllModules } from "handsontable/registry";
+
+if (typeof window !== "undefined") {
+  registerAllModules();
+}
 
 export default function AnalisisRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [searchVal, setSearchVal] = useState("");
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchVal(query);
+    const hot = hotRef.current?.hotInstance;
+    if (hot) {
+      const searchPlugin = hot.getPlugin("search");
+      if (searchPlugin) {
+        (searchPlugin as any).query(query);
+        hot.render();
+      }
+    }
+  };
 
    const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
   const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
@@ -195,7 +217,7 @@ export default function AnalisisRisikoPage() {
     { title: "Efektivitas", data: 7, type: "text", width: 200 },
   ];
 
-  if (loading) {
+  if (loading || !isMounted) {
     return (
       <Center h={300}>
         <Loader />
@@ -207,12 +229,21 @@ export default function AnalisisRisikoPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={3}>Analisis Risiko</Title>
-        <Button onClick={saveAll} loading={saving}>
-          Simpan Semua
-        </Button>
+        <Group>
+          <TextInput
+            placeholder="Cari & Tandai Sel..."
+            size="xs"
+            value={searchVal}
+            onChange={handleSearchChange}
+            style={{ width: 220 }}
+          />
+          <Button onClick={saveAll} loading={saving}>
+            Simpan Semua
+          </Button>
+        </Group>
       </Group>
       <Text size="sm" c="dimmed">
-        Isi level risiko untuk setiap risiko yang teridentifikasi. Klik &quot;Simpan Semua&quot; untuk menyimpan.
+        Isi level risiko untuk setiap risiko yang teridentifikasi. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel.
       </Text>
       <HotTable
         ref={hotRef}
@@ -251,11 +282,15 @@ export default function AnalisisRisikoPage() {
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
+        copyPaste={true}
+        fillHandle={true}
         autoWrapRow={true}
         autoWrapCol={true}
-        fillHandle={false}
         enterMoves={{ col: 0, row: 1 }}
         tabMoves={{ col: 1, row: 0 }}
+        manualColumnResize={true}
+        manualColumnMove={true}
+        search={true}
         cells={function (row, col) {
           const cellProperties: any = {};
           const hot = this.instance;

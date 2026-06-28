@@ -186,3 +186,11 @@
 .handsontable td.htInvalid {
   background-color: var(--ht-invalid-bg) !important;
 }
+
+/* Search Highlights */
+.handsontable td.htSearchResult {
+  background-color: #ffe066 !important; /* Soft yellow highlight */
+  color: #000000 !important;
+  font-weight: bold;
+}
+

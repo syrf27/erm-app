@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resourceMap, includeMap } from "@/lib/resource-map";
+import { logAudit } from "@/lib/audit-log";
+import { cookies } from "next/headers";
+import { checkPermission } from "@/lib/access-control";
 
 // Force recompile to load updated resource map
 function getDelegate(resource: string) {
@@ -17,6 +20,11 @@ export async function GET(
 ) {
   try {
     const { resource } = await params;
+    const model = resourceMap[resource];
+    const isAllowed = await checkPermission(model || resource, "read");
+    if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
 
     const ids = searchParams.getAll("id");
@@ -62,10 +70,40 @@ export async function POST(
   { params }: { params: Promise<{ resource: string }> }
 ) {
   try {
+    const cookieStore = await cookies();
+    const auth = cookieStore.get("auth");
+    let userId = "anonymous";
+    let userName = "Anonymous";
+    if (auth?.value) {
+      try {
+        const parsed = JSON.parse(auth.value);
+        userId = parsed.email || "anonymous";
+        userName = parsed.name || "Anonymous";
+      } catch {}
+    }
+
     const { resource } = await params;
+    const model = resourceMap[resource];
+    const isAllowed = await checkPermission(model || resource, "create");
+    if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
     const body = await request.json();
     const delegate = getDelegate(resource);
     const item = await delegate.create({ data: body });
+
+    // Log audit
+    await logAudit({
+      userId,
+      userName,
+      action: "CREATE",
+      resource: resourceMap[resource] || resource,
+      resourceId: item.id,
+      details: body,
+      ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+      userAgent: request.headers.get("user-agent") || "unknown",
+    });
+
     return NextResponse.json(item, { status: 201 });
   } catch (e: any) {
     return NextResponse.json(

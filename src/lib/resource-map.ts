@@ -21,9 +21,35 @@ export const resourceMap: Record<string, string> = {
   "kri": "kri",
   "matriks-analisis-risiko": "matriksAnalisisRisiko",
   "pelaporan-risiko": "rencanaPenanganan",
+  "users": "user",
+  "roles": "role",
+  "permissions": "permission",
 };
 
 export const includeMap: Record<string, any> = {
+  users: {
+    role: {
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    },
+    permissions: {
+      include: {
+        permission: true,
+      },
+    },
+  },
+  roles: {
+    permissions: {
+      include: {
+        permission: true,
+      },
+    },
+  },
   "matriks-analisis-risiko": {
     levelKemungkinan: { select: { id: true, skala: true } },
     levelDampak: { select: { id: true, skala: true } },

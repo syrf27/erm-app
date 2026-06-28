@@ -2,19 +2,42 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import { Title, Button, Group, Loader, Center, Stack, Text } from "@mantine/core";
+import { Title, Button, Group, Loader, Center, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
-import { registerAllCellTypes } from "handsontable/cellTypes";
-registerAllCellTypes();
+import { registerAllModules } from "handsontable/registry";
+
+if (typeof window !== "undefined") {
+  registerAllModules();
+}
 
 export default function IdentifikasiRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [searchVal, setSearchVal] = useState("");
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchVal(query);
+    const hot = hotRef.current?.hotInstance;
+    if (hot) {
+      const searchPlugin = hot.getPlugin("search");
+      if (searchPlugin) {
+        // Query search and trigger render
+        (searchPlugin as any).query(query);
+        hot.render();
+      }
+    }
+  };
 
   const { result: existingResult, query: listQuery } = useList({
     resource: "identifikasi-risiko",
@@ -210,7 +233,7 @@ export default function IdentifikasiRisikoPage() {
     { title: "Dampak", data: 7, type: "text", width: 200 },
   ];
 
-  if (loading) {
+  if (loading || !isMounted) {
     return (
       <Center h={300}>
         <Loader />
@@ -222,12 +245,21 @@ export default function IdentifikasiRisikoPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={3}>Identifikasi Risiko</Title>
-        <Button onClick={saveAll} loading={saving}>
-          Simpan Semua
-        </Button>
+        <Group>
+          <TextInput
+            placeholder="Cari & Tandai Sel..."
+            size="xs"
+            value={searchVal}
+            onChange={handleSearchChange}
+            style={{ width: 220 }}
+          />
+          <Button onClick={saveAll} loading={saving}>
+            Simpan Semua
+          </Button>
+        </Group>
       </Group>
       <Text size="sm" c="dimmed">
-        Isi data langsung di sel. Baris baru otomatis tersedia. Klik &quot;Simpan Semua&quot; untuk menyimpan ke database.
+        Isi data langsung di sel. Baris baru otomatis tersedia. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel.
       </Text>
       <HotTable
         ref={hotRef}
@@ -252,12 +284,16 @@ export default function IdentifikasiRisikoPage() {
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
+        copyPaste={true}
+        fillHandle={true}
         minSpareRows={1}
         autoWrapRow={true}
         autoWrapCol={true}
-        fillHandle={false}
         enterMoves={{ col: 0, row: 1 }}
         tabMoves={{ col: 1, row: 0 }}
+        manualColumnResize={true}
+        manualColumnMove={true}
+        search={true}
       />
     </Stack>
   );

@@ -184,6 +184,109 @@ async function main() {
     }
   }
   console.log("Seeded KriteriaDampak");
+
+  // 10. Seed Roles and Permissions
+  const roleCount = await prisma.role.count();
+  if (roleCount === 0) {
+    // Create Roles
+    const adminRole = await prisma.role.create({
+      data: {
+        name: "admin",
+        description: "Administrator with full access to all resources and actions.",
+      },
+    });
+
+    const ketuaTimRole = await prisma.role.create({
+      data: {
+        name: "ketua tim",
+        description: "Team leader with access to context, risk management, KRI, and reports, but restricted from administrative functions.",
+      },
+    });
+
+    // Resources list
+    const resources = [
+      "sasaran",
+      "prosesBisnis",
+      "pemangkuKepentingan",
+      "peraturanPerundangan",
+      "jenisRisiko",
+      "sumberRisiko",
+      "kategoriRisiko",
+      "areaDampak",
+      "levelKemungkinan",
+      "levelDampak",
+      "levelRisiko",
+      "opsiPenanganan",
+      "kriteriaKemungkinan",
+      "kriteriaDampak",
+      "seleraRisiko",
+      "identifikasiRisiko",
+      "analisisRisiko",
+      "evaluasiRisiko",
+      "rencanaPenanganan",
+      "kri",
+      "matriksAnalisisRisiko",
+      "users",
+      "roles",
+      "audit-logs",
+    ];
+
+    const actions = ["create", "read", "update", "delete"];
+    const createdPermissions: any[] = [];
+
+    // Create all combinations of resource & action
+    for (const res of resources) {
+      for (const act of actions) {
+        const perm = await prisma.permission.create({
+          data: {
+            resource: res,
+            action: act,
+          },
+        });
+        createdPermissions.push(perm);
+      }
+    }
+
+    // Map all permissions to Admin
+    await prisma.rolePermission.createMany({
+      data: createdPermissions.map((perm) => ({
+        roleId: adminRole.id,
+        permissionId: perm.id,
+      })),
+    });
+
+    // Map subset of permissions to Ketua Tim (excluding administrative resources: users, roles, audit-logs)
+    const ketuaTimPermissions = createdPermissions.filter(
+      (perm) => !["users", "roles", "audit-logs"].includes(perm.resource)
+    );
+    await prisma.rolePermission.createMany({
+      data: ketuaTimPermissions.map((perm) => ({
+        roleId: ketuaTimRole.id,
+        permissionId: perm.id,
+      })),
+    });
+
+    // Create default users linked to roles
+    await prisma.user.create({
+      data: {
+        email: "admin@erm.com",
+        name: "Administrator",
+        password: "admin123",
+        roleId: adminRole.id,
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        email: "ketuatim@erm.com",
+        name: "Ketua Tim",
+        password: "tim123",
+        roleId: ketuaTimRole.id,
+      },
+    });
+
+    console.log("Seeded Roles, Permissions, User-Role Mappings, and Junction Tables");
+  }
 }
 
 main()

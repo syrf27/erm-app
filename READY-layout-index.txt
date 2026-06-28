@@ -1,50 +1,10 @@
+Save this as: src/components/layout/index.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 "use client";
 
-import { useLogout, useGetIdentity } from "@refinedev/core";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useMemo, type PropsWithChildren } from "react";
-
-import {
-  AppShell,
-  Group,
-  NavLink,
-  Title,
-  Modal,
-  Button,
-  Text,
-  Stack,
-  ActionIcon,
-  Avatar,
-  Tooltip,
-  useMantineColorScheme,
-} from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import {
-  IconDashboard,
-  IconLogout,
-  IconFileDescription,
-  IconActivity,
-  IconTargetArrow,
-  IconQuestionMark,
-  IconChartBar,
-  IconFolders,
-  IconSettings,
-  IconListSearch,
-  IconCalculator,
-  IconScale,
-  IconFileCheck,
-  IconHeartRateMonitor,
-  IconSun,
-  IconMoon,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
-  IconMenu2,
-  IconFileAnalytics,
-  IconUsers,
-  IconLibrary,
-} from "@tabler/icons-react";
-import { Breadcrumb } from "../breadcrumb";
+import type { PropsWithChildren } from "react";
 
 interface MenuItem {
   label: string;
@@ -65,7 +25,7 @@ const menuItems: MenuItem[] = [
     children: [
       {
         label: "Penetapan Konteks",
-        icon: <IconLibrary size={16} />,
+        icon: <IconSettings size={16} />,
         href: "/manajemen-risiko/penetapan-konteks",
       },
       {
@@ -114,16 +74,6 @@ const menuItems: MenuItem[] = [
     label: "Audit Log",
     icon: <IconFileAnalytics size={18} />,
     href: "/audit-log",
-  },
-  {
-    label: "User Management",
-    icon: <IconUsers size={18} />,
-    href: "/users",
-  },
-  {
-    label: "Role Management",
-    icon: <IconSettings size={18} />,
-    href: "/roles",
   },
   {
     label: "FAQ",
@@ -228,22 +178,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const { data: identity } = useGetIdentity<any>();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 
-  const filteredMenuItems = useMemo(() => {
-    const permissions = identity?.permissions || [];
-    return menuItems.filter((item) => {
-      if (item.href === "/audit-log") {
-        return permissions.includes("audit-logs:read");
-      }
-      if (item.href === "/users") {
-        return permissions.includes("users:read");
-      }
-      if (item.href === "/roles") {
-        return permissions.includes("roles:read");
-      }
-      return true;
-    });
-  }, [identity]);
-
   return (
     <AppShell
       header={{ height: 60 }}
@@ -257,7 +191,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            {/* Mobile toggle */}
             <ActionIcon
               onClick={toggleMobile}
               hiddenFrom="sm"
@@ -268,7 +201,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
               <IconMenu2 size={20} />
             </ActionIcon>
             
-            {/* Desktop toggle */}
             <Tooltip 
               label={desktopOpened ? "Collapse sidebar" : "Expand sidebar"} 
               position="bottom"
@@ -288,7 +220,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
               </ActionIcon>
             </Tooltip>
 
-            {/* Logo and Title */}
             <IconFileDescription size={24} />
             <Title order={4}>ERM App</Title>
           </Group>
@@ -332,8 +263,8 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
         <AppShell.Section grow my="xs">
           <Stack gap={4} align={desktopOpened ? "stretch" : "center"}>
             {desktopOpened
-              ? renderNavItems(filteredMenuItems, pathname)
-              : renderMiniNavItems(filteredMenuItems, pathname)}
+              ? renderNavItems(menuItems, pathname)
+              : renderMiniNavItems(menuItems, pathname)}
           </Stack>
         </AppShell.Section>
 
@@ -389,3 +320,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
     </AppShell>
   );
 };
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF FILE

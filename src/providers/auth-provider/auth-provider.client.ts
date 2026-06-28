@@ -19,28 +19,39 @@ const mockUsers = [
 ];
 
 export const authProviderClient: AuthProvider = {
-  login: async ({ email, username, password, remember }) => {
-    // Suppose we actually send a request to the back end here.
-    const user = mockUsers[0];
+  login: async ({ email, password }) => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (user) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Login gagal");
+      }
+
+      const user = await response.json();
+
       Cookies.set("auth", JSON.stringify(user), {
         expires: 30, // 30 days
         path: "/",
       });
+
       return {
         success: true,
         redirectTo: "/",
       };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          name: "LoginError",
+          message: error?.message || "Email atau password salah",
+        },
+      };
     }
-
-    return {
-      success: false,
-      error: {
-        name: "LoginError",
-        message: "Invalid username or password",
-      },
-    };
   },
   logout: async () => {
     Cookies.remove("auth", { path: "/" });
@@ -67,7 +78,7 @@ export const authProviderClient: AuthProvider = {
     const auth = Cookies.get("auth");
     if (auth) {
       const parsedUser = JSON.parse(auth);
-      return parsedUser.roles;
+      return parsedUser.permissions || [];
     }
     return null;
   },

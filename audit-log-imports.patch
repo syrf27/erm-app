@@ -1,0 +1,8 @@
+--- a/src/app/(app)/audit-log/page.tsx
++++ b/src/app/(app)/audit-log/page.tsx
+@@ -1,6 +1,20 @@
+ "use client";
+ 
+++++import dayjs from "dayjs";
+ 
+ interface AuditLog {
