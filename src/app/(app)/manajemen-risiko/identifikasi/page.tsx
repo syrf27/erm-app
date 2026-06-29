@@ -48,26 +48,34 @@ export default function IdentifikasiRisikoPage() {
   const sumberList = useList({ resource: "sumber-risiko", pagination: { mode: "off" } });
   const kategoriList = useList({ resource: "kategori-risiko", pagination: { mode: "off" } });
   const areaList = useList({ resource: "area-dampak", pagination: { mode: "off" } });
+  const unitKerjaList = useList({ resource: "unit-kerja", pagination: { mode: "off" } });
+  const kegiatanList = useList({ resource: "kegiatan", pagination: { mode: "off" } });
 
   const loading =
     (listQuery?.isPending ?? false) ||
     (jenisList.query?.isPending ?? false) ||
     (sumberList.query?.isPending ?? false) ||
     (kategoriList.query?.isPending ?? false) ||
-    (areaList.query?.isPending ?? false);
+    (areaList.query?.isPending ?? false) ||
+    (unitKerjaList.query?.isPending ?? false) ||
+    (kegiatanList.query?.isPending ?? false);
 
   const existingData = useMemo(() => existingResult?.data ?? [], [existingResult?.data]);
   const refetchQuery = listQuery?.refetch;
 
-  const jenisData = useMemo(() => jenisList.result?.data ?? [], [jenisList.result?.data]);
-  const sumberData = useMemo(() => sumberList.result?.data ?? [], [sumberList.result?.data]);
-  const kategoriData = useMemo(() => kategoriList.result?.data ?? [], [kategoriList.result?.data]);
-  const areaData = useMemo(() => areaList.result?.data ?? [], [areaList.result?.data]);
+  const jenisData = useMemo(() => jenisList?.result?.data ?? [], [jenisList?.result?.data]);
+  const sumberData = useMemo(() => sumberList?.result?.data ?? [], [sumberList?.result?.data]);
+  const kategoriData = useMemo(() => kategoriList?.result?.data ?? [], [kategoriList?.result?.data]);
+  const areaData = useMemo(() => areaList?.result?.data ?? [], [areaList?.result?.data]);
+  const unitKerjaData = useMemo(() => unitKerjaList?.result?.data ?? [], [unitKerjaList?.result?.data]);
+  const kegiatanData = useMemo(() => kegiatanList?.result?.data ?? [], [kegiatanList?.result?.data]);
 
-  const jenisNamaList = useMemo(() => jenisData.map((o: any) => o.nama), [jenisData]);
-  const sumberNamaList = useMemo(() => sumberData.map((o: any) => o.nama), [sumberData]);
-  const kategoriNamaList = useMemo(() => kategoriData.map((o: any) => o.nama), [kategoriData]);
-  const areaNamaList = useMemo(() => areaData.map((o: any) => o.nama), [areaData]);
+  const jenisNamaList = useMemo(() => (jenisData || []).map((o: any) => o.nama), [jenisData]);
+  const sumberNamaList = useMemo(() => (sumberData || []).map((o: any) => o.nama), [sumberData]);
+  const kategoriNamaList = useMemo(() => (kategoriData || []).map((o: any) => o.nama), [kategoriData]);
+  const areaNamaList = useMemo(() => (areaData || []).map((o: any) => o.nama), [areaData]);
+  const unitKerjaNamaList = useMemo(() => (unitKerjaData || []).map((o: any) => o.nama), [unitKerjaData]);
+  const kegiatanNamaList = useMemo(() => (kegiatanData || []).map((o: any) => o.nama), [kegiatanData]);
 
   useEffect(() => {
     if (loading) return;
@@ -77,6 +85,8 @@ export default function IdentifikasiRisikoPage() {
       const sr = sumberData.find((o: any) => o.id === r.sumberRisikoId);
       const kr = kategoriData.find((o: any) => o.id === r.kategoriRisikoId);
       const ad = areaData.find((o: any) => o.id === r.areaDampakId);
+      const uk = (unitKerjaData || []).find((o: any) => o.id === r.unitKerjaId);
+      const kg = (kegiatanData || []).find((o: any) => o.id === r.kegiatanId);
       return [
         r.id,
         r.risiko,
@@ -86,11 +96,13 @@ export default function IdentifikasiRisikoPage() {
         ad?.nama ?? "",
         r.penyebab ?? "",
         r.dampak ?? "",
+        uk?.nama ?? "",
+        kg?.nama ?? "",
       ];
     });
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, "", "", "", "", "", "", ""]);
+      padded.push([null, "", "", "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
   }, [loading, existingData, jenisData, sumberData, kategoriData, areaData]);
@@ -123,12 +135,21 @@ export default function IdentifikasiRisikoPage() {
         return;
       }
 
-      const payload = {
+      const unitKerjaId = row[8]
+          ? (unitKerjaData || []).find((o: any) => o.nama === row[8])?.id
+          : null;
+        const kegiatanId = row[9]
+          ? (kegiatanData || []).find((o: any) => o.nama === row[9])?.id
+          : null;
+
+        const payload = {
         risiko,
         jenisRisikoId,
         sumberRisikoId,
         kategoriRisikoId,
         areaDampakId,
+        unitKerjaId,
+        kegiatanId,
         penyebab: (row[6] as string) || null,
         dampak: (row[7] as string) || null,
       };
@@ -194,14 +215,14 @@ export default function IdentifikasiRisikoPage() {
     }
   }, [refetchQuery, jenisData, sumberData, kategoriData, areaData]);
 
-  const columns: Handsontable.ColumnSettings[] = [
+  const columns: Handsontable.ColumnSettings[] = useMemo(() => [
     { title: "ID", data: 0, type: "numeric", width: 1 },
     { title: "Risiko", data: 1, type: "text", width: 200 },
     {
       title: "Jenis Risiko",
       data: 2,
       type: "dropdown",
-      source: jenisNamaList,
+      source: jenisNamaList || [],
       width: 150,
       strict: true,
     },
@@ -209,7 +230,7 @@ export default function IdentifikasiRisikoPage() {
       title: "Sumber Risiko",
       data: 3,
       type: "dropdown",
-      source: sumberNamaList,
+      source: sumberNamaList || [],
       width: 150,
       strict: true,
     },
@@ -217,7 +238,7 @@ export default function IdentifikasiRisikoPage() {
       title: "Kategori",
       data: 4,
       type: "dropdown",
-      source: kategoriNamaList,
+      source: kategoriNamaList || [],
       width: 150,
       strict: true,
     },
@@ -225,13 +246,29 @@ export default function IdentifikasiRisikoPage() {
       title: "Area Dampak",
       data: 5,
       type: "dropdown",
-      source: areaNamaList,
+      source: areaNamaList || [],
       width: 150,
       strict: true,
     },
     { title: "Penyebab", data: 6, type: "text", width: 200 },
     { title: "Dampak", data: 7, type: "text", width: 200 },
-  ];
+    {
+      title: "Unit Kerja",
+      data: 8,
+      type: "dropdown",
+      source: unitKerjaNamaList || [],
+      width: 150,
+      strict: false,
+    },
+    {
+      title: "Kegiatan",
+      data: 9,
+      type: "dropdown",
+      source: kegiatanNamaList || [],
+      width: 150,
+      strict: false,
+    },
+  ], [jenisNamaList, sumberNamaList, kategoriNamaList, areaNamaList, unitKerjaNamaList, kegiatanNamaList]);
 
   if (loading || !isMounted) {
     return (
@@ -274,6 +311,8 @@ export default function IdentifikasiRisikoPage() {
           "Area Dampak",
           "Penyebab",
           "Dampak",
+          "Unit Kerja",
+          "Kegiatan",
         ]}
         hiddenColumns={{
           columns: [0],

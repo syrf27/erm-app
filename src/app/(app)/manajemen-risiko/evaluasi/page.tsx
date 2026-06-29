@@ -49,15 +49,29 @@ export default function EvaluasiRisikoPage() {
   const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
   const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
   const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
+  const kemungkinanResult = useList({ resource: "level-kemungkinan", pagination: { pageSize: 10000 } });
+  const dampakResult = useList({ resource: "level-dampak", pagination: { pageSize: 10000 } });
+  const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 10000 } });
+  const risikoResult = useList({ resource: "level-risiko", pagination: { pageSize: 10000 } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
     (evaluasiResult.query?.isPending ?? false) ||
-    (analisisResult.query?.isPending ?? false);
+    (analisisResult.query?.isPending ?? false) ||
+    (kemungkinanResult.query?.isPending ?? false) ||
+    (dampakResult.query?.isPending ?? false) ||
+    (matriksResult.query?.isPending ?? false) ||
+    (risikoResult.query?.isPending ?? false);
 
   const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
   const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
+  const kemungkinanData = useMemo(() => kemungkinanResult.result?.data ?? [], [kemungkinanResult.result?.data]);
+  const dampakData = useMemo(() => dampakResult.result?.data ?? [], [dampakResult.result?.data]);
+  const matriksData = useMemo(() => matriksResult.result?.data ?? [], [matriksResult.result?.data]);
+  const kemungkinanNamaList = useMemo(() => (kemungkinanData || []).map((o: any) => o.nama), [kemungkinanData]);
+  const dampakNamaList = useMemo(() => (dampakData || []).map((o: any) => o.nama), [dampakData]);
+  const risikoData = useMemo(() => risikoResult.result?.data ?? [], [risikoResult.result?.data]);
   const refetchQuery = evaluasiResult.query?.refetch;
 
   useEffect(() => {
@@ -68,17 +82,25 @@ export default function EvaluasiRisikoPage() {
       const ev = evaluasiById.get(r.id);
       const an = analisisById.get(r.id);
       const prioritas = an?.levelRisiko?.nama ?? "";
+      const resLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
+      const resLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
+      const resLR = ev?.residualLevelRisiko?.nama ?? "";
+      const resBesaran = resLK?.skala != null && resLD?.skala != null ? resLK.skala * resLD.skala : "";
       return [
         r.id,
         ev?.id ?? null,
         r.risiko,
+        resLK?.nama ?? "",
+        resLD?.nama ?? "",
+        resLR,
+        resBesaran,
         ev?.responRisiko ?? "",
         prioritas,
       ];
     });
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, null, "", "", ""]);
+      padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
   }, [loading, identifikasiData, evaluasiData, analisisData]);
@@ -89,20 +111,35 @@ export default function EvaluasiRisikoPage() {
     const rows = hot.getData() as any[][];
     setSaving(true);
 
-    const newRows: { index: number; identId: number; respon: string }[] = [];
-    const updateRows: { index: number; id: number; respon: string }[] = [];
+    const newRows: { index: number; identId: number; payload: any }[] = [];
+    const updateRows: { index: number; id: number; payload: any }[] = [];
+
+    const findId = (items: any[], nama: string) => {
+      const found = items.find((o: any) => o.nama === nama);
+      return found ? found.id : null;
+    };
 
     rows.forEach((row, idx) => {
       const identId = parseInt(row[0] as string, 10);
       const evaluasiId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
-      const respon = (row[3] as string) ?? "";
-      if (!respon) return;
+      const respon = (row[7] as string) ?? "";
+      const resLKId = findId(kemungkinanData, (row[3] as string) ?? "");
+      const resLDId = findId(dampakData, (row[4] as string) ?? "");
+      const resLRId = findId(risikoData, (row[5] as string) ?? "");
+      if (!respon && resLKId == null && resLDId == null) return;
+
+      const payload: Record<string, any> = {
+        responRisiko: respon || null,
+        residualLevelKemungkinanId: resLKId,
+        residualLevelDampakId: resLDId,
+        residualLevelRisikoId: resLRId,
+      };
 
       if (isNaN(evaluasiId) || evaluasiId === 0) {
-        newRows.push({ index: idx, identId, respon });
+        newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
       } else {
-        updateRows.push({ index: idx, id: evaluasiId, respon });
+        updateRows.push({ index: idx, id: evaluasiId, payload });
       }
     });
 
@@ -115,11 +152,11 @@ export default function EvaluasiRisikoPage() {
     try {
       if (newRows.length > 0) {
         const results = await Promise.all(
-          newRows.map(({ index, identId, respon }) =>
+          newRows.map(({ index, identId, payload }) =>
             fetch("/api/evaluasi-risiko", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ identifikasiRisikoId: identId, responRisiko: respon }),
+              body: JSON.stringify(payload),
             }).then(async (res) => {
               if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -137,11 +174,11 @@ export default function EvaluasiRisikoPage() {
       }
       if (updateRows.length > 0) {
         await Promise.all(
-          updateRows.map(({ id, respon }) =>
+          updateRows.map(({ id, payload }) =>
             fetch(`/api/evaluasi-risiko/${id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ responRisiko: respon }),
+              body: JSON.stringify(payload),
             }).then(async (res) => {
               if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -158,21 +195,39 @@ export default function EvaluasiRisikoPage() {
     } finally {
       setSaving(false);
     }
-  }, [refetchQuery]);
+  }, [refetchQuery, kemungkinanData, dampakData, risikoData]);
 
   const columns: Handsontable.ColumnSettings[] = [
     { title: "Ident ID", data: 0, type: "numeric", width: 1 },
     { title: "Evaluasi ID", data: 1, type: "numeric", width: 1 },
     { title: "Risiko", data: 2, type: "text", width: 300, readOnly: true },
     {
-      title: "Respon Risiko",
+      title: "Level Kemungkinan",
       data: 3,
+      type: "dropdown",
+      source: kemungkinanNamaList,
+      width: 170,
+      strict: true,
+    },
+    {
+      title: "Level Dampak",
+      data: 4,
+      type: "dropdown",
+      source: dampakNamaList,
+      width: 150,
+      strict: true,
+    },
+    { title: "Level Risiko", data: 5, type: "text", width: 150, readOnly: true },
+    { title: "Besaran Risiko", data: 6, type: "text", width: 130, readOnly: true },
+    {
+      title: "Respon Risiko",
+      data: 7,
       type: "dropdown",
       source: RESPON_OPTIONS,
       width: 250,
       strict: true,
     },
-    { title: "Prioritas Risiko", data: 4, type: "text", width: 200, readOnly: true },
+    { title: "Prioritas Risiko", data: 8, type: "text", width: 200, readOnly: true },
   ];
 
   if (loading || !isMounted) {
@@ -211,8 +266,33 @@ export default function EvaluasiRisikoPage() {
           "Ident ID",
           "Evaluasi ID",
           "Risiko",
+          "Level Kemungkinan",
+          "Level Dampak",
+          "Level Risiko",
+          "Besaran Risiko",
           "Respon Risiko",
           "Prioritas Risiko",
+        ]}
+        nestedHeaders={[
+          [
+            { label: "Ident ID", colspan: 1 },
+            { label: "Evaluasi ID", colspan: 1 },
+            { label: "Risiko", colspan: 1 },
+            { label: "Risiko Residual", colspan: 4 },
+            { label: "Respon Risiko", colspan: 1 },
+            { label: "Prioritas Risiko", colspan: 1 },
+          ],
+          [
+            "Ident ID",
+            "Evaluasi ID",
+            "",
+            "Level Kemungkinan",
+            "Level Dampak",
+            "Level Risiko",
+            "Besaran Risiko",
+            "",
+            "",
+          ],
         ]}
         hiddenColumns={{
           columns: [0, 1],
@@ -241,7 +321,41 @@ export default function EvaluasiRisikoPage() {
           }
           return cellProperties;
         }}
+        afterChange={(changes) => {
+          if (!changes) return;
+          const hot = hotRef.current?.hotInstance;
+          if (!hot) return;
+          for (const [row, col] of changes) {
+            if (col === 3 || col === 4) {
+              recalcResidualRow(hot, row, kemungkinanData, dampakData, matriksData);
+            }
+          }
+        }}
       />
     </Stack>
   );
+}
+
+function recalcResidualRow(
+  hot: Handsontable,
+  row: number,
+  kemungkinanData: any[],
+  dampakData: any[],
+  matriksData: any[]
+) {
+  const lkNama = hot.getDataAtCell(row, 3) as string;
+  const ldNama = hot.getDataAtCell(row, 4) as string;
+  const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
+  const ld = dampakData.find((o: any) => o.nama === ldNama);
+  if (!lk || !ld) return;
+  const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
+  hot.setDataAtCell(row, 6, besaran, "recalc");
+  const match = matriksData.find(
+    (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
+  );
+  if (!match) return;
+  const lrNama = match.levelRisiko?.nama;
+  if (lrNama) {
+    hot.setDataAtCell(row, 5, lrNama, "recalc");
+  }
 }

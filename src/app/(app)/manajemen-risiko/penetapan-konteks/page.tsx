@@ -7,6 +7,8 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { CrudTable } from "./crud-table";
 
 const tabs = [
+  { value: "unit-kerja", label: "Unit Kerja" },
+  { value: "kegiatan", label: "Kegiatan" },
   { value: "sasaran", label: "Sasaran" },
   { value: "proses-bisnis", label: "Proses Bisnis" },
   { value: "pemangku-kepentingan", label: "Pemangku Kepentingan" },
@@ -50,7 +52,7 @@ function PageContent() {
         </Tabs.List>
         {tabs.map((tab) => (
           <Tabs.Panel key={tab.value} value={tab.value} pt="md">
-            <CrudTable resource={tab.value} />
+            {activeTab === tab.value && <CrudTable resource={tab.value} />}
           </Tabs.Panel>
         ))}
       </Tabs>

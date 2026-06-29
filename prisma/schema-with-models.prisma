@@ -11,6 +11,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 model UnitKerja {
   id                 Int                  @id @default(autoincrement())
   nama               String               @unique
@@ -55,24 +56,19 @@ model AuditLog {
 }
 
 model Sasaran {
-  id          Int        @id @default(autoincrement())
-  nama        String
-  deskripsi   String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  unitKerja   UnitKerja? @relation(fields: [unitKerjaId], references: [id])
-  unitKerjaId Int?
-  kegiatans   Kegiatan[]
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ProsesBisnis {
-  id         Int       @id @default(autoincrement())
-  nama       String
-  deskripsi  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  kegiatan   Kegiatan? @relation(fields: [kegiatanId], references: [id])
-  kegiatanId Int?
+  id        Int      @id @default(autoincrement())
+  nama      String
+  deskripsi String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PemangkuKepentingan {
@@ -137,7 +133,6 @@ model LevelKemungkinan {
   analisisRisikos               AnalisisRisiko[]
   rencanaPenangananKemungkinans RencanaPenanganan[]
   matriksAnalisisRisikos        MatriksAnalisisRisiko[]
-  evaluasiRisikos               EvaluasiRisiko[]
 }
 
 model LevelDampak {
@@ -150,7 +145,6 @@ model LevelDampak {
   analisisRisikos          AnalisisRisiko[]
   rencanaPenangananDampaks RencanaPenanganan[]
   matriksAnalisisRisikos   MatriksAnalisisRisiko[]
-  evaluasiRisikos          EvaluasiRisiko[]
 }
 
 model LevelRisiko {
@@ -164,7 +158,6 @@ model LevelRisiko {
   updatedAt              DateTime                @updatedAt
   analisisRisikos        AnalisisRisiko[]
   matriksAnalisisRisikos MatriksAnalisisRisiko[]
-  evaluasiRisikos        EvaluasiRisiko[]
 }
 
 model OpsiPenanganan {
@@ -235,16 +228,12 @@ model IdentifikasiRisiko {
   areaDampak        AreaDampak         @relation(fields: [areaDampakId], references: [id])
   penyebab          String?
   dampak            String?
-  kegiatanId        Int?
-  unitKerjaId       Int?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   analisisRisiko    AnalisisRisiko?
   evaluasiRisiko    EvaluasiRisiko?
   rencanaPenanganan RencanaPenanganan?
   kris              Kri[]
-  unitKerja         UnitKerja?         @relation(fields: [unitKerjaId], references: [id])
-  kegiatan          Kegiatan?          @relation(fields: [kegiatanId], references: [id])
 }
 
 model AnalisisRisiko {
@@ -268,12 +257,6 @@ model EvaluasiRisiko {
   identifikasiRisikoId Int                @unique
   identifikasiRisiko   IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
   responRisiko         String?
-  residualLevelKemungkinanId Int?
-  residualLevelKemungkinan   LevelKemungkinan? @relation(fields: [residualLevelKemungkinanId], references: [id])
-  residualLevelDampakId      Int?
-  residualLevelDampak        LevelDampak?      @relation(fields: [residualLevelDampakId], references: [id])
-  residualLevelRisikoId      Int?
-  residualLevelRisiko        LevelRisiko?      @relation(fields: [residualLevelRisikoId], references: [id])
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 }
@@ -282,7 +265,6 @@ model RencanaPenanganan {
   id                         Int                @id @default(autoincrement())
   identifikasiRisikoId       Int                @unique
   identifikasiRisiko         IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
-  jenisPenanganan            String?
   rencanaTidakPenanganan     String?
   targetOutput               String?
   targetWaktu                String?
@@ -291,7 +273,6 @@ model RencanaPenanganan {
   residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
   residualLevelDampakId      Int?
   residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
-  keterjadiRisiko            String?
   realisasiWaktu             String?
   realisasiOutput            String?
   dokumenPendukung           String?

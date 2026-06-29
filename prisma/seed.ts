@@ -48,6 +48,24 @@ async function main() {
   }
   console.log("Seeded LevelRisiko");
 
+  // Seed UnitKerja (from Kertas Kerja template)
+  const unitKerjaData = [
+    { nama: "Sekretariat Utama", kode: "SESTAMA" },
+    { nama: "Inspektorat", kode: "INSPEKTORAT" },
+    { nama: "Direktorat Jenderal Pajak", kode: "DJP" },
+    { nama: "Direktorat Jenderal Bea dan Cukai", kode: "DJBC" },
+  ];
+
+  for (const uk of unitKerjaData) {
+    await prisma.unitKerja.upsert({
+      where: { kode: uk.kode },
+      update: {},
+      create: uk,
+    });
+  }
+  console.log("Seeded UnitKerja");
+
+
   // 4. Seed LevelKemungkinan (1-5)
   const levelKemungkinanData = [
     { id: 1, nama: "Hampir Tidak Terjadi", skala: 1 },

@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useTable,
   useCreate,
@@ -190,12 +190,17 @@ export function CrudTable({ resource }: CrudTableProps) {
     pagination: { mode: "off" },
   });
 
-  const optionMap: Record<string, { value: string; label: string }[]> = {
+  const optionMap: Record<string, { value: string; label: string }[]> = useMemo(() => ({
     "kategori-risiko": (kategoriRisikoQuery.result?.data ?? []).map((i: any) => ({ value: String(i.id), label: i.nama })),
     "level-kemungkinan": (levelKemungkinanQuery.result?.data ?? []).map((i: any) => ({ value: String(i.id), label: i.nama })),
     "level-dampak": (levelDampakQuery.result?.data ?? []).map((i: any) => ({ value: String(i.id), label: i.nama })),
     "identifikasi-risiko": (identifikasiRisikoQuery.result?.data ?? []).map((i: any) => ({ value: String(i.id), label: i.risiko })),
-  };
+  }), [
+    kategoriRisikoQuery.result?.data,
+    levelKemungkinanQuery.result?.data,
+    levelDampakQuery.result?.data,
+    identifikasiRisikoQuery.result?.data,
+  ]);
 
   function getRelationOptions(relationResource?: string) {
     return relationResource ? optionMap[relationResource] ?? [] : [];

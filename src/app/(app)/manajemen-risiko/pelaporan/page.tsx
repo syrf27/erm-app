@@ -312,7 +312,7 @@ export default function PelaporanRisikoPage() {
       const worksheet = workbook.addWorksheet("Pelaporan Risiko");
 
       // Title
-      worksheet.mergeCells("A1:V1");
+      worksheet.mergeCells("A1:Y1");
       const titleCell = worksheet.getCell("A1");
       titleCell.value = "LAPORAN PELAPORAN RISIKO";
       titleCell.font = { name: "Arial", size: 16, bold: true, color: { argb: "1F2937" } };
@@ -341,22 +341,25 @@ export default function PelaporanRisikoPage() {
         { header: "", key: "dampak", width: 25 },
         { header: "", key: "kemungkinanAktual", width: 18 },
         { header: "", key: "dampakAktual", width: 18 },
-        { header: "", key: "besaranAktual", width: 20 },
-        { header: "", key: "pengendalian", width: 30 },
+        { header: "", key: "besaranAktual", width: 16 },
+        { header: "", key: "pengendalian", width: 25 },
         { header: "", key: "efektivitas", width: 18 },
-        { header: "", key: "respon", width: 20 },
-        { header: "", key: "rencanaPenanganan", width: 30 },
-        { header: "", key: "targetWaktu", width: 15 },
-        { header: "", key: "targetOutput", width: 25 },
-        { header: "", key: "penanggungJawab", width: 20 },
         { header: "", key: "kemungkinanResidual", width: 18 },
         { header: "", key: "dampakResidual", width: 18 },
-        { header: "", key: "besaranResidual", width: 20 },
+        { header: "", key: "besaranResidual", width: 16 },
+        { header: "", key: "levelResidual", width: 18 },
+        { header: "", key: "seleraRisiko", width: 14 },
+        { header: "", key: "respon", width: 20 },
+        { header: "", key: "prioritas", width: 14 },
+        { header: "", key: "rencanaPenanganan", width: 25 },
+        { header: "", key: "targetWaktu", width: 15 },
+        { header: "", key: "targetOutput", width: 20 },
+        { header: "", key: "penanggungJawab", width: 18 },
         { header: "", key: "realisasiWaktu", width: 15 },
-        { header: "", key: "realisasiOutput", width: 25 },
-        { header: "", key: "dokumenPendukung", width: 25 },
-        { header: "", key: "persetujuan", width: 18 },
-        { header: "", key: "disetujuiOleh", width: 20 },
+        { header: "", key: "realisasiOutput", width: 20 },
+        { header: "", key: "dokumenPendukung", width: 18 },
+        { header: "", key: "persetujuan", width: 16 },
+        { header: "", key: "disetujuiOleh", width: 18 },
       ];
 
       // Define header structure
@@ -364,12 +367,15 @@ export default function PelaporanRisikoPage() {
         "No", // A
         "Risiko", // B
         "Identifikasi", "", // C, D
-        "Analisis Risiko Aktual", "", "", "", "", // E, F, G, H, I
-        "Evaluasi (Respon)", // J
-        "Rencana Tindak Penanganan (RTP)", "", "", "", // K, L, M, N
-        "Risiko Residual Harapan", "", "", // O, P, Q
-        "Realisasi Pemantauan", "", "", // R, S, T
-        "Persetujuan (Reporting)", "" // U, V
+        "Analisis Risiko Aktual", "", "", // E, F, G
+        "Pengendalian yang telah dilaksanakan", "", // H, I
+        "Risiko Residual", "", "", "", // J, K, L, M
+        "Selera Risiko", // N
+        "Respon Risiko", // O
+        "Prioritas", // P
+        "Rencana Penanganan Risiko", "", "", "", // Q, R, S, T
+        "Realisasi Pemantauan", "", "", // U, V, W
+        "Persetujuan (Reporting)", "", // X, Y
       ];
 
       const headerRow2 = [
@@ -380,21 +386,24 @@ export default function PelaporanRisikoPage() {
         "Kemungkinan", // E
         "Dampak", // F
         "Besaran Aktual", // G
-        "Pengendalian", // H
-        "Efektivitas", // I
-        "", // J
-        "Rencana Penanganan", // K
-        "Target Waktu", // L
-        "Target Output", // M
-        "P. Jawab", // N
-        "Kemungkinan", // O
-        "Dampak", // P
-        "Besaran Residual", // Q
-        "Waktu Realisasi", // R
-        "Output Realisasi", // S
-        "Dokumen Pendukung", // T
-        "Persetujuan", // U
-        "Disetujui Oleh" // V
+        "Uraian", // H
+        "Keefektifan", // I
+        "Level Kemungkinan", // J
+        "Level Dampak", // K
+        "Besaran Risiko", // L
+        "Level Risiko", // M
+        "", // N
+        "", // O
+        "", // P
+        "Rencana Penanganan", // Q
+        "Target Waktu", // R
+        "Target Output", // S
+        "P. Jawab", // T
+        "Waktu Realisasi", // U
+        "Output Realisasi", // V
+        "Dokumen Pendukung", // W
+        "Persetujuan", // X
+        "Disetujui Oleh", // Y
       ];
 
       // Add headers
@@ -405,12 +414,15 @@ export default function PelaporanRisikoPage() {
       worksheet.mergeCells("A4:A5"); // No
       worksheet.mergeCells("B4:B5"); // Risiko
       worksheet.mergeCells("C4:D4"); // Identifikasi
-      worksheet.mergeCells("E4:I4"); // Analisis Risiko Aktual
-      worksheet.mergeCells("J4:J5"); // Evaluasi (Respon)
-      worksheet.mergeCells("K4:N4"); // Rencana Tindak Penanganan (RTP)
-      worksheet.mergeCells("O4:Q4"); // Risiko Residual Harapan
-      worksheet.mergeCells("R4:T4"); // Realisasi Pemantauan
-      worksheet.mergeCells("U4:V4"); // Persetujuan (Reporting)
+      worksheet.mergeCells("E4:G4"); // Analisis Risiko Aktual
+      worksheet.mergeCells("H4:I4"); // Pengendalian yang telah dilaksanakan
+      worksheet.mergeCells("J4:M4"); // Risiko Residual
+      worksheet.mergeCells("N4:N5"); // Selera Risiko
+      worksheet.mergeCells("O4:O5"); // Respon Risiko
+      worksheet.mergeCells("P4:P5"); // Prioritas
+      worksheet.mergeCells("Q4:T4"); // Rencana Penanganan Risiko
+      worksheet.mergeCells("U4:W4"); // Realisasi Pemantauan
+      worksheet.mergeCells("X4:Y4"); // Persetujuan (Reporting)
 
       // Format headers
       const headerFont = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFF" } };
@@ -456,7 +468,10 @@ export default function PelaporanRisikoPage() {
           penanggungJawab: row.penanggungJawab || "-",
           kemungkinanResidual: row.kemungkinanResidual,
           dampakResidual: row.dampakResidual,
-          besaranResidual: row.besaranResidual > 0 ? `${row.besaranResidual} (${row.levelResidual})` : "-",
+          besaranResidual: row.besaranResidual > 0 ? `${row.besaranResidual}` : "-",
+          levelResidual: row.levelResidual || "-",
+          seleraRisiko: "-",
+          prioritas: "-",
           realisasiWaktu: row.realisasiWaktu || "-",
           realisasiOutput: row.realisasiOutput || "-",
           dokumenPendukung: row.dokumenPendukung ? "Ada Dokumen" : "-",
@@ -477,7 +492,7 @@ export default function PelaporanRisikoPage() {
           cell.font = { name: "Arial", size: 10 };
 
           // Alignment adjustments
-          if ([1, 5, 6, 7, 9, 10, 12, 15, 16, 17, 18, 20, 21].includes(colNumber)) {
+          if ([1, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 18, 21, 24].includes(colNumber)) {
             cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
           } else {
             cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
@@ -498,7 +513,7 @@ export default function PelaporanRisikoPage() {
 
         // Color coding for Besaran Residual (Col 17 / Q)
         if (row.besaranResidual > 0) {
-          const cellQ = dataRow.getCell(17);
+          const cellQ = dataRow.getCell(12);
           const colorObj = getExcelBadgeColor(row.warnaResidual);
           cellQ.fill = {
             type: "pattern",
@@ -509,7 +524,7 @@ export default function PelaporanRisikoPage() {
         }
 
         // Color coding for Evaluasi (Respon) (Col 10 / J)
-        const cellJ = dataRow.getCell(10);
+        const cellJ = dataRow.getCell(15);
         if (row.respon === "Mengurangi Risiko") {
           cellJ.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; // light yellow
           cellJ.font = { name: "Arial", size: 10, color: { argb: "D97706" } };
@@ -519,7 +534,7 @@ export default function PelaporanRisikoPage() {
         }
 
         // Color coding for Persetujuan (Col 21 / U)
-        const cellU = dataRow.getCell(21);
+        const cellU = dataRow.getCell(24);
         if (row.persetujuan === "Disetujui") {
           cellU.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "DEF7EC" } };
           cellU.font = { name: "Arial", size: 10, bold: true, color: { argb: "03543F" } };
@@ -598,11 +613,13 @@ export default function PelaporanRisikoPage() {
               <Table.Th rowSpan={2} style={{ textAlign: "center", width: 50 }}>No</Table.Th>
               <Table.Th rowSpan={2} style={{ textAlign: "center", width: 220 }}>Risiko</Table.Th>
               <Table.Th colSpan={2} style={{ textAlign: "center" }}>Identifikasi</Table.Th>
-              <Table.Th colSpan={4} style={{ textAlign: "center" }}>Analisis Risiko Aktual</Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center" }}>Pengendalian yang Telah Dilaksanakan</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 160 }}>Respons Risiko</Table.Th>
+              <Table.Th colSpan={3} style={{ textAlign: "center" }}>Analisis Risiko Aktual</Table.Th>
+              <Table.Th colSpan={2} style={{ textAlign: "center" }}>Pengendalian yang telah dilaksanakan</Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>Risiko Residual</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 110 }}>Selera Risiko</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 160 }}>Respon Risiko</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 110 }}>Prioritas</Table.Th>
               <Table.Th colSpan={4} style={{ textAlign: "center" }}>Rencana Penanganan Risiko</Table.Th>
-              <Table.Th colSpan={3} style={{ textAlign: "center" }}>Risiko Residual Harapan</Table.Th>
               <Table.Th colSpan={3} style={{ textAlign: "center" }}>Realisasi Pemantauan</Table.Th>
               <Table.Th colSpan={2} style={{ textAlign: "center", width: 280 }}>Persetujuan (Reporting)</Table.Th>
               <Table.Th rowSpan={2} style={{ textAlign: "center", width: 80, minWidth: 80, position: "sticky", right: 0, zIndex: 3, background: "var(--mantine-color-body)", boxShadow: "-3px 0 4px rgba(0,0,0,0.06)" }}>Aksi</Table.Th>
@@ -611,31 +628,29 @@ export default function PelaporanRisikoPage() {
             <Table.Tr>
               <Table.Th style={{ width: 180 }}>Penyebab</Table.Th>
               <Table.Th style={{ width: 180 }}>Dampak</Table.Th>
-              <Table.Th style={{ width: 180 }}>Lvl Kemungkinan</Table.Th>
-              <Table.Th style={{ width: 180 }}>Lvl Dampak</Table.Th>
-              <Table.Th style={{ width: 120, textAlign: "center" }}>Besaran Risiko</Table.Th>
-              <Table.Th style={{ width: 160, textAlign: "center" }}>Level Risiko</Table.Th>
-              <Table.Th style={{ width: 180 }}>Pengendalian</Table.Th>
-              <Table.Th style={{ width: 120 }}>Efektivitas</Table.Th>
+              <Table.Th style={{ width: 120 }}>Kemungkinan</Table.Th>
+              <Table.Th style={{ width: 120 }}>Dampak</Table.Th>
+              <Table.Th style={{ width: 160, textAlign: "center" }}>Besaran Aktual</Table.Th>
+              <Table.Th style={{ width: 200 }}>Uraian</Table.Th>
+              <Table.Th style={{ width: 130 }}>Keefektifan</Table.Th>
+              <Table.Th style={{ width: 130 }}>Level Kemungkinan</Table.Th>
+              <Table.Th style={{ width: 130 }}>Level Dampak</Table.Th>
+              <Table.Th style={{ width: 150, textAlign: "center" }}>Besaran Risiko</Table.Th>
+              <Table.Th style={{ width: 130 }}>Level Risiko</Table.Th>
               <Table.Th style={{ width: 240 }}>Rencana Penanganan</Table.Th>
               <Table.Th style={{ width: 120 }}>Target Waktu</Table.Th>
               <Table.Th style={{ width: 160 }}>Target Output</Table.Th>
               <Table.Th style={{ width: 140 }}>P. Jawab</Table.Th>
-              <Table.Th style={{ width: 120 }}>Kemungkinan</Table.Th>
-              <Table.Th style={{ width: 120 }}>Dampak</Table.Th>
-              <Table.Th style={{ width: 160, textAlign: "center" }}>Besaran Residual</Table.Th>
               <Table.Th style={{ width: 130 }}>Waktu Realisasi</Table.Th>
               <Table.Th style={{ width: 180 }}>Output Realisasi</Table.Th>
               <Table.Th style={{ width: 180 }}>Dokumen Pendukung</Table.Th>
               <Table.Th style={{ width: 130, textAlign: "center" }}>Persetujuan</Table.Th>
               <Table.Th style={{ width: 150 }}>Disetujui Oleh</Table.Th>
             </Table.Tr>
-          </Table.Thead>
-
-          <Table.Tbody>
+          </Table.Thead><Table.Tbody>
             {tableRows.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={24} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
+                <Table.Td colSpan={26} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
                   {totalRows === 0 
                     ? 'Belum ada data risiko teridentifikasi.'
                     : 'Tidak ada data pada halaman ini.'}
@@ -653,16 +668,7 @@ export default function PelaporanRisikoPage() {
                   <Table.Td align="center">
                     {row.besaranAktual > 0 ? (
                       <Badge color={getBadgeColor(row.warnaAktual)} variant="filled">
-                        {row.besaranAktual}
-                      </Badge>
-                    ) : (
-                      "-"
-                    )}
-                  </Table.Td>
-                   <Table.Td align="center">
-                    {row.besaranAktual > 0 ? (
-                      <Badge color={getBadgeColor(row.warnaAktual)} variant="filled">
-                        ({row.levelAktual})
+                        {row.besaranAktual} ({row.levelAktual})
                       </Badge>
                     ) : (
                       "-"
@@ -670,6 +676,19 @@ export default function PelaporanRisikoPage() {
                   </Table.Td>
                   <Table.Td>{row.pengendalian || "-"}</Table.Td>
                   <Table.Td>{row.efektivitas || "-"}</Table.Td>
+                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
+                  <Table.Td>{row.dampakResidual}</Table.Td>
+                  <Table.Td align="center">
+                    {row.besaranResidual > 0 ? (
+                      <Badge color={getBadgeColor(row.warnaResidual)} variant="filled">
+                        {row.besaranResidual} ({row.levelResidual})
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </Table.Td>
+                  <Table.Td>{row.levelResidual || "-"}</Table.Td>
+                  <Table.Td align="center">-</Table.Td>
                   <Table.Td align="center">
                     <Badge
                       color={row.respon === "Mengurangi Risiko" ? "orange" : "teal"}
@@ -682,21 +701,11 @@ export default function PelaporanRisikoPage() {
                       {row.respon}
                     </Badge>
                   </Table.Td>
+                  <Table.Td align="center">-</Table.Td>
                   <Table.Td>{row.rencanaPenanganan || "-"}</Table.Td>
                   <Table.Td align="center">{row.targetWaktu || "-"}</Table.Td>
                   <Table.Td>{row.targetOutput || "-"}</Table.Td>
                   <Table.Td>{row.penanggungJawab || "-"}</Table.Td>
-                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
-                  <Table.Td>{row.dampakResidual}</Table.Td>
-                  <Table.Td align="center">
-                    {row.besaranResidual > 0 ? (
-                      <Badge color={getBadgeColor(row.warnaResidual)} variant="filled">
-                        {row.besaranResidual} ({row.levelResidual})
-                      </Badge>
-                    ) : (
-                      "-"
-                    )}
-                  </Table.Td>
                   <Table.Td align="center">{row.realisasiWaktu || "-"}</Table.Td>
                   <Table.Td>{row.realisasiOutput || "-"}</Table.Td>
                   <Table.Td>

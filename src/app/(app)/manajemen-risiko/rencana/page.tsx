@@ -103,6 +103,7 @@ export default function RencanaPenangananPage() {
         computeBesaran(lk?.skala, ld?.skala),
         computeBesaran(residualLK?.skala, residualLD?.skala),
         rp?.rencanaTidakPenanganan ?? "",
+        rp?.jenisPenanganan ?? "",
         rp?.targetOutput ?? "",
         rp?.targetWaktu ?? "",
         rp?.penanggungJawab ?? "",
@@ -113,7 +114,7 @@ export default function RencanaPenangananPage() {
     });
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, null, "", "", "", "", "", "", "", "", "", "", ""]);
+      padded.push([null, null, "", "", "", "", "", "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
   }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData, kemungkinanData, dampakData]);
@@ -137,14 +138,15 @@ export default function RencanaPenangananPage() {
       const rencanaId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
 
-      const residualLKId = findId(kemungkinanData, (row[10] as string) ?? "");
-      const residualLDId = findId(dampakData, (row[11] as string) ?? "");
+      const residualLKId = findId(kemungkinanData, (row[11] as string) ?? "");
+      const residualLDId = findId(dampakData, (row[12] as string) ?? "");
 
       const payload: Record<string, any> = {};
       payload.rencanaTidakPenanganan = (row[6] as string) || null;
-      payload.targetOutput = (row[7] as string) || null;
-      payload.targetWaktu = (row[8] as string) || null;
-      payload.penanggungJawab = (row[9] as string) || null;
+      payload.jenisPenanganan = (row[7] as string) || null;
+      payload.targetOutput = (row[8] as string) || null;
+      payload.targetWaktu = (row[9] as string) || null;
+      payload.penanggungJawab = (row[10] as string) || null;
       if (!isNaN(residualLKId)) payload.residualLevelKemungkinanId = residualLKId;
       else payload.residualLevelKemungkinanId = null;
       if (!isNaN(residualLDId)) payload.residualLevelDampakId = residualLDId;
@@ -216,15 +218,16 @@ export default function RencanaPenangananPage() {
     { title: "Rencana ID", data: 1, type: "numeric", width: 1 },
     { title: "Prioritas", data: 2, type: "text", width: 130, readOnly: true },
     { title: "Risiko", data: 3, type: "text", width: 220, readOnly: true },
-    { title: "Besaran Risiko Aktual", data: 4, type: "text", width: 160, readOnly: true },
-    { title: "Besaran Risiko Residual", data: 5, type: "text", width: 160, readOnly: true },
+    { title: "Besaran Risiko Aktual", data: 4, type: "text", width: 120, readOnly: true },
+    { title: "Besaran Risiko Residual", data: 5, type: "text", width: 120, readOnly: true },
     { title: "Rencana Tindak Penanganan", data: 6, type: "text", width: 240 },
-    { title: "Target Output", data: 7, type: "text", width: 180 },
-    { title: "Target Waktu", data: 8, type: "text", width: 150 },
-    { title: "Penanggung Jawab", data: 9, type: "text", width: 180 },
+    { title: "Jenis Penanganan", data: 7, type: "text", width: 180 },
+    { title: "Target Output", data: 8, type: "text", width: 180 },
+    { title: "Target Waktu", data: 9, type: "text", width: 150 },
+    { title: "Penanggung Jawab", data: 10, type: "text", width: 180 },
     {
       title: "Level Kemungkinan",
-      data: 10,
+      data: 11,
       type: "dropdown",
       source: kemungkinanNamaList,
       width: 170,
@@ -232,13 +235,13 @@ export default function RencanaPenangananPage() {
     },
     {
       title: "Level Dampak",
-      data: 11,
+      data: 12,
       type: "dropdown",
       source: dampakNamaList,
       width: 150,
       strict: true,
     },
-    { title: "Besaran Risiko", data: 12, type: "text", width: 130, readOnly: true },
+    { title: "Besaran Risiko", data: 13, type: "text", width: 130, readOnly: true },
   ];
 
   if (loading || !isMounted) {
@@ -281,6 +284,7 @@ export default function RencanaPenangananPage() {
           "Besaran Risiko Aktual",
           "Besaran Risiko Residual",
           "Rencana Tindak Penanganan",
+          "Jenis Penanganan",
           "Target Output",
           "Target Waktu",
           "Penanggung Jawab",
@@ -299,8 +303,24 @@ export default function RencanaPenangananPage() {
             { label: "Prioritas", colspan: 1 },
             { label: "Risiko", colspan: 1 },
             { label: "Besaran Risiko", colspan: 2 },
-            { label: "Rencana Penanganan Risiko", colspan: 4 },
+            { label: "Rencana Penanganan Risiko", colspan: 5 },
             { label: "Risiko Residual Harapan", colspan: 3 },
+          ],
+          [
+            "Ident ID",
+            "Rencana ID",
+            "",
+            "",
+            "Aktual",
+            "Residual",
+            "Rencana Tindak Penanganan",
+            "Jenis Penanganan",
+            "Target Output",
+            "Target Waktu",
+            "Penanggung Jawab",
+            "Level Kemungkinan",
+            "Level Dampak",
+            "Besaran Risiko",
           ],
         ]}
         afterChange={(changes) => {
@@ -308,7 +328,7 @@ export default function RencanaPenangananPage() {
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
           for (const [row, col] of changes) {
-            if (col === 10 || col === 11) {
+            if (col === 11 || col === 12) {
               recalcRow(hot, row, kemungkinanData, dampakData);
             }
           }
@@ -342,11 +362,11 @@ export default function RencanaPenangananPage() {
 }
 
 function recalcRow(hot: Handsontable, row: number, kemungkinanData: any[], dampakData: any[]) {
-  const lkNama = hot.getDataAtCell(row, 10) as string;
-  const ldNama = hot.getDataAtCell(row, 11) as string;
+  const lkNama = hot.getDataAtCell(row, 11) as string;
+  const ldNama = hot.getDataAtCell(row, 12) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   const besaran = computeBesaran(lk?.skala, ld?.skala);
   hot.setDataAtCell(row, 5, besaran, "recalc");
-  hot.setDataAtCell(row, 12, besaran, "recalc");
+  hot.setDataAtCell(row, 13, besaran, "recalc");
 }

@@ -15,6 +15,8 @@ export const resourceMap: Record<string, string> = {
   "kriteria-dampak": "kriteriaDampak",
   "selera-risiko": "seleraRisiko",
   "identifikasi-risiko": "identifikasiRisiko",
+  "unit-kerja": "unitKerja",
+  "kegiatan": "kegiatan",
   "analisis-risiko": "analisisRisiko",
   "evaluasi-risiko": "evaluasiRisiko",
   "rencana-penanganan": "rencanaPenanganan",
@@ -83,6 +85,12 @@ export const includeMap: Record<string, any> = {
     identifikasiRisiko: { select: { id: true, risiko: true } },
     residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
     residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+  },
+  "evaluasi-risiko": {
+    identifikasiRisiko: { select: { id: true, risiko: true } },
+    residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
+    residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+    residualLevelRisiko: { select: { id: true, nama: true } },
   },
   kri: {
     identifikasiRisiko: { select: { id: true, risiko: true } },

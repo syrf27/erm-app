@@ -257,7 +257,13 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            {/* Mobile toggle */}
+           
+
+            {/* Logo and Title */}
+            <IconFileDescription size={24} />
+            <Title order={4}>ERM App</Title>
+
+             {/* Mobile toggle */}
             <ActionIcon
               onClick={toggleMobile}
               hiddenFrom="sm"
@@ -287,10 +293,6 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
                 )}
               </ActionIcon>
             </Tooltip>
-
-            {/* Logo and Title */}
-            <IconFileDescription size={24} />
-            <Title order={4}>ERM App</Title>
           </Group>
 
           <Group gap="sm">

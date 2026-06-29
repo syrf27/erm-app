@@ -33,6 +33,7 @@ interface RiskRow {
   rencanaTindakPenanganan: string;
   targetWaktu: string;
   targetOutput: string;
+  keterjadiRisiko: string;
   realisasiWaktu: string;
   realisasiOutput: string;
   dokumenPendukung: string;
@@ -47,6 +48,7 @@ export default function PemantauanRisikoPage() {
   // Modal Fields
   const [modalWaktu, setModalWaktu] = useState("");
   const [modalOutput, setModalOutput] = useState("");
+  const [modalKeterjadian, setModalKeterjadian] = useState("");
   const [modalDocType, setModalDocType] = useState<"link" | "upload">("link");
   const [modalDocLink, setModalDocLink] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -108,6 +110,7 @@ export default function PemantauanRisikoPage() {
         rencanaTindakPenanganan: rp?.rencanaTidakPenanganan ?? "",
         targetWaktu: rp?.targetWaktu ?? "",
         targetOutput: rp?.targetOutput ?? "",
+        keterjadiRisiko: rp?.keterjadiRisiko ?? "",
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
         dokumenPendukung: rp?.dokumenPendukung ?? "",
