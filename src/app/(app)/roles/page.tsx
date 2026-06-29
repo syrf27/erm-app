@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useGetIdentity } from "@refinedev/core";
+import { Pagination } from "@/components/pagination";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 import {
@@ -64,8 +65,11 @@ export default function RolesManagementPage() {
   const [loading, setLoading] = useState(true);
 
   // Pagination states for permissions matrix
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pages, setPages] = useState<Record<number, number>>({});
+  const pageSize = 10;
+  const getPage = (roleId: number) => pages[roleId] || 1;
+  const setRolePage = (roleId: number, p: number) =>
+    setPages((prev) => ({ ...prev, [roleId]: p }));
 
   // Modal states
   const [addRoleOpened, setAddRoleOpened] = useState(false);
@@ -116,7 +120,6 @@ export default function RolesManagementPage() {
 
   // Paginated resources list
   const totalResources = resources.length;
-  const paginatedResources = resources.slice((page - 1) * pageSize, page * pageSize);
 
   // Helper to check if role has permission
   const hasPermission = (role: Role, resource: string, action: string) => {
@@ -273,7 +276,13 @@ export default function RolesManagementPage() {
         </Center>
       ) : (
         <Stack gap="xl">
-          {roles.map((role) => (
+          {roles.map((role) => {
+            const currentPage = getPage(role.id);
+            const roleResources = resources.slice(
+              (currentPage - 1) * pageSize,
+              currentPage * pageSize
+            );
+            return (
             <Card key={role.id} shadow="sm" padding="lg" radius="md" withBorder>
               <Stack gap="md">
                 <Group justify="space-between">
@@ -315,7 +324,7 @@ export default function RolesManagementPage() {
                           </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                          {paginatedResources.map((res) => (
+                          {roleResources.map((res) => (
                             <Table.Tr key={res}>
                               <Table.Td style={{ fontWeight: 600 }}>{res}</Table.Td>
                               {actions.map((act) => {
@@ -343,39 +352,24 @@ export default function RolesManagementPage() {
                         </Table.Tbody>
                       </Table>
                     </ScrollArea>
+                    {totalResources > pageSize && (
+                      <div style={{ marginTop: 16 }}>
+                        <Pagination
+                          current={currentPage}
+                          total={totalResources}
+                          pageSize={pageSize}
+                          showSizeChanger={false}
+                          onChange={(p) => setRolePage(role.id, p)}
+                          totalText={(t, [st, en]) => `Menampilkan ${st}-${en} dari ${t} scope`}
+                        />
+                      </div>
+                    )}
                   </Stack>
                 )}
               </Stack>
             </Card>
-          ))}
-          
-          {/* Shared Pagination component at bottom of list */}
-          <Card shadow="xs" padding="sm" radius="md" withBorder>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Menampilkan {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, totalResources)} dari {totalResources} scope
-              </Text>
-              <Group gap="xs">
-                <Button 
-                  variant="default" 
-                  size="xs" 
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))} 
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <Badge color="blue" variant="light" size="lg">Halaman {page}</Badge>
-                <Button 
-                  variant="default" 
-                  size="xs" 
-                  onClick={() => setPage((p) => Math.min(p + 1, Math.ceil(totalResources / pageSize)))} 
-                  disabled={page * pageSize >= totalResources}
-                >
-                  Next
-                </Button>
-              </Group>
-            </Group>
-          </Card>
+            );
+          })}
         </Stack>
       )}
 

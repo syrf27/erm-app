@@ -18,9 +18,13 @@ import {
   Badge,
   Loader,
   Center,
+  Paper,
+  Modal,
+  ScrollArea,
+  ActionIcon,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { IconSearch, IconFilter, IconDownload } from "@tabler/icons-react";
+import { IconSearch, IconFilter, IconDownload, IconEye } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
 
 interface AuditLog {
@@ -47,6 +51,20 @@ const actionColors: Record<string, string> = {
   UPLOAD: "cyan",
   APPROVE: "lime",
   REJECT: "pink",
+};
+
+// Strip ::ffff: IPv6 prefix from localhost IPs
+const cleanIP = (ip: string | null): string => {
+  if (!ip) return "-";
+  return ip.replace(/^::ffff:/i, "");
+};
+
+// Format details object as human-readable key-value pairs
+const formatDetails = (details: any): string => {
+  if (!details || typeof details !== "object") return "-";
+  const entries = Object.entries(details);
+  if (entries.length === 0) return "-";
+  return entries.map(([key, val]) => `${key}: ${JSON.stringify(val)}`).join("; ");
 };
 
 export default function AuditLogPage() {
@@ -76,6 +94,8 @@ export default function AuditLogPage() {
   const [resource, setResource] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [detailsModalOpened, setDetailsModalOpened] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -258,7 +278,6 @@ export default function AuditLogPage() {
                     <Table.Th>User</Table.Th>
                     <Table.Th>Action</Table.Th>
                     <Table.Th>Resource</Table.Th>
-                    <Table.Th>Resource ID</Table.Th>
                     <Table.Th>IP Address</Table.Th>
                     <Table.Th>Details</Table.Th>
                   </Table.Tr>
@@ -273,14 +292,26 @@ export default function AuditLogPage() {
                           <Text size="xs" c="dimmed">{log.userId}</Text>
                         </Stack>
                       </Table.Td>
-                      <Table.Td><Badge color={actionColors[log.action] || "gray"}>{log.action}</Badge></Table.Td>
+                      <Table.Td><Badge color={actionColors[log.action] || "gray"} style={{ minWidth: "fit-content" }}>{log.action}</Badge></Table.Td>
                       <Table.Td><Text size="sm">{log.resource}</Text></Table.Td>
-                      <Table.Td><Text size="sm">{log.resourceId || "-"}</Text></Table.Td>
-                      <Table.Td><Text size="sm">{log.ipAddress || "-"}</Text></Table.Td>
-                      <Table.Td>
-                        <Text size="xs" lineClamp={2} title={JSON.stringify(log.details, null, 2)}>
-                          {log.details ? JSON.stringify(log.details).substring(0, 50) + "..." : "-"}
-                        </Text>
+                      <Table.Td><Text size="sm">{cleanIP(log.ipAddress)}</Text></Table.Td>
+                      <Table.Td align="center">
+                        {log.details ? (
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="blue"
+                            onClick={() => {
+                              setSelectedLog(log);
+                              setDetailsModalOpened(true);
+                            }}
+                            title="View Details"
+                          >
+                            <IconEye size={16} />
+                          </ActionIcon>
+                        ) : (
+                          <Text size="xs" c="dimmed">-</Text>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   ))}
@@ -300,6 +331,68 @@ export default function AuditLogPage() {
           )}
         </Stack>
       </Card>
+    
+
+      {/* Details Modal */}
+      <Modal
+        opened={detailsModalOpened}
+        onClose={() => setDetailsModalOpened(false)}
+        title="Audit Log Details"
+        size="lg"
+        radius="md"
+      >
+        {selectedLog && (
+          <Stack gap="md">
+            <Group>
+              <Text fw={600} size="sm">Timestamp:</Text>
+              <Text size="sm">{dayjs(selectedLog.timestamp).format("YYYY-MM-DD HH:mm:ss")}</Text>
+            </Group>
+            <Group>
+              <Text fw={600} size="sm">User:</Text>
+              <Text size="sm">{selectedLog.userName} (ID: {selectedLog.userId})</Text>
+            </Group>
+            <Group>
+              <Text fw={600} size="sm">Action:</Text>
+              <Badge color={actionColors[selectedLog.action.toLowerCase()] || "gray"}>
+                {selectedLog.action}
+              </Badge>
+            </Group>
+            <Group>
+              <Text fw={600} size="sm">Resource:</Text>
+              <Text size="sm">{selectedLog.resource}</Text>
+            </Group>
+            <Group>
+              <Text fw={600} size="sm">Resource ID:</Text>
+              <Text size="sm">{selectedLog.resourceId || "-"}</Text>
+            </Group>
+            <Group>
+              <Text fw={600} size="sm">IP Address:</Text>
+              <Text size="sm">{cleanIP(selectedLog.ipAddress)}</Text>
+            </Group>
+            <div>
+              <Text fw={600} size="sm" mb="xs">Details:</Text>
+              <ScrollArea h={200}>
+                <Paper p="sm" withBorder radius="md" style={{ backgroundColor: "var(--mantine-color-gray-0)" }}>
+                  <Stack gap="xs">
+                    {selectedLog.details && typeof selectedLog.details === "object" ? (
+                      Object.entries(selectedLog.details).map(([key, value]) => (
+                        <Group key={key} gap="xs">
+                          <Text size="sm" fw={500} c="dimmed" style={{ minWidth: 120 }}>{key}:</Text>
+                          <Text size="sm" style={{ wordBreak: "break-word", flex: 1 }}>
+                            {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                          </Text>
+                        </Group>
+                      ))
+                    ) : (
+                      <Text size="sm" c="dimmed">No details available</Text>
+                    )}
+                  </Stack>
+                </Paper>
+              </ScrollArea>
+            </div>
+          </Stack>
+        )}
+      </Modal>
     </Stack>
   );
 }

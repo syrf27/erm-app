@@ -604,7 +604,7 @@ export default function PelaporanRisikoPage() {
               <Table.Th colSpan={3} style={{ textAlign: "center" }}>Risiko Residual Harapan</Table.Th>
               <Table.Th colSpan={3} style={{ textAlign: "center" }}>Realisasi Pemantauan</Table.Th>
               <Table.Th colSpan={2} style={{ textAlign: "center", width: 280 }}>Persetujuan (Reporting)</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 60 }}>Aksi</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 80, minWidth: 80, position: "sticky", right: 0, zIndex: 3, background: "var(--mantine-color-body)", boxShadow: "-3px 0 4px rgba(0,0,0,0.06)" }}>Aksi</Table.Th>
             </Table.Tr>
             {/* Row 2 Headers */}
             <Table.Tr>
@@ -660,7 +660,14 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{row.pengendalian || "-"}</Table.Td>
                   <Table.Td>{row.efektivitas || "-"}</Table.Td>
                   <Table.Td align="center">
-                    <Badge color={row.respon === "Mengurangi Risiko" ? "orange" : "teal"} variant="light">
+                    <Badge
+                      color={row.respon === "Mengurangi Risiko" ? "orange" : "teal"}
+                      variant="light"
+                      styles={{
+                        root: { maxWidth: "100%", height: "auto", paddingTop: 3, paddingBottom: 3 },
+                        label: { whiteSpace: "normal", overflow: "visible", textOverflow: "clip", lineHeight: 1.3 },
+                      }}
+                    >
                       {row.respon}
                     </Badge>
                   </Table.Td>
@@ -708,7 +715,7 @@ export default function PelaporanRisikoPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td>{row.disetujuiOleh || "-"}</Table.Td>
-                  <Table.Td align="center">
+                  <Table.Td align="center" style={{ position: "sticky", right: 0, zIndex: 2, background: "var(--mantine-color-body)", boxShadow: "-3px 0 4px rgba(0,0,0,0.06)" }}>
                     <ActionIcon variant="subtle" color="blue" onClick={() => openApprovalModal(row)}>
                       <IconPencil size={16} />
                     </ActionIcon>
