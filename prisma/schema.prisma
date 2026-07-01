@@ -301,6 +301,15 @@ model RencanaPenanganan {
   updatedAt                  DateTime           @updatedAt
 }
 
+model Faq {
+  id        Int      @id @default(autoincrement())
+  question  String
+  answer    String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model MatriksAnalisisRisiko {
   id                 Int              @id @default(autoincrement())
   levelKemungkinanId Int

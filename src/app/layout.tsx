@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
   },
 };
-
+ 
 export default async function RootLayout({
   children,
 }: Readonly<{

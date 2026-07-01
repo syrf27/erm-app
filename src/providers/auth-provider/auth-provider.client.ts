@@ -20,38 +20,28 @@ const mockUsers = [
 
 export const authProviderClient: AuthProvider = {
   login: async ({ email, password }) => {
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Login gagal");
-      }
-
-      const user = await response.json();
-
-      Cookies.set("auth", JSON.stringify(user), {
-        expires: 30, // 30 days
-        path: "/",
-      });
-
-      return {
-        success: true,
-        redirectTo: "/",
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: {
-          name: "LoginError",
-          message: error?.message || "Email atau password salah",
-        },
-      };
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Email atau password salah" }));
+      throw new Error(errorData.error || "Email atau password salah");
     }
+
+    const user = await response.json();
+
+    Cookies.set("auth", JSON.stringify(user), {
+      expires: 30,
+      path: "/",
+    });
+
+    return {
+      success: true,
+      redirectTo: "/",
+    };
   },
   logout: async () => {
     Cookies.remove("auth", { path: "/" });

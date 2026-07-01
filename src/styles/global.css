@@ -1,4 +1,5 @@
 /* Global styles */
+@import "@mantine/tiptap/styles.css";
 
 /* Handsontable Styling for ERM App */
 .handsontable {

@@ -43,6 +43,8 @@ interface CrudTableProps {
 }
 
 const resourceLabels: Record<string, string> = {
+  "unit-kerja": "Unit Kerja",
+  kegiatan: "Kegiatan",
   sasaran: "Sasaran",
   "proses-bisnis": "Proses Bisnis",
   "pemangku-kepentingan": "Pemangku Kepentingan",
@@ -62,6 +64,14 @@ const resourceLabels: Record<string, string> = {
 };
 
 const fieldConfigs: Record<string, FieldConfig[]> = {
+  "unit-kerja": [
+    { key: "kode", label: "Kode", type: "text", required: true },
+    { key: "nama", label: "Unit Kerja", type: "text", required: true },
+  ],
+  kegiatan: [
+    { key: "nama", label: "Kegiatan", type: "text", required: true },
+    { key: "deskripsi", label: "Deskripsi", type: "text" },
+  ],
   sasaran: [
     { key: "nama", label: "Nama", type: "text", required: true },
     { key: "deskripsi", label: "Deskripsi", type: "text" },

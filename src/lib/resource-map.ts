@@ -23,6 +23,7 @@ export const resourceMap: Record<string, string> = {
   "kri": "kri",
   "matriks-analisis-risiko": "matriksAnalisisRisiko",
   "pelaporan-risiko": "rencanaPenanganan",
+  "faq": "faq",
   "users": "user",
   "roles": "role",
   "permissions": "permission",
