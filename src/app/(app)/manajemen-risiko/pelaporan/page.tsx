@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import ExcelJS from "exceljs";
-import { useList } from "@refinedev/core";
+import { useList, useCreate, useUpdate } from "@refinedev/core";
 import {
   Title,
   Button,
@@ -22,6 +22,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconPencil, IconCheck, IconX, IconFileText, IconExternalLink, IconDownload } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { useYear } from "@/lib/year-context";
 
 interface ReportRow {
   identId: number;
@@ -80,6 +81,7 @@ export default function PelaporanRisikoPage() {
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const { tahunDari, tahunSampai } = useYear();
 
   // Form State
   const [modalPersetujuan, setModalPersetujuan] = useState("");
@@ -92,6 +94,8 @@ export default function PelaporanRisikoPage() {
   const lkResult = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const ldResult = useList({ resource: "level-dampak", pagination: { mode: "off" } });
   const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const { mutate: createMutate } = useCreate();
+  const { mutate: updateMutate } = useUpdate();
 
   const loading =
     identResult.query.isPending ||
@@ -103,6 +107,15 @@ export default function PelaporanRisikoPage() {
     matriksResult.query.isPending;
 
   const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
+
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
+
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
   const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
   const rencanaData = useMemo(() => rencanaResult.result?.data ?? [], [rencanaResult.result?.data]);
@@ -121,7 +134,7 @@ export default function PelaporanRisikoPage() {
     const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
     const rencanaById = new Map(rencanaData.map((r: any) => [r.identifikasiRisikoId, r]));
 
-    return identifikasiData.map((r: Record<string, any>, index): ReportRow => {
+    return filteredIdentifikasiData.map((r: Record<string, any>, index): ReportRow => {
       const an = analisisById.get(r.id);
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
@@ -198,7 +211,7 @@ export default function PelaporanRisikoPage() {
         prioritas: bAktual,
       };
     });
-  }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData, lkData, ldData, matriksData]);
+  }, [loading, filteredIdentifikasiData, analisisData, evaluasiData, rencanaData, lkData, ldData, matriksData]);
 
   // Paginate rows
   const totalRows = allRows.length;
@@ -222,7 +235,7 @@ export default function PelaporanRisikoPage() {
     setModalOpened(true);
   };
 
-  const handleSaveModal = async () => {
+  const handleSaveModal = () => {
     if (!selectedRow) return;
 
     const payload = {
@@ -230,30 +243,59 @@ export default function PelaporanRisikoPage() {
       disetujuiOleh: modalDisetujuiOleh || null,
     };
 
-    try {
-      if (selectedRow.rencanaId === null) {
-        // Create new penanganan record to store approval
-        const res = await fetch("/api/rencana-penanganan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, identifikasiRisikoId: selectedRow.identId }),
-        });
-        if (!res.ok) throw new Error("Gagal menyimpan persetujuan");
-      } else {
-        // Update existing penanganan record
-        const res = await fetch(`/api/rencana-penanganan/${selectedRow.rencanaId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("Gagal memperbarui persetujuan");
-      }
-
-      notifications.show({ title: "Tersimpan", message: "Persetujuan berhasil disimpan", color: "green" });
-      setModalOpened(false);
-      if (refetchQuery) refetchQuery();
-    } catch (e: any) {
-      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal menyimpan persetujuan", color: "red" });
+    if (selectedRow.rencanaId === null) {
+      createMutate(
+        {
+          resource: "rencana-penanganan",
+          values: {
+            ...payload,
+            identifikasiRisikoId: selectedRow.identId,
+          },
+          successNotification: {
+            message: "Persetujuan berhasil disimpan",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal menyimpan persetujuan",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            setModalOpened(false);
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            console.error("Create failed:", error);
+          },
+        }
+      );
+    } else {
+      updateMutate(
+        {
+          resource: "rencana-penanganan",
+          id: selectedRow.rencanaId,
+          values: payload,
+          mutationMode: "undoable",
+          successNotification: {
+            message: "Persetujuan berhasil diperbarui",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal memperbarui persetujuan",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            setModalOpened(false);
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            console.error("Update failed:", error);
+          },
+        }
+      );
     }
   };
 
@@ -589,14 +631,16 @@ export default function PelaporanRisikoPage() {
             Laporan terpadu dari proses identifikasi hingga realisasi pemantauan risiko untuk proses persetujuan (approval).
           </Text>
         </div>
-        <Button
-          leftSection={<IconDownload size={16} />}
-          variant="light"
-          color="green"
-          onClick={handleExportExcel}
-        >
-          Unduh Excel
-        </Button>
+        <Group>
+          <Button
+            leftSection={<IconDownload size={16} />}
+            variant="light"
+            color="green"
+            onClick={handleExportExcel}
+          >
+            Unduh Excel
+          </Button>
+        </Group>
       </Group>
 
       <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>

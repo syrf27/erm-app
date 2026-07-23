@@ -72,7 +72,7 @@ export default function DashboardPage() {
   if (!stats) return null;
 
   const k = stats.kpi;
-  const totalKri = stats.kriSummary.hijau + stats.kriSummary.kuning + stats.kriSummary.merah + stats.kriSummary.belum;
+  // const totalKri = stats.kriSummary.hijau + stats.kriSummary.kuning + stats.kriSummary.merah + stats.kriSummary.belum;
   const riskReduction = stats.inherentVsResidual.inherentAvg > 0
     ? Math.round((1 - stats.inherentVsResidual.residualAvg / stats.inherentVsResidual.inherentAvg) * 100)
     : 0;
@@ -84,7 +84,7 @@ export default function DashboardPage() {
         <Box>
           <Title order={2}>Dashboard Manajemen Risiko</Title>
           <Text c="dimmed" size="sm">
-            Ringkasan eksekutif penerapan ERM berbasis ISO 31000 / SNI 8615
+            Ringkasan eksekutif penerapan MR berbasis ISO 31000 / SNI 8615
           </Text>
         </Box>
         <Badge size="lg" variant="light" leftSection={<IconRefresh size={14} />}>
@@ -93,7 +93,7 @@ export default function DashboardPage() {
       </Group>
 
       {/* KPI Row */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
         <KpiCard icon={<IconAlertTriangle size={26} />} color="red"
           label="Total Risiko" value={k.totalRisiko}
           sub={k.sasaran + " sasaran • " + k.prosesBisnis + " proses bisnis"} />
@@ -101,8 +101,8 @@ export default function DashboardPage() {
           label="Dianalisis" value={k.dianalisis} sub={"Cakupan " + k.analysisCoverage + "% dari identifikasi"} />
         <KpiCard icon={<IconClipboardList size={26} />} color="grape"
           label="Rencana Penanganan" value={k.ditangani} sub={"Cakupan " + k.treatmentCoverage + "% dari identifikasi"} />
-        <KpiCard icon={<IconActivity size={26} />} color="teal"
-          label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} />
+        {/* <KpiCard icon={<IconActivity size={26} />} color="teal"
+          label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} /> */}
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
@@ -196,7 +196,7 @@ export default function DashboardPage() {
         </Stack>
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         {/* By category */}
         <Paper withBorder radius="md" p="lg" shadow="xs">
           <Text fw={700} mb="md">Risiko per Kategori</Text>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
         </Paper>
 
         {/* KRI status ring */}
-        <Paper withBorder radius="md" p="lg" shadow="xs">
+        {/* <Paper withBorder radius="md" p="lg" shadow="xs">
           <Text fw={700} mb="md">Status Indikator Risiko (KRI)</Text>
           <Center>
             <RingProgress size={150} thickness={16} roundCaps
@@ -244,7 +244,7 @@ export default function DashboardPage() {
             <Stack gap={0} align="center"><Badge color="red" variant="light">{stats.kriSummary.merah}</Badge><Text size="10px" c="dimmed" mt={4}>Kritis</Text></Stack>
             <Stack gap={0} align="center"><Badge color="gray" variant="light">{stats.kriSummary.belum}</Badge><Text size="10px" c="dimmed" mt={4}>Belum</Text></Stack>
           </Group>
-        </Paper>
+        </Paper> */}
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg">
@@ -284,7 +284,7 @@ export default function DashboardPage() {
         {/* Process funnel */}
         <Paper withBorder radius="md" p="lg" shadow="xs">
           <Group justify="space-between" mb="md">
-            <Text fw={700}>Progres Proses ERM</Text>
+            <Text fw={700}>Progres Proses MR</Text>
             <ThemeIcon variant="light" color="indigo" radius="md"><IconTargetArrow size={18} /></ThemeIcon>
           </Group>
           <Stack gap="md">

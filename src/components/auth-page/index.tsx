@@ -96,7 +96,7 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <div
         style={{
-          flex: 1,
+          flex: 3,
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -217,7 +217,7 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
 
       <div
         style={{
-          flex: 1,
+          flex: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -273,8 +273,10 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
                   leftSection={<IconMail size={18} />}
                   {...form.getInputProps("email")}
                   styles={{
+                    label: { color: "#000" },
                     input: {
                       backgroundColor: "white",
+                      color: "#000",
                       border: "1px solid #e0e0e0",
                       "&:focus": {
                         borderColor: "#00529b",
@@ -291,8 +293,10 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
                   leftSection={<IconLock size={18} />}
                   {...form.getInputProps("password")}
                   styles={{
+                    label: { color: "#000" },
                     input: {
                       backgroundColor: "white",
+                      color: "#000",
                       border: "1px solid #e0e0e0",
                       "&:focus": {
                         borderColor: "#00529b",
@@ -356,7 +360,7 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <div
         style={{
-          flex: 1,
+          flex: 3,
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -409,7 +413,7 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
 
       <div
         style={{
-          flex: 1,
+          flex: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -484,8 +488,10 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
                   leftSection={<IconMail size={18} />}
                   {...form.getInputProps("email")}
                   styles={{
+                    label: { color: "#000" },
                     input: {
                       backgroundColor: "white",
+                      color: "#000",
                       border: "1px solid #e0e0e0",
                       "&:focus": { borderColor: "#00529b" },
                     },
@@ -501,8 +507,10 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
                     leftSection={<IconLock size={18} />}
                     {...form.getInputProps("password")}
                     styles={{
+                      label: { color: "#000" },
                       input: {
                         backgroundColor: "white",
+                        color: "#000",
                         border: "1px solid #e0e0e0",
                         "&:focus": { borderColor: "#00529b" },
                       },

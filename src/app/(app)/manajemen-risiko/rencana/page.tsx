@@ -3,7 +3,18 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
 import Link from "next/link";
-import { Title, Button, Group, Loader, Center, Stack, Text, Card, TextInput } from "@mantine/core";
+import {
+  Title,
+  Button,
+  Group,
+  Loader,
+  Center,
+  Stack,
+  Text,
+  Card,
+  TextInput,
+} from "@mantine/core";
+import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -20,12 +31,27 @@ function computeBesaran(kemungkinanSkala?: number, dampakSkala?: number) {
   return String(kemungkinanSkala * dampakSkala);
 }
 
+function findLevelRisiko(
+  levelKemungkinanId: number | undefined,
+  levelDampakId: number | undefined,
+  matriksData: any[]
+) {
+  if (levelKemungkinanId == null || levelDampakId == null) return "";
+  const match = matriksData.find(
+    (m: any) =>
+      m.levelKemungkinanId === levelKemungkinanId &&
+      m.levelDampakId === levelDampakId
+  );
+  return match?.levelRisiko?.nama ?? "";
+}
+
 export default function RencanaPenangananPage() {
   const hotRef = useRef<HotTableRef>(null);
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
     setIsMounted(true);
@@ -44,12 +70,34 @@ export default function RencanaPenangananPage() {
     }
   };
 
-  const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
-  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
-  const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
-  const rencanaResult = useList({ resource: "rencana-penanganan", pagination: { pageSize: 10000 } });
-  const kemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
-  const dampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
+  const identResult = useList({
+    resource: "identifikasi-risiko",
+    pagination: { pageSize: 10000 },
+  });
+  const analisisResult = useList({
+    resource: "analisis-risiko",
+    pagination: { pageSize: 10000 },
+  });
+  const evaluasiResult = useList({
+    resource: "evaluasi-risiko",
+    pagination: { pageSize: 10000 },
+  });
+  const rencanaResult = useList({
+    resource: "rencana-penanganan",
+    pagination: { pageSize: 10000 },
+  });
+  const kemungkinanList = useList({
+    resource: "level-kemungkinan",
+    pagination: { mode: "off" },
+  });
+  const dampakList = useList({
+    resource: "level-dampak",
+    pagination: { mode: "off" },
+  });
+  const matriksList = useList({
+    resource: "matriks-analisis-risiko",
+    pagination: { mode: "off" },
+  });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
@@ -57,27 +105,71 @@ export default function RencanaPenangananPage() {
     (evaluasiResult.query?.isPending ?? false) ||
     (rencanaResult.query?.isPending ?? false) ||
     (kemungkinanList.query?.isPending ?? false) ||
-    (dampakList.query?.isPending ?? false);
+    (dampakList.query?.isPending ?? false) ||
+    (matriksList.query?.isPending ?? false);
 
-  const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
-  const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
-  const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
-  const rencanaData = useMemo(() => rencanaResult.result?.data ?? [], [rencanaResult.result?.data]);
+  const identifikasiData = useMemo(
+    () => identResult.result?.data ?? [],
+    [identResult.result?.data]
+  );
+
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
+
+  const analisisData = useMemo(
+    () => analisisResult.result?.data ?? [],
+    [analisisResult.result?.data]
+  );
+  const evaluasiData = useMemo(
+    () => evaluasiResult.result?.data ?? [],
+    [evaluasiResult.result?.data]
+  );
+  const rencanaData = useMemo(
+    () => rencanaResult.result?.data ?? [],
+    [rencanaResult.result?.data]
+  );
   const refetchQuery = rencanaResult.query?.refetch;
 
-  const kemungkinanData = useMemo(() => kemungkinanList.result?.data ?? [], [kemungkinanList.result?.data]);
-  const dampakData = useMemo(() => dampakList.result?.data ?? [], [dampakList.result?.data]);
+  const kemungkinanData = useMemo(
+    () => kemungkinanList.result?.data ?? [],
+    [kemungkinanList.result?.data]
+  );
+  const dampakData = useMemo(
+    () => dampakList.result?.data ?? [],
+    [dampakList.result?.data]
+  );
+  const matriksData = useMemo(
+    () => matriksList.result?.data ?? [],
+    [matriksList.result?.data]
+  );
 
-  const kemungkinanNamaList = useMemo(() => kemungkinanData.map((o: any) => o.nama), [kemungkinanData]);
-  const dampakNamaList = useMemo(() => dampakData.map((o: any) => o.nama), [dampakData]);
+  const kemungkinanNamaList = useMemo(
+    () => kemungkinanData.map((o: any) => o.nama),
+    [kemungkinanData]
+  );
+  const dampakNamaList = useMemo(
+    () => dampakData.map((o: any) => o.nama),
+    [dampakData]
+  );
 
   useEffect(() => {
     if (loading) return;
-    const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
-    const rencanaById = new Map(rencanaData.map((r: any) => [r.identifikasiRisikoId, r]));
+    const analisisById = new Map(
+      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
+    );
+    const evaluasiById = new Map(
+      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
+    );
+    const rencanaById = new Map(
+      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
+    );
 
-    const filtered = identifikasiData.filter((r: Record<string, any>) => {
+    const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       return ev?.responRisiko === "Mengurangi Risiko";
     });
@@ -92,8 +184,12 @@ export default function RencanaPenangananPage() {
       const lk = an ? kemungkinanById.get(an.levelKemungkinanId) : undefined;
       const ld = an ? dampakById.get(an.levelDampakId) : undefined;
 
-      const residualLK = rp?.residualLevelKemungkinanId ? kemungkinanById.get(rp.residualLevelKemungkinanId) : undefined;
-      const residualLD = rp?.residualLevelDampakId ? dampakById.get(rp.residualLevelDampakId) : undefined;
+      const residualLK = rp?.residualLevelKemungkinanId
+        ? kemungkinanById.get(rp.residualLevelKemungkinanId)
+        : undefined;
+      const residualLD = rp?.residualLevelDampakId
+        ? dampakById.get(rp.residualLevelDampakId)
+        : undefined;
 
       return [
         r.id,
@@ -109,15 +205,41 @@ export default function RencanaPenangananPage() {
         rp?.penanggungJawab ?? "",
         residualLK?.nama ?? "",
         residualLD?.nama ?? "",
+        findLevelRisiko(residualLK?.id, residualLD?.id, matriksData),
         computeBesaran(residualLK?.skala, residualLD?.skala),
       ];
     });
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, null, "", "", "", "", "", "", "", "", "", "", "", ""]);
+      padded.push([
+        null,
+        null,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]);
     }
     setLocalData(padded);
-  }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData, kemungkinanData, dampakData]);
+  }, [
+    loading,
+    filteredIdentifikasiData,
+    analisisData,
+    evaluasiData,
+    rencanaData,
+    kemungkinanData,
+    dampakData,
+    matriksData,
+  ]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -147,20 +269,29 @@ export default function RencanaPenangananPage() {
       payload.targetOutput = (row[8] as string) || null;
       payload.targetWaktu = (row[9] as string) || null;
       payload.penanggungJawab = (row[10] as string) || null;
-      if (!isNaN(residualLKId)) payload.residualLevelKemungkinanId = residualLKId;
+      if (!isNaN(residualLKId))
+        payload.residualLevelKemungkinanId = residualLKId;
       else payload.residualLevelKemungkinanId = null;
       if (!isNaN(residualLDId)) payload.residualLevelDampakId = residualLDId;
       else payload.residualLevelDampakId = null;
 
       if (isNaN(rencanaId) || rencanaId === 0) {
-        newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
+        newRows.push({
+          index: idx,
+          identId,
+          payload: { ...payload, identifikasiRisikoId: identId },
+        });
       } else {
         updateRows.push({ index: idx, id: rencanaId, payload });
       }
     });
 
     if (newRows.length === 0 && updateRows.length === 0) {
-      notifications.show({ title: "Tidak Ada Data", message: "Tidak ada perubahan yang perlu disimpan", color: "orange" });
+      notifications.show({
+        title: "Tidak Ada Data",
+        message: "Tidak ada perubahan yang perlu disimpan",
+        color: "orange",
+      });
       setSaving(false);
       return;
     }
@@ -176,7 +307,9 @@ export default function RencanaPenangananPage() {
             }).then(async (res) => {
               if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err?.error ?? `Gagal menyimpan baris ${index + 1}`);
+                throw new Error(
+                  err?.error ?? `Gagal menyimpan baris ${index + 1}`
+                );
               }
               return res.json().then((data) => ({ index, data }));
             })
@@ -204,10 +337,18 @@ export default function RencanaPenangananPage() {
           )
         );
       }
-      notifications.show({ title: "Tersimpan", message: "Semua data berhasil disimpan", color: "green" });
+      notifications.show({
+        title: "Tersimpan",
+        message: "Semua data berhasil disimpan",
+        color: "green",
+      });
       if (refetchQuery) refetchQuery();
     } catch (e: any) {
-      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal menyimpan data", color: "red" });
+      notifications.show({
+        title: "Gagal",
+        message: e?.message ?? "Gagal menyimpan data",
+        color: "red",
+      });
     } finally {
       setSaving(false);
     }
@@ -218,8 +359,20 @@ export default function RencanaPenangananPage() {
     { title: "Rencana ID", data: 1, type: "numeric", width: 1 },
     { title: "Prioritas", data: 2, type: "text", width: 130, readOnly: true },
     { title: "Risiko", data: 3, type: "text", width: 220, readOnly: true },
-    { title: "Besaran Risiko Aktual", data: 4, type: "text", width: 120, readOnly: true },
-    { title: "Besaran Risiko Residual", data: 5, type: "text", width: 120, readOnly: true },
+    {
+      title: "Besaran Risiko Aktual",
+      data: 4,
+      type: "text",
+      width: 120,
+      readOnly: true,
+    },
+    {
+      title: "Besaran Risiko Residual",
+      data: 5,
+      type: "text",
+      width: 120,
+      readOnly: true,
+    },
     { title: "Rencana Tindak Penanganan", data: 6, type: "text", width: 240 },
     { title: "Jenis Penanganan", data: 7, type: "text", width: 180 },
     { title: "Target Output", data: 8, type: "text", width: 180 },
@@ -241,7 +394,20 @@ export default function RencanaPenangananPage() {
       width: 150,
       strict: true,
     },
-    { title: "Besaran Risiko", data: 13, type: "text", width: 130, readOnly: true },
+    {
+      title: "Level Risiko",
+      data: 13,
+      type: "text",
+      width: 140,
+      readOnly: true,
+    },
+    {
+      title: "Besaran Risiko",
+      data: 14,
+      type: "text",
+      width: 130,
+      readOnly: true,
+    },
   ];
 
   if (loading || !isMounted) {
@@ -270,7 +436,9 @@ export default function RencanaPenangananPage() {
         </Group>
       </Group>
       <Text size="sm" c="dimmed">
-        Hanya menampilkan risiko dengan Respon Risiko &quot;Mengurangi Risiko&quot;. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel.
+        Hanya menampilkan risiko dengan Respon Risiko &quot;Mengurangi
+        Risiko&quot;. Seret kolom untuk memindahkan, tarik sudut sel untuk
+        autofill, gunakan Ctrl+C/V untuk salin-tempel.
       </Text>
       <HotTable
         ref={hotRef}
@@ -290,6 +458,7 @@ export default function RencanaPenangananPage() {
           "Penanggung Jawab",
           "Level Kemungkinan",
           "Level Dampak",
+          "Level Risiko",
           "Besaran Risiko",
         ]}
         hiddenColumns={{
@@ -304,7 +473,7 @@ export default function RencanaPenangananPage() {
             { label: "Risiko", colspan: 1 },
             { label: "Besaran Risiko", colspan: 2 },
             { label: "Rencana Penanganan Risiko", colspan: 5 },
-            { label: "Risiko Residual Harapan", colspan: 3 },
+            { label: "Risiko Residual Harapan", colspan: 4 },
           ],
           [
             "Ident ID",
@@ -320,6 +489,7 @@ export default function RencanaPenangananPage() {
             "Penanggung Jawab",
             "Level Kemungkinan",
             "Level Dampak",
+            "Level Risiko",
             "Besaran Risiko",
           ],
         ]}
@@ -329,7 +499,7 @@ export default function RencanaPenangananPage() {
           if (!hot) return;
           for (const [row, col] of changes) {
             if (col === 11 || col === 12) {
-              recalcRow(hot, row, kemungkinanData, dampakData);
+              recalcRow(hot, row, kemungkinanData, dampakData, matriksData);
             }
           }
         }}
@@ -361,12 +531,20 @@ export default function RencanaPenangananPage() {
   );
 }
 
-function recalcRow(hot: Handsontable, row: number, kemungkinanData: any[], dampakData: any[]) {
+function recalcRow(
+  hot: Handsontable,
+  row: number,
+  kemungkinanData: any[],
+  dampakData: any[],
+  matriksData: any[]
+) {
   const lkNama = hot.getDataAtCell(row, 11) as string;
   const ldNama = hot.getDataAtCell(row, 12) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   const besaran = computeBesaran(lk?.skala, ld?.skala);
+  const levelRisiko = findLevelRisiko(lk?.id, ld?.id, matriksData);
   hot.setDataAtCell(row, 5, besaran, "recalc");
-  hot.setDataAtCell(row, 13, besaran, "recalc");
+  hot.setDataAtCell(row, 13, levelRisiko, "recalc");
+  hot.setDataAtCell(row, 14, besaran, "recalc");
 }

@@ -513,7 +513,7 @@ async function main() {
     // Create default users linked to roles
     await prisma.user.create({
       data: {
-        email: "admin@erm.com",
+        email: "admin@mr.com",
         name: "Administrator",
         password: "admin123",
         roleId: adminRole.id,
@@ -522,7 +522,7 @@ async function main() {
 
     await prisma.user.create({
       data: {
-        email: "ketuatim@erm.com",
+        email: "ketuatim@mr.com",
         name: "Ketua Tim",
         password: "tim123",
         roleId: ketuaTimRole.id,

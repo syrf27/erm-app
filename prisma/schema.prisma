@@ -61,8 +61,9 @@ model Sasaran {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   unitKerja   UnitKerja? @relation(fields: [unitKerjaId], references: [id])
-  unitKerjaId Int?
-  kegiatans   Kegiatan[]
+  unitKerjaId          Int?
+  kegiatans            Kegiatan[]
+  identifikasiRisikos  IdentifikasiRisiko[]
 }
 
 model ProsesBisnis {
@@ -71,8 +72,9 @@ model ProsesBisnis {
   deskripsi  String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  kegiatan   Kegiatan? @relation(fields: [kegiatanId], references: [id])
-  kegiatanId Int?
+  kegiatan            Kegiatan?             @relation(fields: [kegiatanId], references: [id])
+  kegiatanId          Int?
+  identifikasiRisikos IdentifikasiRisiko[]
 }
 
 model PemangkuKepentingan {
@@ -224,6 +226,7 @@ model SeleraRisiko {
 
 model IdentifikasiRisiko {
   id                Int                @id @default(autoincrement())
+  tahun             Int                @default(2026)
   risiko            String
   jenisRisikoId     Int
   jenisRisiko       JenisRisiko        @relation(fields: [jenisRisikoId], references: [id])
@@ -235,7 +238,9 @@ model IdentifikasiRisiko {
   areaDampak        AreaDampak         @relation(fields: [areaDampakId], references: [id])
   penyebab          String?
   dampak            String?
+  sasaranId         Int?
   kegiatanId        Int?
+  prosesBisnisId    Int?
   unitKerjaId       Int?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -243,8 +248,10 @@ model IdentifikasiRisiko {
   evaluasiRisiko    EvaluasiRisiko?
   rencanaPenanganan RencanaPenanganan?
   kris              Kri[]
+  sasaran           Sasaran?           @relation(fields: [sasaranId], references: [id], onDelete: SetNull)
   unitKerja         UnitKerja?         @relation(fields: [unitKerjaId], references: [id])
   kegiatan          Kegiatan?          @relation(fields: [kegiatanId], references: [id])
+  prosesBisnis      ProsesBisnis?      @relation(fields: [prosesBisnisId], references: [id], onDelete: SetNull)
 }
 
 model AnalisisRisiko {

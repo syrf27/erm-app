@@ -4,6 +4,14 @@ import { resourceMap, includeMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import { checkPermission } from "@/lib/access-control";
+import {
+  getOrSet,
+  delCache,
+  delCacheByPattern,
+  isReferenceResource,
+  shouldInvalidateDashboard,
+  isAuthResource,
+} from "@/lib/cache";
 
 // Force recompile to load updated resource map
 function getDelegate(resource: string) {
@@ -30,6 +38,18 @@ export async function GET(
     const ids = searchParams.getAll("id");
     if (ids.length > 0) {
       const delegate = getDelegate(resource);
+      if (isReferenceResource(resource)) {
+        const cacheKey = `ref:${resource}:ids:${[...ids].sort().join(",")}`;
+        const data = await getOrSet(
+          cacheKey,
+          () =>
+            delegate.findMany({
+              where: { id: { in: ids.map(Number) } },
+            }),
+          3600
+        );
+        return NextResponse.json(data);
+      }
       const data = await delegate.findMany({
         where: { id: { in: ids.map(Number) } },
       });
@@ -40,10 +60,32 @@ export async function GET(
     const _end = parseInt(searchParams.get("_end") ?? "10");
     const _sort = searchParams.get("_sort") ?? "id";
     const _order = searchParams.get("_order") ?? "asc";
-    const take = _end - _start;
 
     const delegate = getDelegate(resource);
     const include = includeMap[resource];
+
+    if (isReferenceResource(resource)) {
+      const cacheKey = `ref:${resource}:list`;
+      const cached = await getOrSet(
+        cacheKey,
+        async () => {
+          const [total, data] = await Promise.all([
+            delegate.count(),
+            delegate.findMany({
+              orderBy: { [_sort]: _order },
+              include,
+            }),
+          ]);
+          return { data, total };
+        },
+        3600
+      );
+      return NextResponse.json(cached.data.slice(_start, _end), {
+        headers: { "x-total-count": String(cached.total) },
+      });
+    }
+
+    const take = _end - _start;
     const [total, data] = await Promise.all([
       delegate.count(),
       delegate.findMany({
@@ -103,6 +145,17 @@ export async function POST(
       ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
       userAgent: request.headers.get("user-agent") || "unknown",
     });
+
+    // Invalidate cache
+    if (isReferenceResource(resource)) {
+      await delCache(`ref:${resource}:list`);
+    }
+    if (shouldInvalidateDashboard(resource)) {
+      await delCache("dashboard:stats");
+    }
+    if (isAuthResource(resource)) {
+      await delCacheByPattern("user:permissions:*");
+    }
 
     return NextResponse.json(item, { status: 201 });
   } catch (e: any) {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
 import Link from "next/link";
 import { Title, Button, Group, Loader, Center, Stack, Text, Card, TextInput } from "@mantine/core";
+import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -21,6 +22,7 @@ export default function AnalisisRisikoPage() {
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
     setIsMounted(true);
@@ -59,6 +61,14 @@ export default function AnalisisRisikoPage() {
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
   const refetchQuery = analisisResult.query?.refetch;
 
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
+
   const kemungkinanData = useMemo(() => levelKemungkinanList.result?.data ?? [], [levelKemungkinanList.result?.data]);
   const dampakData = useMemo(() => levelDampakList.result?.data ?? [], [levelDampakList.result?.data]);
   const risikoData = useMemo(() => levelRisikoList.result?.data ?? [], [levelRisikoList.result?.data]);
@@ -71,7 +81,7 @@ export default function AnalisisRisikoPage() {
   useEffect(() => {
     if (loading) return;
     const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const mapped = identifikasiData.map((r: Record<string, any>) => {
+    const mapped = filteredIdentifikasiData.map((r: Record<string, any>) => {
       const a = analisisById.get(r.id);
       const lk = kemungkinanData.find((o: any) => o.id === a?.levelKemungkinanId);
       const ld = dampakData.find((o: any) => o.id === a?.levelDampakId);
@@ -94,7 +104,7 @@ export default function AnalisisRisikoPage() {
       padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, identifikasiData, analisisData, kemungkinanData, dampakData, risikoData]);
+  }, [loading, filteredIdentifikasiData, analisisData, kemungkinanData, dampakData, risikoData]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -214,6 +224,7 @@ export default function AnalisisRisikoPage() {
       source: risikoNamaList,
       width: 180,
       strict: true,
+      readOnly: true,
     },
     { title: "Besaran Risiko", data: 6, type: "text", width: 130, readOnly: true },
     { title: "Uraian", data: 7, type: "text", width: 250 },

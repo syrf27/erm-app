@@ -1,5 +1,5 @@
 export const resourceMap: Record<string, string> = {
-  "sasaran": "sasaran",
+  sasaran: "sasaran",
   "proses-bisnis": "prosesBisnis",
   "pemangku-kepentingan": "pemangkuKepentingan",
   "peraturan-perundangan": "peraturanPerundangan",
@@ -16,17 +16,17 @@ export const resourceMap: Record<string, string> = {
   "selera-risiko": "seleraRisiko",
   "identifikasi-risiko": "identifikasiRisiko",
   "unit-kerja": "unitKerja",
-  "kegiatan": "kegiatan",
+  kegiatan: "kegiatan",
   "analisis-risiko": "analisisRisiko",
   "evaluasi-risiko": "evaluasiRisiko",
   "rencana-penanganan": "rencanaPenanganan",
-  "kri": "kri",
+  kri: "kri",
   "matriks-analisis-risiko": "matriksAnalisisRisiko",
   "pelaporan-risiko": "rencanaPenanganan",
-  "faq": "faq",
-  "users": "user",
-  "roles": "role",
-  "permissions": "permission",
+  faq: "faq",
+  users: "user",
+  roles: "role",
+  permissions: "permission",
 };
 
 export const includeMap: Record<string, any> = {
@@ -66,6 +66,11 @@ export const includeMap: Record<string, any> = {
     kategoriRisiko: { select: { id: true, nama: true } },
   },
   "identifikasi-risiko": {
+    sasaran: { select: { id: true, nama: true } },
+    kegiatan: {
+      select: { id: true, nama: true, sasaranId: true, unitKerjaId: true },
+    },
+    prosesBisnis: { select: { id: true, nama: true, kegiatanId: true } },
     jenisRisiko: { select: { id: true, nama: true } },
     sumberRisiko: { select: { id: true, nama: true } },
     kategoriRisiko: { select: { id: true, nama: true } },
@@ -74,7 +79,7 @@ export const includeMap: Record<string, any> = {
   "analisis-risiko": {
     identifikasiRisiko: { select: { id: true, risiko: true } },
     levelKemungkinan: { select: { id: true, nama: true, skala: true } },
-    levelDampak: { select: { id: true, nama: true } },
+    levelDampak: { select: { id: true, nama: true, skala: true } },
     levelRisiko: { select: { id: true, nama: true } },
   },
   "rencana-penanganan": {

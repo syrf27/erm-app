@@ -1,6 +1,7 @@
 "use client";
 
 import { useLogout, useGetIdentity } from "@refinedev/core";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, type PropsWithChildren } from "react";
@@ -16,14 +17,15 @@ import {
   Stack,
   ActionIcon,
   Avatar,
+  Menu,
   Tooltip,
+  Box,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconDashboard,
   IconLogout,
-  IconFileDescription,
   IconActivity,
   IconTargetArrow,
   IconQuestionMark,
@@ -43,8 +45,11 @@ import {
   IconFileAnalytics,
   IconUsers,
   IconLibrary,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
+import { YearProvider, useYear } from "@/lib/year-context";
+import { YearFilter } from "@/components/YearFilter";
 
 interface MenuItem {
   label: string;
@@ -100,11 +105,11 @@ const menuItems: MenuItem[] = [
     icon: <IconActivity size={18} />,
     href: "/pemantauan-risiko",
   },
-  {
-    label: "KRI",
-    icon: <IconChartBar size={18} />,
-    href: "/kri",
-  },
+  // {
+  //   label: "KRI",
+  //   icon: <IconChartBar size={18} />,
+  //   href: "/kri",
+  // },
   {
     label: "Pelaporan Risiko",
     icon: <IconTargetArrow size={18} />,
@@ -116,14 +121,20 @@ const menuItems: MenuItem[] = [
     href: "/audit-log",
   },
   {
-    label: "User Management",
-    icon: <IconUsers size={18} />,
-    href: "/users",
-  },
-  {
-    label: "Role Management",
-    icon: <IconSettings size={18} />,
-    href: "/roles",
+    label: "Manajemen Akses",
+    icon: <IconShieldCheck size={18} />,
+    children: [
+      {
+        label: "Pengguna",
+        icon: <IconUsers size={16} />,
+        href: "/users",
+      },
+      {
+        label: "Role Permissions",
+        icon: <IconSettings size={16} />,
+        href: "/roles",
+      },
+    ],
   },
   {
     label: "FAQ",
@@ -144,7 +155,15 @@ function renderNavItems(items: MenuItem[], pathname: string, depth = 0) {
           key={item.label}
           label={item.label}
           leftSection={item.icon}
-          defaultOpened={pathname.startsWith("/manajemen-risiko")}
+          defaultOpened={
+            pathname.startsWith("/manajemen-risiko") ||
+            item.children.some((child) =>
+              child.href
+                ? pathname === child.href ||
+                  pathname.startsWith(child.href + "/")
+                : false
+            )
+          }
           childrenOffset={depth === 0 ? 16 : 8}
         >
           {renderNavItems(item.children, pathname, depth + 1)}
@@ -219,14 +238,16 @@ function renderMiniNavItems(items: MenuItem[], pathname: string) {
   });
 }
 
-export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+function LayoutContent({ children }: PropsWithChildren) {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const [logoutOpened, { open: openLogout, close: closeLogout }] = useDisclosure(false);
+  const [logoutOpened, { open: openLogout, close: closeLogout }] =
+    useDisclosure(false);
   const pathname = usePathname();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { data: identity } = useGetIdentity<any>();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const { tahunDari, tahunSampai, setTahunDari, setTahunSampai } = useYear();
 
   const filteredMenuItems = useMemo(() => {
     const permissions = identity?.permissions || [];
@@ -257,13 +278,17 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-           
-
             {/* Logo and Title */}
-            <IconFileDescription size={24} />
-            <Title order={4}>ERM App</Title>
+            <Image
+              src="/manajemen-risiko-logo.svg"
+              alt="Manajemen Risiko App - Pusdiklat BPS"
+              width={32}
+              height={32}
+              priority
+            />
+            <Title order={4}>MR</Title>
 
-             {/* Mobile toggle */}
+            {/* Mobile toggle */}
             <ActionIcon
               onClick={toggleMobile}
               hiddenFrom="sm"
@@ -273,10 +298,10 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
             >
               <IconMenu2 size={20} />
             </ActionIcon>
-            
+
             {/* Desktop toggle */}
-            <Tooltip 
-              label={desktopOpened ? "Collapse sidebar" : "Expand sidebar"} 
+            <Tooltip
+              label={desktopOpened ? "Collapse sidebar" : "Expand sidebar"}
               position="bottom"
             >
               <ActionIcon
@@ -293,30 +318,71 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
                 )}
               </ActionIcon>
             </Tooltip>
-          </Group>
+          </Group>    
 
           <Group gap="sm">
-            <Tooltip label={colorScheme === "dark" ? "Light mode" : "Dark mode"}>
+            <Tooltip
+              label={colorScheme === "dark" ? "Light mode" : "Dark mode"}
+            >
               <ActionIcon
                 variant="light"
                 size="lg"
                 onClick={() => toggleColorScheme()}
                 aria-label="Toggle color scheme"
               >
-                {colorScheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+                {colorScheme === "dark" ? (
+                  <IconSun size={18} />
+                ) : (
+                  <IconMoon size={18} />
+                )}
               </ActionIcon>
             </Tooltip>
             {identity && (
-              <Group gap="sm" visibleFrom="sm">
-                <Avatar
-                  color="blue"
-                  radius="xl"
-                  size="sm"
-                  src={identity.avatar}
-                >
-                  {(identity.name ?? identity.email ?? "U").charAt(0).toUpperCase()}
-                </Avatar>
-                <Stack gap={0}>
+              <Group gap="sm">
+                <Menu position="bottom-end" withArrow shadow="md" width={240}>
+                  <Menu.Target>
+                    <ActionIcon
+                      variant="subtle"
+                      radius="xl"
+                      size="lg"
+                      aria-label="Open profile menu"
+                    >
+                      <Avatar
+                        color="blue"
+                        radius="xl"
+                        size="sm"
+                        src={identity.avatar}
+                      >
+                        {(identity.name ?? identity.email ?? "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </Avatar>
+                    </ActionIcon>
+                  </Menu.Target>
+
+                  <Menu.Dropdown>
+                    <Menu.Label>
+                      <Stack gap={2}>
+                        <Text size="sm" fw={500} lineClamp={1}>
+                          {identity.name ?? "User"}
+                        </Text>
+                        <Text size="xs" c="dimmed" lineClamp={1}>
+                          {identity.email ?? ""}
+                        </Text>
+                      </Stack>
+                    </Menu.Label>
+                    <Menu.Divider />
+                    <Menu.Item
+                      color="red"
+                      leftSection={<IconLogout size={16} />}
+                      onClick={openLogout}
+                    >
+                      Logout
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+
+                <Stack gap={0} visibleFrom="sm">
                   <Text size="sm" fw={500} lineClamp={1}>
                     {identity.name ?? "User"}
                   </Text>
@@ -330,35 +396,48 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="xs">
-        <AppShell.Section grow my="xs">
+      <AppShell.Navbar
+        p="xs"
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        <AppShell.Section
+          grow
+          my="xs"
+          style={{ minHeight: 0, overflowY: "auto", overflowX: "hidden" }}
+        >
           <Stack gap={4} align={desktopOpened ? "stretch" : "center"}>
             {desktopOpened
               ? renderNavItems(filteredMenuItems, pathname)
               : renderMiniNavItems(filteredMenuItems, pathname)}
+            {desktopOpened ? (
+              <>
+                <Box p="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+                  <YearFilter
+                    tahunDari={tahunDari}
+                    tahunSampai={tahunSampai}
+                    onChange={(d, s) => { setTahunDari(d); setTahunSampai(s); }}
+                  />
+                </Box>
+                <NavLink
+                  label="Logout"
+                  leftSection={<IconLogout color="red" size={18} />}
+                  onClick={openLogout}
+                />
+              </>
+            ) : (
+              <Tooltip label="Logout" position="right">
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  size="lg"
+                  onClick={openLogout}
+                  aria-label="Logout"
+                >
+                  <IconLogout size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
           </Stack>
-        </AppShell.Section>
-
-        <AppShell.Section>
-          {desktopOpened ? (
-            <NavLink
-              label="Logout"
-              leftSection={<IconLogout color="red" size={18} />}
-              onClick={openLogout}
-            />
-          ) : (
-            <Tooltip label="Logout" position="right">
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="lg"
-                onClick={openLogout}
-                aria-label="Logout"
-              >
-                <IconLogout size={18} />
-              </ActionIcon>
-            </Tooltip>
-          )}
         </AppShell.Section>
       </AppShell.Navbar>
 
@@ -378,16 +457,20 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
             <Button variant="default" onClick={closeLogout}>
               Batal
             </Button>
-            <Button
-              color="red"
-              onClick={() => logout()}
-              loading={isLoggingOut}
-            >
+            <Button color="red" onClick={() => logout()} loading={isLoggingOut}>
               Logout
             </Button>
           </Group>
         </Stack>
       </Modal>
     </AppShell>
+  );
+}
+
+export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+  return (
+    <YearProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </YearProvider>
   );
 };

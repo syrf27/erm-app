@@ -4,6 +4,13 @@ import { resourceMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import { checkPermission } from "@/lib/access-control";
+import {
+  delCache,
+  delCacheByPattern,
+  isReferenceResource,
+  shouldInvalidateDashboard,
+  isAuthResource,
+} from "@/lib/cache";
 
 function getDelegate(resource: string) {
   const model = resourceMap[resource];
@@ -118,6 +125,17 @@ export async function PATCH(
       userAgent: request.headers.get("user-agent") || "unknown",
     });
 
+    // Invalidate cache
+    if (isReferenceResource(resource)) {
+      await delCache(`ref:${resource}:list`);
+    }
+    if (shouldInvalidateDashboard(resource)) {
+      await delCache("dashboard:stats");
+    }
+    if (isAuthResource(resource)) {
+      await delCacheByPattern("user:permissions:*");
+    }
+
     return NextResponse.json(item);
   } catch (e: any) {
     return NextResponse.json(
@@ -164,6 +182,17 @@ export async function DELETE(
       ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
       userAgent: request.headers.get("user-agent") || "unknown",
     });
+
+    // Invalidate cache
+    if (isReferenceResource(resource)) {
+      await delCache(`ref:${resource}:list`);
+    }
+    if (shouldInvalidateDashboard(resource)) {
+      await delCache("dashboard:stats");
+    }
+    if (isAuthResource(resource)) {
+      await delCacheByPattern("user:permissions:*");
+    }
 
     return NextResponse.json(item);
   } catch (e: any) {

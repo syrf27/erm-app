@@ -7,6 +7,7 @@ import React, { Suspense } from "react";
 
 import { authProviderClient } from "@providers/auth-provider/auth-provider.client";
 import { dataProvider } from "@providers/data-provider";
+import { notificationProvider } from "@providers/notification-provider";
 import "@styles/global.css";
 
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
@@ -43,6 +44,7 @@ export default async function RootLayout({
                     routerProvider={routerProvider}
                     dataProvider={dataProvider}
                     authProvider={authProviderClient}
+                    notificationProvider={notificationProvider}
                   resources={[
                     {
                       name: "dashboard",
@@ -233,11 +235,11 @@ export default async function RootLayout({
                       list: "/pemantauan-risiko",
                       meta: { label: "Pemantauan Risiko" },
                     },
-                    {
-                      name: "kri",
-                      list: "/kri",
-                      meta: { label: "KRI" },
-                    },
+                    // {
+                    //   name: "kri",
+                    //   list: "/kri",
+                    //   meta: { label: "KRI" },
+                    // },
                     {
                       name: "pelaporan-risiko",
                       list: "/pelaporan-risiko",

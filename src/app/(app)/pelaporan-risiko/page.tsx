@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import ExcelJS from "exceljs";
-import { useList } from "@refinedev/core";
+import { useList, useCreate, useUpdate } from "@refinedev/core";
 import {
   Title,
   Button,
@@ -20,15 +20,26 @@ import {
   Select,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconPencil, IconCheck, IconX, IconFileText, IconExternalLink, IconDownload } from "@tabler/icons-react";
+import {
+  IconPencil,
+  IconCheck,
+  IconX,
+  IconFileText,
+  IconExternalLink,
+  IconDownload,
+} from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { useYear } from "@/lib/year-context";
 
 interface ReportRow {
   identId: number;
   rencanaId: number | null;
   no: number;
-  
+
   // Identifikasi
+  sasaran: string;
+  kegiatan: string;
+  prosesBisnis: string;
   risiko: string;
   penyebab: string;
   dampak: string;
@@ -48,7 +59,7 @@ interface ReportRow {
   targetWaktu: string;
   targetOutput: string;
   penanggungJawab: string;
-  
+
   // Residual
   kemungkinanResidual: string;
   dampakResidual: string;
@@ -57,6 +68,7 @@ interface ReportRow {
   warnaResidual: string;
 
   // Pemantauan (Realisasi)
+  keterjadiRisiko: string;
   realisasiWaktu: string;
   realisasiOutput: string;
   dokumenPendukung: string;
@@ -64,11 +76,10 @@ interface ReportRow {
   // Pelaporan (Persetujuan)
   persetujuan: string;
   disetujuiOleh: string;
-  
+
   // Additional fields for Excel
   satuan?: string;
   tim?: string;
-  prosesBisnis?: string;
   kategori?: string;
   areaDampak?: string;
   sumberRisiko?: string;
@@ -80,18 +91,42 @@ export default function PelaporanRisikoPage() {
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const { tahunDari, tahunSampai } = useYear();
 
   // Form State
   const [modalPersetujuan, setModalPersetujuan] = useState("");
   const [modalDisetujuiOleh, setModalDisetujuiOleh] = useState("");
 
-  const identResult = useList({ resource: "identifikasi-risiko", pagination: { mode: "off" } });
-  const analisisResult = useList({ resource: "analisis-risiko", pagination: { mode: "off" } });
-  const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { mode: "off" } });
-  const rencanaResult = useList({ resource: "rencana-penanganan", pagination: { mode: "off" } });
-  const lkResult = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
-  const ldResult = useList({ resource: "level-dampak", pagination: { mode: "off" } });
-  const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const identResult = useList({
+    resource: "identifikasi-risiko",
+    pagination: { mode: "off" },
+  });
+  const analisisResult = useList({
+    resource: "analisis-risiko",
+    pagination: { mode: "off" },
+  });
+  const evaluasiResult = useList({
+    resource: "evaluasi-risiko",
+    pagination: { mode: "off" },
+  });
+  const rencanaResult = useList({
+    resource: "rencana-penanganan",
+    pagination: { mode: "off" },
+  });
+  const lkResult = useList({
+    resource: "level-kemungkinan",
+    pagination: { mode: "off" },
+  });
+  const ldResult = useList({
+    resource: "level-dampak",
+    pagination: { mode: "off" },
+  });
+  const matriksResult = useList({
+    resource: "matriks-analisis-risiko",
+    pagination: { mode: "off" },
+  });
+  const { mutate: createMutate } = useCreate();
+  const { mutate: updateMutate } = useUpdate();
 
   const loading =
     identResult.query.isPending ||
@@ -102,13 +137,43 @@ export default function PelaporanRisikoPage() {
     ldResult.query.isPending ||
     matriksResult.query.isPending;
 
-  const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
-  const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
-  const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
-  const rencanaData = useMemo(() => rencanaResult.result?.data ?? [], [rencanaResult.result?.data]);
-  const lkData = useMemo(() => lkResult.result?.data ?? [], [lkResult.result?.data]);
-  const ldData = useMemo(() => ldResult.result?.data ?? [], [ldResult.result?.data]);
-  const matriksData = useMemo(() => matriksResult.result?.data ?? [], [matriksResult.result?.data]);
+  const identifikasiData = useMemo(
+    () => identResult.result?.data ?? [],
+    [identResult.result?.data]
+  );
+
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
+
+  const analisisData = useMemo(
+    () => analisisResult.result?.data ?? [],
+    [analisisResult.result?.data]
+  );
+  const evaluasiData = useMemo(
+    () => evaluasiResult.result?.data ?? [],
+    [evaluasiResult.result?.data]
+  );
+  const rencanaData = useMemo(
+    () => rencanaResult.result?.data ?? [],
+    [rencanaResult.result?.data]
+  );
+  const lkData = useMemo(
+    () => lkResult.result?.data ?? [],
+    [lkResult.result?.data]
+  );
+  const ldData = useMemo(
+    () => ldResult.result?.data ?? [],
+    [ldResult.result?.data]
+  );
+  const matriksData = useMemo(
+    () => matriksResult.result?.data ?? [],
+    [matriksResult.result?.data]
+  );
   const refetchQuery = rencanaResult.query?.refetch;
 
   // Compile all data rows
@@ -117,11 +182,17 @@ export default function PelaporanRisikoPage() {
 
     const lkById = new Map(lkData.map((lk: any) => [lk.id, lk]));
     const ldById = new Map(ldData.map((ld: any) => [ld.id, ld]));
-    const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
-    const rencanaById = new Map(rencanaData.map((r: any) => [r.identifikasiRisikoId, r]));
+    const analisisById = new Map(
+      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
+    );
+    const evaluasiById = new Map(
+      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
+    );
+    const rencanaById = new Map(
+      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
+    );
 
-    return identifikasiData.map((r: Record<string, any>, index): ReportRow => {
+    return filteredIdentifikasiData.map((r: Record<string, any>, index): ReportRow => {
       const an = analisisById.get(r.id);
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
@@ -140,9 +211,11 @@ export default function PelaporanRisikoPage() {
 
       if (lkAktual && ldAktual) {
         const matchMatriks = matriksData.find(
-          (m: any) => m.levelKemungkinanId === lkAktual.id && m.levelDampakId === ldAktual.id
+          (m: any) =>
+            m.levelKemungkinanId === lkAktual.id &&
+            m.levelDampakId === ldAktual.id
         );
-        bAktual = matchMatriks?.besaran ?? (lkAktual.skala * ldAktual.skala);
+        bAktual = matchMatriks?.besaran ?? lkAktual.skala * ldAktual.skala;
         levAktual = matchMatriks?.levelRisiko?.nama ?? "Sedang";
         wAktual = matchMatriks?.levelRisiko?.warna ?? "Kuning";
       }
@@ -153,9 +226,12 @@ export default function PelaporanRisikoPage() {
 
       if (lkResidual && ldResidual) {
         const matchMatriks = matriksData.find(
-          (m: any) => m.levelKemungkinanId === lkResidual.id && m.levelDampakId === ldResidual.id
+          (m: any) =>
+            m.levelKemungkinanId === lkResidual.id &&
+            m.levelDampakId === ldResidual.id
         );
-        bResidual = matchMatriks?.besaran ?? (lkResidual.skala * ldResidual.skala);
+        bResidual =
+          matchMatriks?.besaran ?? lkResidual.skala * ldResidual.skala;
         levResidual = matchMatriks?.levelRisiko?.nama ?? "Rendah";
         wResidual = matchMatriks?.levelRisiko?.warna ?? "Hijau";
       }
@@ -164,6 +240,9 @@ export default function PelaporanRisikoPage() {
         identId: r.id,
         rencanaId: rp?.id ?? null,
         no: index + 1,
+        sasaran: r.sasaran?.nama ?? "",
+        kegiatan: r.kegiatan?.nama ?? "",
+        prosesBisnis: r.prosesBisnis?.nama ?? "",
         risiko: r.risiko,
         penyebab: r.penyebab ?? "",
         dampak: r.dampak ?? "",
@@ -184,6 +263,7 @@ export default function PelaporanRisikoPage() {
         besaranResidual: bResidual,
         levelResidual: levResidual,
         warnaResidual: wResidual,
+        keterjadiRisiko: rp?.keterjadiRisiko ?? "",
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
         dokumenPendukung: rp?.dokumenPendukung ?? "",
@@ -191,21 +271,31 @@ export default function PelaporanRisikoPage() {
         disetujuiOleh: rp?.disetujuiOleh ?? "",
         satuan: r.sasaran?.nama ?? "",
         tim: r.tim ?? "",
-        prosesBisnis: r.prosesBisnis?.nama ?? "",
         kategori: r.kategoriRisiko?.nama ?? "",
         areaDampak: r.areaDampak?.nama ?? "",
         sumberRisiko: r.sumberRisiko?.nama ?? "",
         prioritas: bAktual,
       };
     });
-  }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData, lkData, ldData, matriksData]);
+  }, [
+    loading,
+    filteredIdentifikasiData,
+    analisisData,
+    evaluasiData,
+    rencanaData,
+    lkData,
+    ldData,
+    matriksData,
+  ]);
 
   // Paginate rows
   const totalRows = allRows.length;
   const tableRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    return allRows.slice(start, end).map((row, idx) => ({ ...row, no: start + idx + 1 }));
+    return allRows
+      .slice(start, end)
+      .map((row, idx) => ({ ...row, no: start + idx + 1 }));
   }, [allRows, currentPage, pageSize]);
 
   // Reset to page 1 when page size changes
@@ -222,7 +312,7 @@ export default function PelaporanRisikoPage() {
     setModalOpened(true);
   };
 
-  const handleSaveModal = async () => {
+  const handleSaveModal = () => {
     if (!selectedRow) return;
 
     const payload = {
@@ -230,35 +320,72 @@ export default function PelaporanRisikoPage() {
       disetujuiOleh: modalDisetujuiOleh || null,
     };
 
-    try {
-      if (selectedRow.rencanaId === null) {
-        // Create new penanganan record to store approval
-        const res = await fetch("/api/rencana-penanganan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, identifikasiRisikoId: selectedRow.identId }),
-        });
-        if (!res.ok) throw new Error("Gagal menyimpan persetujuan");
-      } else {
-        // Update existing penanganan record
-        const res = await fetch(`/api/rencana-penanganan/${selectedRow.rencanaId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("Gagal memperbarui persetujuan");
-      }
+    if (selectedRow.rencanaId === null) {
+      createMutate(
+        {
+          resource: "rencana-penanganan",
+          values: {
+            ...payload,
+            identifikasiRisikoId: selectedRow.identId,
+          },
+          successNotification: {
+            message: "Persetujuan berhasil disimpan",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal menyimpan persetujuan",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            setModalOpened(false);
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            console.error("Create failed:", error);
+          },
+        }
+      );
+    } else {
+      const origPersetujuan = selectedRow.persetujuan;
+      const origDisetujuiOleh = selectedRow.disetujuiOleh;
 
-      notifications.show({ title: "Tersimpan", message: "Persetujuan berhasil disimpan", color: "green" });
       setModalOpened(false);
-      if (refetchQuery) refetchQuery();
-    } catch (e: any) {
-      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal menyimpan persetujuan", color: "red" });
+
+      updateMutate(
+        {
+          resource: "rencana-penanganan",
+          id: selectedRow.rencanaId,
+          values: payload,
+          mutationMode: "undoable",
+          successNotification: {
+            message: "Persetujuan berhasil diperbarui",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal memperbarui persetujuan",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            if (error?.message === "mutationCancelled") {
+              setModalPersetujuan(origPersetujuan);
+              setModalDisetujuiOleh(origDisetujuiOleh);
+              setModalOpened(true);
+              if (refetchQuery) refetchQuery();
+            } else {
+              console.error("Update failed:", error);
+            }
+          },
+        }
+      );
     }
   };
-
-
-
 
   const getBadgeColor = (warna: string) => {
     switch (warna?.toLowerCase()) {
@@ -312,49 +439,72 @@ export default function PelaporanRisikoPage() {
       const worksheet = workbook.addWorksheet("Pelaporan Risiko");
 
       // Title
-      worksheet.mergeCells("A1:V1");
+      worksheet.mergeCells("A1:AF1");
       const titleCell = worksheet.getCell("A1");
       titleCell.value = "LAPORAN PELAPORAN RISIKO";
-      titleCell.font = { name: "Arial", size: 16, bold: true, color: { argb: "1F2937" } };
+      titleCell.font = {
+        name: "Arial",
+        size: 16,
+        bold: true,
+        color: { argb: "1F2937" },
+      };
       titleCell.alignment = { vertical: "middle", horizontal: "left" };
       worksheet.getRow(1).height = 35;
 
       // Subtitle/Meta Info
-      worksheet.mergeCells("A2:V2");
+      worksheet.mergeCells("A2:AF2");
       const subtitleCell = worksheet.getCell("A2");
-      subtitleCell.value = `Tanggal Unduh: ${new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })}`;
-      subtitleCell.font = { name: "Arial", size: 10, italic: true, color: { argb: "4B5563" } };
+      subtitleCell.value = `Tanggal Unduh: ${new Date().toLocaleDateString(
+        "id-ID",
+        {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }
+      )}`;
+      subtitleCell.font = {
+        name: "Arial",
+        size: 10,
+        italic: true,
+        color: { argb: "4B5563" },
+      };
       subtitleCell.alignment = { vertical: "middle", horizontal: "left" };
       worksheet.getRow(2).height = 20;
 
       // Setup columns array (just to map width keys and default sizes)
       worksheet.columns = [
         { header: "", key: "no", width: 8 },
+        { header: "", key: "sasaran", width: 24 },
+        { header: "", key: "kegiatan", width: 24 },
+        { header: "", key: "prosesBisnis", width: 24 },
         { header: "", key: "risiko", width: 30 },
         { header: "", key: "penyebab", width: 25 },
         { header: "", key: "dampak", width: 25 },
         { header: "", key: "kemungkinanAktual", width: 18 },
         { header: "", key: "dampakAktual", width: 18 },
         { header: "", key: "besaranAktual", width: 20 },
+        { header: "", key: "levelAktual", width: 18 },
         { header: "", key: "pengendalian", width: 30 },
         { header: "", key: "efektivitas", width: 18 },
+        { header: "", key: "kemungkinanResidual", width: 18 },
+        { header: "", key: "dampakResidual", width: 18 },
+        { header: "", key: "levelResidual", width: 18 },
+        { header: "", key: "besaranResidual", width: 20 },
         { header: "", key: "respon", width: 20 },
         { header: "", key: "rencanaPenanganan", width: 30 },
         { header: "", key: "targetWaktu", width: 15 },
         { header: "", key: "targetOutput", width: 25 },
         { header: "", key: "penanggungJawab", width: 20 },
-        { header: "", key: "kemungkinanResidual", width: 18 },
-        { header: "", key: "dampakResidual", width: 18 },
-        { header: "", key: "besaranResidual", width: 20 },
+        { header: "", key: "keterjadiRisiko", width: 20 },
         { header: "", key: "realisasiWaktu", width: 15 },
         { header: "", key: "realisasiOutput", width: 25 },
         { header: "", key: "dokumenPendukung", width: 25 },
+        { header: "", key: "kemungkinanResidualHarapan", width: 18 },
+        { header: "", key: "dampakResidualHarapan", width: 18 },
+        { header: "", key: "levelResidualHarapan", width: 18 },
+        { header: "", key: "besaranResidualHarapan", width: 20 },
         { header: "", key: "persetujuan", width: 18 },
         { header: "", key: "disetujuiOleh", width: 20 },
       ];
@@ -362,39 +512,72 @@ export default function PelaporanRisikoPage() {
       // Define header structure
       const headerRow1 = [
         "No", // A
-        "Risiko", // B
-        "Identifikasi", "", // C, D
-        "Analisis Risiko Aktual", "", "", "", "", // E, F, G, H, I
-        "Evaluasi (Respon)", // J
-        "Rencana Tindak Penanganan (RTP)", "", "", "", // K, L, M, N
-        "Risiko Residual Harapan", "", "", // O, P, Q
-        "Realisasi Pemantauan", "", "", // R, S, T
-        "Persetujuan (Reporting)", "" // U, V
+        "Sasaran", // B
+        "Kegiatan", // C
+        "Proses Bisnis", // D
+        "Risiko", // E
+        "Identifikasi",
+        "", // F, G
+        "Analisis Risiko Aktual",
+        "",
+        "",
+        "", // H, I, J, K
+        "Pengendalian yang Telah Dilaksanakan",
+        "", // L, M
+        "Risiko Residual",
+        "",
+        "",
+        "", // N, O, P, Q
+        "Respons Risiko", // R
+        "Rencana Penanganan Risiko",
+        "",
+        "",
+        "", // S, T, U, V
+        "Pemantauan Tindak Lanjut Penanganan Risiko",
+        "",
+        "",
+        "", // W, X, Y, Z
+        "Risiko Residual Harapan",
+        "",
+        "",
+        "", // AA, AB, AC, AD
+        "Persetujuan (Reporting)",
+        "", // AE, AF
       ];
 
       const headerRow2 = [
         "", // A
         "", // B
-        "Penyebab", // C
-        "Dampak", // D
-        "Kemungkinan", // E
-        "Dampak", // F
-        "Besaran Aktual", // G
-        "Pengendalian", // H
-        "Efektivitas", // I
-        "", // J
-        "Rencana Penanganan", // K
-        "Target Waktu", // L
-        "Target Output", // M
-        "P. Jawab", // N
-        "Kemungkinan", // O
-        "Dampak", // P
-        "Besaran Residual", // Q
-        "Waktu Realisasi", // R
-        "Output Realisasi", // S
-        "Dokumen Pendukung", // T
-        "Persetujuan", // U
-        "Disetujui Oleh" // V
+        "", // C
+        "", // D
+        "", // E
+        "Penyebab", // F
+        "Dampak", // G
+        "Lvl Kemungkinan", // H
+        "Lvl Dampak", // I
+        "Besaran Risiko", // J
+        "Level Risiko", // K
+        "Pengendalian", // L
+        "Efektivitas", // M
+        "Level Kemungkinan", // N
+        "Level Dampak", // O
+        "Level Risiko", // P
+        "Besaran Risiko", // Q
+        "", // R
+        "Rencana Penanganan", // S
+        "Target Waktu", // T
+        "Target Output", // U
+        "P. Jawab", // V
+        "Keterjadian Risiko", // W
+        "Waktu Realisasi", // X
+        "Output Realisasi", // Y
+        "Dokumen Pendukung", // Z
+        "Kemungkinan", // AA
+        "Dampak", // AB
+        "Level Risiko", // AC
+        "Besaran Residual", // AD
+        "Persetujuan", // AE
+        "Disetujui Oleh", // AF
       ];
 
       // Add headers
@@ -403,27 +586,37 @@ export default function PelaporanRisikoPage() {
 
       // Merge header cells
       worksheet.mergeCells("A4:A5"); // No
-      worksheet.mergeCells("B4:B5"); // Risiko
-      worksheet.mergeCells("C4:D4"); // Identifikasi
-      worksheet.mergeCells("E4:I4"); // Analisis Risiko Aktual
-      worksheet.mergeCells("J4:J5"); // Evaluasi (Respon)
-      worksheet.mergeCells("K4:N4"); // Rencana Tindak Penanganan (RTP)
-      worksheet.mergeCells("O4:Q4"); // Risiko Residual Harapan
-      worksheet.mergeCells("R4:T4"); // Realisasi Pemantauan
-      worksheet.mergeCells("U4:V4"); // Persetujuan (Reporting)
+      worksheet.mergeCells("B4:B5"); // Sasaran
+      worksheet.mergeCells("C4:C5"); // Kegiatan
+      worksheet.mergeCells("D4:D5"); // Proses Bisnis
+      worksheet.mergeCells("E4:E5"); // Risiko
+      worksheet.mergeCells("F4:G4"); // Identifikasi
+      worksheet.mergeCells("H4:K4"); // Analisis Risiko Aktual
+      worksheet.mergeCells("L4:M4"); // Pengendalian yang Telah Dilaksanakan
+      worksheet.mergeCells("N4:Q4"); // Risiko Residual
+      worksheet.mergeCells("R4:R5"); // Respons Risiko
+      worksheet.mergeCells("S4:V4"); // Rencana Penanganan Risiko
+      worksheet.mergeCells("W4:Z4"); // Pemantauan Tindak Lanjut Penanganan Risiko
+      worksheet.mergeCells("AA4:AD4"); // Risiko Residual Harapan
+      worksheet.mergeCells("AE4:AF4"); // Persetujuan (Reporting)
 
       // Format headers
-      const headerFont = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFF" } };
+      const headerFont = {
+        name: "Arial",
+        size: 10,
+        bold: true,
+        color: { argb: "FFFFFF" },
+      };
       const headerFill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "374151" } // gray-700
+        fgColor: { argb: "374151" }, // gray-700
       };
       const headerBorder = {
         top: { style: "thin", color: { argb: "4B5563" } },
         left: { style: "thin", color: { argb: "4B5563" } },
         bottom: { style: "thin", color: { argb: "4B5563" } },
-        right: { style: "thin", color: { argb: "4B5563" } }
+        right: { style: "thin", color: { argb: "4B5563" } },
       };
 
       for (let r = 4; r <= 5; r++) {
@@ -433,7 +626,11 @@ export default function PelaporanRisikoPage() {
           cell.font = headerFont;
           cell.fill = headerFill;
           cell.border = headerBorder;
-          cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+            wrapText: true,
+          };
         });
       }
 
@@ -441,104 +638,192 @@ export default function PelaporanRisikoPage() {
       allRows.forEach((row, index) => {
         const dataRow = worksheet.addRow({
           no: index + 1,
+          sasaran: row.sasaran || "-",
+          kegiatan: row.kegiatan || "-",
+          prosesBisnis: row.prosesBisnis || "-",
           risiko: row.risiko,
           penyebab: row.penyebab || "-",
           dampak: row.dampak || "-",
           kemungkinanAktual: row.kemungkinanAktual,
           dampakAktual: row.dampakAktual,
-          besaranAktual: row.besaranAktual > 0 ? `${row.besaranAktual} (${row.levelAktual})` : "-",
+          besaranAktual: row.besaranAktual > 0 ? row.besaranAktual : "-",
+          levelAktual: row.besaranAktual > 0 ? row.levelAktual : "-",
           pengendalian: row.pengendalian || "-",
           efektivitas: row.efektivitas || "-",
+          kemungkinanResidual: row.kemungkinanResidual,
+          dampakResidual: row.dampakResidual,
+          levelResidual: row.levelResidual,
+          besaranResidual: row.besaranResidual > 0 ? row.besaranResidual : "-",
           respon: row.respon,
           rencanaPenanganan: row.rencanaPenanganan || "-",
           targetWaktu: row.targetWaktu || "-",
           targetOutput: row.targetOutput || "-",
           penanggungJawab: row.penanggungJawab || "-",
-          kemungkinanResidual: row.kemungkinanResidual,
-          dampakResidual: row.dampakResidual,
-          besaranResidual: row.besaranResidual > 0 ? `${row.besaranResidual} (${row.levelResidual})` : "-",
+          keterjadiRisiko: row.keterjadiRisiko || "-",
           realisasiWaktu: row.realisasiWaktu || "-",
           realisasiOutput: row.realisasiOutput || "-",
           dokumenPendukung: row.dokumenPendukung ? "Ada Dokumen" : "-",
+          kemungkinanResidualHarapan: row.kemungkinanResidual,
+          dampakResidualHarapan: row.dampakResidual,
+          levelResidualHarapan: row.levelResidual,
+          besaranResidualHarapan:
+            row.besaranResidual > 0 ? row.besaranResidual : "-",
           persetujuan: row.persetujuan,
-          disetujuiOleh: row.disetujuiOleh || "-"
+          disetujuiOleh: row.disetujuiOleh || "-",
         });
 
         dataRow.height = 22;
 
         // Cell borders and alignments
-        dataRow.eachCell({ includeEmpty: true }, (cell: any, colNumber: number) => {
-          cell.border = {
-            top: { style: "thin", color: { argb: "E5E7EB" } },
-            left: { style: "thin", color: { argb: "E5E7EB" } },
-            bottom: { style: "thin", color: { argb: "E5E7EB" } },
-            right: { style: "thin", color: { argb: "E5E7EB" } }
-          };
-          cell.font = { name: "Arial", size: 10 };
+        dataRow.eachCell(
+          { includeEmpty: true },
+          (cell: any, colNumber: number) => {
+            cell.border = {
+              top: { style: "thin", color: { argb: "E5E7EB" } },
+              left: { style: "thin", color: { argb: "E5E7EB" } },
+              bottom: { style: "thin", color: { argb: "E5E7EB" } },
+              right: { style: "thin", color: { argb: "E5E7EB" } },
+            };
+            cell.font = { name: "Arial", size: 10 };
 
-          // Alignment adjustments
-          if ([1, 5, 6, 7, 9, 10, 12, 15, 16, 17, 18, 20, 21].includes(colNumber)) {
-            cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-          } else {
-            cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+            // Alignment adjustments
+            if (
+              [
+                1, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 24, 27, 28, 29,
+                30, 31,
+              ].includes(colNumber)
+            ) {
+              cell.alignment = {
+                vertical: "middle",
+                horizontal: "center",
+                wrapText: true,
+              };
+            } else {
+              cell.alignment = {
+                vertical: "middle",
+                horizontal: "left",
+                wrapText: true,
+              };
+            }
           }
-        });
+        );
 
-        // Color coding for Besaran Aktual (Col 7 / G)
+        // Color coding for Besaran Aktual (Col 10 / J)
         if (row.besaranAktual > 0) {
-          const cellG = dataRow.getCell(7);
+          const cellG = dataRow.getCell(10);
           const colorObj = getExcelBadgeColor(row.warnaAktual);
           cellG.fill = {
             type: "pattern",
             pattern: "solid",
-            fgColor: { argb: colorObj.bg }
+            fgColor: { argb: colorObj.bg },
           };
-          cellG.font = { name: "Arial", size: 10, bold: true, color: { argb: colorObj.text } };
+          cellG.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: colorObj.text },
+          };
         }
 
-        // Color coding for Besaran Residual (Col 17 / Q)
+        // Color coding for Risiko Residual - Besaran Risiko (Col 17 / Q)
         if (row.besaranResidual > 0) {
-          const cellQ = dataRow.getCell(17);
+          const cellM = dataRow.getCell(17);
           const colorObj = getExcelBadgeColor(row.warnaResidual);
-          cellQ.fill = {
+          cellM.fill = {
             type: "pattern",
             pattern: "solid",
-            fgColor: { argb: colorObj.bg }
+            fgColor: { argb: colorObj.bg },
           };
-          cellQ.font = { name: "Arial", size: 10, bold: true, color: { argb: colorObj.text } };
+          cellM.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: colorObj.text },
+          };
         }
 
-        // Color coding for Evaluasi (Respon) (Col 10 / J)
-        const cellJ = dataRow.getCell(10);
+        // Color coding for Besaran Residual Harapan (Col 30 / AD)
+        if (row.besaranResidual > 0) {
+          const cellU = dataRow.getCell(30);
+          const colorObj = getExcelBadgeColor(row.warnaResidual);
+          cellU.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: colorObj.bg },
+          };
+          cellU.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: colorObj.text },
+          };
+        }
+
+        // Color coding for Evaluasi (Respon) (Col 18 / R)
+        const cellN = dataRow.getCell(18);
         if (row.respon === "Mengurangi Risiko") {
-          cellJ.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FEF3C7" } }; // light yellow
-          cellJ.font = { name: "Arial", size: 10, color: { argb: "D97706" } };
+          cellN.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FEF3C7" },
+          }; // light yellow
+          cellN.font = { name: "Arial", size: 10, color: { argb: "D97706" } };
         } else {
-          cellJ.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "ECFDF5" } }; // light green/teal
-          cellJ.font = { name: "Arial", size: 10, color: { argb: "059669" } };
+          cellN.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "ECFDF5" },
+          }; // light green/teal
+          cellN.font = { name: "Arial", size: 10, color: { argb: "059669" } };
         }
 
-        // Color coding for Persetujuan (Col 21 / U)
-        const cellU = dataRow.getCell(21);
+        // Color coding for Persetujuan (Col 31 / AE)
+        const cellY = dataRow.getCell(31);
         if (row.persetujuan === "Disetujui") {
-          cellU.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "DEF7EC" } };
-          cellU.font = { name: "Arial", size: 10, bold: true, color: { argb: "03543F" } };
+          cellY.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "DEF7EC" },
+          };
+          cellY.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: "03543F" },
+          };
         } else if (row.persetujuan === "Ditolak") {
-          cellU.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FDE8E8" } };
-          cellU.font = { name: "Arial", size: 10, bold: true, color: { argb: "9B1C1C" } };
+          cellY.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FDE8E8" },
+          };
+          cellY.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: "9B1C1C" },
+          };
         } else {
-          cellU.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F3F4F6" } };
-          cellU.font = { name: "Arial", size: 10, color: { argb: "4B5563" } };
+          cellY.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "F3F4F6" },
+          };
+          cellY.font = { name: "Arial", size: 10, color: { argb: "4B5563" } };
         }
       });
 
       // Write and trigger download
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Laporan_Pelaporan_Risiko_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = `Laporan_Pelaporan_Risiko_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
 
@@ -571,17 +856,20 @@ export default function PelaporanRisikoPage() {
         <div>
           <Title order={3}>Pelaporan Risiko</Title>
           <Text size="xs" c="dimmed" mt={4}>
-            Laporan terpadu dari proses identifikasi hingga realisasi pemantauan risiko untuk proses persetujuan (approval).
+            Laporan terpadu dari proses identifikasi hingga realisasi pemantauan
+            risiko untuk proses persetujuan (approval).
           </Text>
         </div>
-        <Button
-          leftSection={<IconDownload size={16} />}
-          variant="light"
-          color="green"
-          onClick={handleExportExcel}
-        >
-          Unduh Excel
-        </Button>
+        <Group>
+          <Button
+            leftSection={<IconDownload size={16} />}
+            variant="light"
+            color="green"
+            onClick={handleExportExcel}
+          >
+            Unduh Excel
+          </Button>
+        </Group>
       </Group>
 
       <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>
@@ -590,22 +878,68 @@ export default function PelaporanRisikoPage() {
           highlightOnHover
           withTableBorder
           withColumnBorders
-          style={{ fontSize: 12, minWidth: 2600, borderCollapse: "collapse" }}
+          style={{ fontSize: 12, minWidth: 4000, borderCollapse: "collapse" }}
         >
           <Table.Thead>
             {/* Row 1 Headers */}
             <Table.Tr>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 50 }}>No</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 220 }}>Risiko</Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center" }}>Identifikasi</Table.Th>
-              <Table.Th colSpan={4} style={{ textAlign: "center" }}>Analisis Risiko Aktual</Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center" }}>Pengendalian yang Telah Dilaksanakan</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 160 }}>Respons Risiko</Table.Th>
-              <Table.Th colSpan={4} style={{ textAlign: "center" }}>Rencana Penanganan Risiko</Table.Th>
-              <Table.Th colSpan={3} style={{ textAlign: "center" }}>Risiko Residual Harapan</Table.Th>
-              <Table.Th colSpan={3} style={{ textAlign: "center" }}>Realisasi Pemantauan</Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center", width: 280 }}>Persetujuan (Reporting)</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 80, minWidth: 80, position: "sticky", right: 0, zIndex: 3, background: "var(--mantine-color-body)", boxShadow: "-3px 0 4px rgba(0,0,0,0.06)" }}>Aksi</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 50 }}>
+                No
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 180 }}>
+                Sasaran
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 180 }}>
+                Kegiatan
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 180 }}>
+                Proses Bisnis
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 220 }}>
+                Risiko
+              </Table.Th>
+              <Table.Th colSpan={2} style={{ textAlign: "center" }}>
+                Identifikasi
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Analisis Risiko Aktual
+              </Table.Th>
+              <Table.Th colSpan={2} style={{ textAlign: "center" }}>
+                Pengendalian yang Telah Dilaksanakan
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Risiko Residual
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 160 }}>
+                Respons Risiko
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Rencana Penanganan Risiko
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Pemantauan Tindak Lanjut Penanganan Risiko
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Risiko Residual Harapan
+              </Table.Th>
+              <Table.Th colSpan={2} style={{ textAlign: "center", width: 280 }}>
+                Persetujuan (Reporting)
+              </Table.Th>
+              <Table.Th
+                rowSpan={2}
+                style={{
+                  textAlign: "center",
+                  width: 80,
+                  minWidth: 80,
+                  position: "sticky",
+                  right: 0,
+                  zIndex: 3,
+                  background: "var(--mantine-color-body)",
+                  boxShadow: "-3px 0 4px rgba(0,0,0,0.06)",
+                }}
+              >
+                Aksi
+              </Table.Th>
             </Table.Tr>
             {/* Row 2 Headers */}
             <Table.Tr>
@@ -613,21 +947,37 @@ export default function PelaporanRisikoPage() {
               <Table.Th style={{ width: 180 }}>Dampak</Table.Th>
               <Table.Th style={{ width: 180 }}>Lvl Kemungkinan</Table.Th>
               <Table.Th style={{ width: 180 }}>Lvl Dampak</Table.Th>
-              <Table.Th style={{ width: 120, textAlign: "center" }}>Besaran Risiko</Table.Th>
-              <Table.Th style={{ width: 160, textAlign: "center" }}>Level Risiko</Table.Th>
+              <Table.Th style={{ width: 120, textAlign: "center" }}>
+                Besaran Risiko
+              </Table.Th>
+              <Table.Th style={{ width: 160, textAlign: "center" }}>
+                Level Risiko
+              </Table.Th>
               <Table.Th style={{ width: 180 }}>Pengendalian</Table.Th>
               <Table.Th style={{ width: 120 }}>Efektivitas</Table.Th>
+              <Table.Th style={{ width: 140 }}>Level Kemungkinan</Table.Th>
+              <Table.Th style={{ width: 140 }}>Level Dampak</Table.Th>
+              <Table.Th style={{ width: 140 }}>Level Risiko</Table.Th>
+              <Table.Th style={{ width: 150, textAlign: "center" }}>
+                Besaran Risiko
+              </Table.Th>
               <Table.Th style={{ width: 240 }}>Rencana Penanganan</Table.Th>
               <Table.Th style={{ width: 120 }}>Target Waktu</Table.Th>
               <Table.Th style={{ width: 160 }}>Target Output</Table.Th>
               <Table.Th style={{ width: 140 }}>P. Jawab</Table.Th>
-              <Table.Th style={{ width: 120 }}>Kemungkinan</Table.Th>
-              <Table.Th style={{ width: 120 }}>Dampak</Table.Th>
-              <Table.Th style={{ width: 160, textAlign: "center" }}>Besaran Residual</Table.Th>
+              <Table.Th style={{ width: 150 }}>Keterjadian Risiko</Table.Th>
               <Table.Th style={{ width: 130 }}>Waktu Realisasi</Table.Th>
               <Table.Th style={{ width: 180 }}>Output Realisasi</Table.Th>
               <Table.Th style={{ width: 180 }}>Dokumen Pendukung</Table.Th>
-              <Table.Th style={{ width: 130, textAlign: "center" }}>Persetujuan</Table.Th>
+              <Table.Th style={{ width: 120 }}>Kemungkinan</Table.Th>
+              <Table.Th style={{ width: 120 }}>Dampak</Table.Th>
+              <Table.Th style={{ width: 140 }}>Level Risiko</Table.Th>
+              <Table.Th style={{ width: 160, textAlign: "center" }}>
+                Besaran Residual
+              </Table.Th>
+              <Table.Th style={{ width: 130, textAlign: "center" }}>
+                Persetujuan
+              </Table.Th>
               <Table.Th style={{ width: 150 }}>Disetujui Oleh</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -635,16 +985,26 @@ export default function PelaporanRisikoPage() {
           <Table.Tbody>
             {tableRows.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={24} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
-                  {totalRows === 0 
-                    ? 'Belum ada data risiko teridentifikasi.'
-                    : 'Tidak ada data pada halaman ini.'}
+                <Table.Td
+                  colSpan={33}
+                  align="center"
+                  style={{
+                    color: "var(--mantine-color-gray-5)",
+                    padding: "20px 0",
+                  }}
+                >
+                  {totalRows === 0
+                    ? "Belum ada data risiko teridentifikasi."
+                    : "Tidak ada data pada halaman ini."}
                 </Table.Td>
               </Table.Tr>
             ) : (
               tableRows.map((row) => (
                 <Table.Tr key={row.identId}>
                   <Table.Td align="center">{row.no}</Table.Td>
+                  <Table.Td>{row.sasaran || "-"}</Table.Td>
+                  <Table.Td>{row.kegiatan || "-"}</Table.Td>
+                  <Table.Td>{row.prosesBisnis || "-"}</Table.Td>
                   <Table.Td style={{ fontWeight: 600 }}>{row.risiko}</Table.Td>
                   <Table.Td>{row.penyebab || "-"}</Table.Td>
                   <Table.Td>{row.dampak || "-"}</Table.Td>
@@ -652,16 +1012,22 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{row.dampakAktual}</Table.Td>
                   <Table.Td align="center">
                     {row.besaranAktual > 0 ? (
-                      <Badge color={getBadgeColor(row.warnaAktual)} variant="filled">
+                      <Badge
+                        color={getBadgeColor(row.warnaAktual)}
+                        variant="filled"
+                      >
                         {row.besaranAktual}
                       </Badge>
                     ) : (
                       "-"
                     )}
                   </Table.Td>
-                   <Table.Td align="center">
+                  <Table.Td align="center">
                     {row.besaranAktual > 0 ? (
-                      <Badge color={getBadgeColor(row.warnaAktual)} variant="filled">
+                      <Badge
+                        color={getBadgeColor(row.warnaAktual)}
+                        variant="filled"
+                      >
                         ({row.levelAktual})
                       </Badge>
                     ) : (
@@ -670,13 +1036,40 @@ export default function PelaporanRisikoPage() {
                   </Table.Td>
                   <Table.Td>{row.pengendalian || "-"}</Table.Td>
                   <Table.Td>{row.efektivitas || "-"}</Table.Td>
+                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
+                  <Table.Td>{row.dampakResidual}</Table.Td>
+                  <Table.Td>{row.levelResidual || "-"}</Table.Td>
+                  <Table.Td align="center">
+                    {row.besaranResidual > 0 ? (
+                      <Badge
+                        color={getBadgeColor(row.warnaResidual)}
+                        variant="filled"
+                      >
+                        {row.besaranResidual}
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </Table.Td>
                   <Table.Td align="center">
                     <Badge
-                      color={row.respon === "Mengurangi Risiko" ? "orange" : "teal"}
+                      color={
+                        row.respon === "Mengurangi Risiko" ? "orange" : "teal"
+                      }
                       variant="light"
                       styles={{
-                        root: { maxWidth: "100%", height: "auto", paddingTop: 3, paddingBottom: 3 },
-                        label: { whiteSpace: "normal", overflow: "visible", textOverflow: "clip", lineHeight: 1.3 },
+                        root: {
+                          maxWidth: "100%",
+                          height: "auto",
+                          paddingTop: 3,
+                          paddingBottom: 3,
+                        },
+                        label: {
+                          whiteSpace: "normal",
+                          overflow: "visible",
+                          textOverflow: "clip",
+                          lineHeight: 1.3,
+                        },
                       }}
                     >
                       {row.respon}
@@ -686,18 +1079,23 @@ export default function PelaporanRisikoPage() {
                   <Table.Td align="center">{row.targetWaktu || "-"}</Table.Td>
                   <Table.Td>{row.targetOutput || "-"}</Table.Td>
                   <Table.Td>{row.penanggungJawab || "-"}</Table.Td>
-                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
-                  <Table.Td>{row.dampakResidual}</Table.Td>
                   <Table.Td align="center">
-                    {row.besaranResidual > 0 ? (
-                      <Badge color={getBadgeColor(row.warnaResidual)} variant="filled">
-                        {row.besaranResidual} ({row.levelResidual})
+                    {row.keterjadiRisiko ? (
+                      <Badge
+                        color={
+                          row.keterjadiRisiko === "Terjadi" ? "red" : "green"
+                        }
+                        variant="light"
+                      >
+                        {row.keterjadiRisiko}
                       </Badge>
                     ) : (
                       "-"
                     )}
                   </Table.Td>
-                  <Table.Td align="center">{row.realisasiWaktu || "-"}</Table.Td>
+                  <Table.Td align="center">
+                    {row.realisasiWaktu || "-"}
+                  </Table.Td>
                   <Table.Td>{row.realisasiOutput || "-"}</Table.Td>
                   <Table.Td>
                     {row.dokumenPendukung ? (
@@ -705,12 +1103,24 @@ export default function PelaporanRisikoPage() {
                         <IconFileText size={14} />
                         <Text
                           component="a"
-                          href={row.dokumenPendukung.startsWith("/uploads/") ? row.dokumenPendukung.replace("/uploads/", "/api/uploads/") : row.dokumenPendukung}
+                          href={
+                            row.dokumenPendukung.startsWith("/uploads/")
+                              ? row.dokumenPendukung.replace(
+                                  "/uploads/",
+                                  "/api/uploads/"
+                                )
+                              : row.dokumenPendukung
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           size="xs"
                           c="blue"
-                          style={{ textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 3 }}
+                          style={{
+                            textDecoration: "underline",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
                         >
                           Dokumen
                           <IconExternalLink size={10} />
@@ -720,14 +1130,51 @@ export default function PelaporanRisikoPage() {
                       "-"
                     )}
                   </Table.Td>
+                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
+                  <Table.Td>{row.dampakResidual}</Table.Td>
+                  <Table.Td>{row.levelResidual || "-"}</Table.Td>
                   <Table.Td align="center">
-                    <Badge color={row.persetujuan === "Disetujui" ? "green" : row.persetujuan === "Ditolak" ? "red" : "gray"} variant="filled">
+                    {row.besaranResidual > 0 ? (
+                      <Badge
+                        color={getBadgeColor(row.warnaResidual)}
+                        variant="filled"
+                      >
+                        {row.besaranResidual}
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </Table.Td>
+                  <Table.Td align="center">
+                    <Badge
+                      color={
+                        row.persetujuan === "Disetujui"
+                          ? "green"
+                          : row.persetujuan === "Ditolak"
+                          ? "red"
+                          : "gray"
+                      }
+                      variant="filled"
+                    >
                       {row.persetujuan}
                     </Badge>
                   </Table.Td>
                   <Table.Td>{row.disetujuiOleh || "-"}</Table.Td>
-                  <Table.Td align="center" style={{ position: "sticky", right: 0, zIndex: 2, background: "var(--mantine-color-body)", boxShadow: "-3px 0 4px rgba(0,0,0,0.06)" }}>
-                    <ActionIcon variant="subtle" color="blue" onClick={() => openApprovalModal(row)}>
+                  <Table.Td
+                    align="center"
+                    style={{
+                      position: "sticky",
+                      right: 0,
+                      zIndex: 2,
+                      background: "var(--mantine-color-body)",
+                      boxShadow: "-3px 0 4px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <ActionIcon
+                      variant="subtle"
+                      color="blue"
+                      onClick={() => openApprovalModal(row)}
+                    >
                       <IconPencil size={16} />
                     </ActionIcon>
                   </Table.Td>
@@ -761,8 +1208,12 @@ export default function PelaporanRisikoPage() {
         <Stack gap="md">
           {selectedRow && (
             <Card withBorder padding="xs" bg="var(--mantine-color-gray-0)">
-              <Text size="xs" fw={700} c="dimmed">RISIKO:</Text>
-              <Text size="xs" fw={600} mt={2}>{selectedRow.risiko}</Text>
+              <Text size="xs" fw={700} c="dimmed">
+                RISIKO:
+              </Text>
+              <Text size="xs" fw={600} mt={2}>
+                {selectedRow.risiko}
+              </Text>
             </Card>
           )}
 
@@ -788,9 +1239,7 @@ export default function PelaporanRisikoPage() {
             <Button variant="default" onClick={() => setModalOpened(false)}>
               Batal
             </Button>
-            <Button onClick={handleSaveModal}>
-              Simpan Pelaporan
-            </Button>
+            <Button onClick={handleSaveModal}>Simpan Pelaporan</Button>
           </Group>
         </Stack>
       </Modal>

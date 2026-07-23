@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useList } from "@refinedev/core";
+import { useList, useCreate, useUpdate } from "@refinedev/core";
 import {
   Title,
   Button,
@@ -19,10 +19,18 @@ import {
   ActionIcon,
   SegmentedControl,
   FileButton,
+  Select,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconPencil, IconUpload, IconLink, IconExternalLink, IconFileText } from "@tabler/icons-react";
+import {
+  IconPencil,
+  IconUpload,
+  IconLink,
+  IconExternalLink,
+  IconFileText,
+} from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { useYear } from "@/lib/year-context";
 
 interface RiskRow {
   identId: number;
@@ -44,7 +52,8 @@ export default function PemantauanRisikoPage() {
   const [selectedRow, setSelectedRow] = useState<RiskRow | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
-  
+  const { tahunDari, tahunSampai } = useYear();
+
   // Modal Fields
   const [modalWaktu, setModalWaktu] = useState("");
   const [modalOutput, setModalOutput] = useState("");
@@ -52,24 +61,29 @@ export default function PemantauanRisikoPage() {
   const [modalDocType, setModalDocType] = useState<"link" | "upload">("link");
   const [modalDocLink, setModalDocLink] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
 
-  const identResult = useList({ 
-    resource: "identifikasi-risiko", 
-    pagination: { mode: "off" } // Need all for filtering
+  const identResult = useList({
+    resource: "identifikasi-risiko",
+    pagination: { mode: "off" }, // Need all for filtering
   });
-  const analisisResult = useList({ 
-    resource: "analisis-risiko", 
-    pagination: { mode: "off" }
+  const analisisResult = useList({
+    resource: "analisis-risiko",
+    pagination: { mode: "off" },
   });
-  const evaluasiResult = useList({ 
-    resource: "evaluasi-risiko", 
-    pagination: { mode: "off" }
+  const evaluasiResult = useList({
+    resource: "evaluasi-risiko",
+    pagination: { mode: "off" },
   });
-  const rencanaResult = useList({ 
-    resource: "rencana-penanganan", 
-    pagination: { mode: "off" }
+  const rencanaResult = useList({
+    resource: "rencana-penanganan",
+    pagination: { mode: "off" },
   });
+  const { mutate: createMutate } = useCreate();
+  const { mutate: updateMutate } = useUpdate();
 
   const loading =
     (identResult.query?.isPending ?? false) ||
@@ -77,22 +91,49 @@ export default function PemantauanRisikoPage() {
     (evaluasiResult.query?.isPending ?? false) ||
     (rencanaResult.query?.isPending ?? false);
 
-  const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
-  const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
-  const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
-  const rencanaData = useMemo(() => rencanaResult.result?.data ?? [], [rencanaResult.result?.data]);
+  const identifikasiData = useMemo(
+    () => identResult.result?.data ?? [],
+    [identResult.result?.data]
+  );
+
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
+
+  const analisisData = useMemo(
+    () => analisisResult.result?.data ?? [],
+    [analisisResult.result?.data]
+  );
+  const evaluasiData = useMemo(
+    () => evaluasiResult.result?.data ?? [],
+    [evaluasiResult.result?.data]
+  );
+  const rencanaData = useMemo(
+    () => rencanaResult.result?.data ?? [],
+    [rencanaResult.result?.data]
+  );
   const refetchQuery = rencanaResult.query?.refetch;
 
   // Compile data row mapping
   const allRows = useMemo((): RiskRow[] => {
     if (loading) return [];
-    
-    const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
-    const rencanaById = new Map(rencanaData.map((r: any) => [r.identifikasiRisikoId, r]));
+
+    const analisisById = new Map(
+      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
+    );
+    const evaluasiById = new Map(
+      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
+    );
+    const rencanaById = new Map(
+      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
+    );
 
     // Only filter risks with respon "Mengurangi Risiko"
-    const filtered = identifikasiData.filter((r: Record<string, any>) => {
+    const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       return ev?.responRisiko === "Mengurangi Risiko";
     });
@@ -116,14 +157,16 @@ export default function PemantauanRisikoPage() {
         dokumenPendukung: rp?.dokumenPendukung ?? "",
       };
     });
-  }, [loading, identifikasiData, analisisData, evaluasiData, rencanaData]);
+  }, [loading, filteredIdentifikasiData, analisisData, evaluasiData, rencanaData]);
 
   // Paginate rows
   const totalRows = allRows.length;
   const tableRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    return allRows.slice(start, end).map((row, idx) => ({ ...row, no: start + idx + 1 }));
+    return allRows
+      .slice(start, end)
+      .map((row, idx) => ({ ...row, no: start + idx + 1 }));
   }, [allRows, currentPage, pageSize]);
 
   // Reset to page 1 when page size changes
@@ -161,15 +204,20 @@ export default function PemantauanRisikoPage() {
     setSelectedRow(row);
     setModalWaktu(convertToInputDate(row.realisasiWaktu));
     setModalOutput(row.realisasiOutput);
-    
+    setModalKeterjadian(row.keterjadiRisiko);
+
     // Check if the current value looks like a link or local uploaded file path
-    const isLocalUpload = row.dokumenPendukung.startsWith("/uploads/") || row.dokumenPendukung.startsWith("/api/uploads/");
+    const isLocalUpload =
+      row.dokumenPendukung.startsWith("/uploads/") ||
+      row.dokumenPendukung.startsWith("/api/uploads/");
     if (isLocalUpload) {
       setModalDocType("upload");
-      const cleanName = row.dokumenPendukung.replace("/api/uploads/", "").replace("/uploads/", "");
+      const cleanName = row.dokumenPendukung
+        .replace("/api/uploads/", "")
+        .replace("/uploads/", "");
       setUploadedFile({
         name: cleanName.split("_").slice(1).join("_") || "File Pendukung",
-        url: row.dokumenPendukung
+        url: row.dokumenPendukung,
       });
       setModalDocLink("");
     } else {
@@ -196,18 +244,26 @@ export default function PemantauanRisikoPage() {
 
       if (!res.ok) throw new Error("Gagal mengupload berkas");
       const data = await res.json();
-      
+
       setUploadedFile({ name: data.filename, url: data.url });
-      notifications.show({ title: "Berhasil", message: "Berkas berhasil diupload", color: "green" });
+      notifications.show({
+        title: "Berhasil",
+        message: "Berkas berhasil diupload",
+        color: "green",
+      });
     } catch (e: any) {
-      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal mengupload berkas", color: "red" });
+      notifications.show({
+        title: "Gagal",
+        message: e?.message ?? "Gagal mengupload berkas",
+        color: "red",
+      });
     } finally {
       setUploading(false);
     }
   };
 
   // Submit Modal Save
-  const handleSaveModal = async () => {
+  const handleSaveModal = () => {
     if (!selectedRow) return;
 
     let docValue = "";
@@ -218,35 +274,83 @@ export default function PemantauanRisikoPage() {
     }
 
     const payload = {
+      keterjadiRisiko: modalKeterjadian || null,
       realisasiWaktu: convertToDisplayDate(modalWaktu) || null,
       realisasiOutput: modalOutput || null,
       dokumenPendukung: docValue || null,
     };
 
-    try {
-      if (selectedRow.rencanaId === null) {
-        // Create new record
-        const res = await fetch("/api/rencana-penanganan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, identifikasiRisikoId: selectedRow.identId }),
-        });
-        if (!res.ok) throw new Error("Gagal menyimpan realisasi");
-      } else {
-        // Update existing record
-        const res = await fetch(`/api/rencana-penanganan/${selectedRow.rencanaId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("Gagal memperbarui realisasi");
-      }
+    if (selectedRow.rencanaId === null) {
+      createMutate(
+        {
+          resource: "rencana-penanganan",
+          values: {
+            ...payload,
+            identifikasiRisikoId: selectedRow.identId,
+          },
+          successNotification: {
+            message: "Realisasi pemantauan berhasil disimpan",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal menyimpan realisasi",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            setModalOpened(false);
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            console.error("Create failed:", error);
+          },
+        }
+      );
+    } else {
+      const origKeterjadian = selectedRow.keterjadiRisiko;
+      const origWaktu = selectedRow.realisasiWaktu;
+      const origOutput = selectedRow.realisasiOutput;
+      const origDokumen = selectedRow.dokumenPendukung;
 
-      notifications.show({ title: "Tersimpan", message: "Realisasi pemantauan berhasil disimpan", color: "green" });
       setModalOpened(false);
-      if (refetchQuery) refetchQuery();
-    } catch (e: any) {
-      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal menyimpan realisasi", color: "red" });
+
+      updateMutate(
+        {
+          resource: "rencana-penanganan",
+          id: selectedRow.rencanaId,
+          values: payload,
+          mutationMode: "undoable",
+          undoableTimeout: 3000,
+          successNotification: {
+            message: "Realisasi pemantauan berhasil disimpan",
+            type: "success" as const,
+          },
+          errorNotification: {
+            message: "Gagal memperbarui realisasi",
+            type: "error" as const,
+          },
+        },
+        {
+          onSuccess: () => {
+            if (refetchQuery) refetchQuery();
+          },
+          onError: (error: any) => {
+            if (error?.message === "mutationCancelled") {
+              setModalKeterjadian(origKeterjadian);
+              setModalWaktu(origWaktu);
+              setModalOutput(origOutput);
+              setModalDocType(origDokumen ? "link" : "upload");
+              setModalDocLink(origDokumen ?? "");
+              setUploadedFile(origDokumen ? { name: "", url: origDokumen } : null);
+              setModalOpened(true);
+              if (refetchQuery) refetchQuery();
+            } else {
+              console.error("Update failed:", error);
+            }
+          },
+        }
+      );
     }
   };
 
@@ -286,7 +390,8 @@ export default function PemantauanRisikoPage() {
       <div>
         <Title order={3}>Pemantauan Risiko</Title>
         <Text size="xs" c="dimmed" mt={4}>
-          Pemantauan Risiko diisi apabila sudah dilaksanakan RTP-nya sesuai Target Waktunya dan sertakan pula dokumen pendukungnya.
+          Pemantauan Risiko diisi apabila sudah dilaksanakan RTP-nya sesuai
+          Target Waktunya dan sertakan pula dokumen pendukungnya.
         </Text>
       </div>
 
@@ -301,30 +406,62 @@ export default function PemantauanRisikoPage() {
           <Table.Thead>
             {/* First Row of headers */}
             <Table.Tr>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 50 }}>No</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 110 }}>Prioritas</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center" }}>Rencana Tindak Penanganan</Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center" }}>Target</Table.Th>
-              <Table.Th colSpan={3} style={{ textAlign: "center" }}>Realisasi</Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 70 }}>Aksi</Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 50 }}>
+                No
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 110 }}>
+                Prioritas
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center" }}>
+                Rencana Tindak Penanganan
+              </Table.Th>
+              <Table.Th colSpan={2} style={{ textAlign: "center" }}>
+                Target
+              </Table.Th>
+              <Table.Th colSpan={4} style={{ textAlign: "center" }}>
+                Realisasi
+              </Table.Th>
+              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 70 }}>
+                Aksi
+              </Table.Th>
             </Table.Tr>
             {/* Second Row of headers */}
             <Table.Tr>
-              <Table.Th style={{ textAlign: "center", width: 120 }}>Waktu</Table.Th>
-              <Table.Th style={{ textAlign: "center", width: 160 }}>Output</Table.Th>
-              <Table.Th style={{ textAlign: "center", width: 120 }}>Waktu</Table.Th>
-              <Table.Th style={{ textAlign: "center", width: 160 }}>Output</Table.Th>
-              <Table.Th style={{ textAlign: "center" }}>Dokumen Pendukung</Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 120 }}>
+                Waktu
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 160 }}>
+                Output
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 140 }}>
+                Keterjadian Risiko
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 120 }}>
+                Waktu
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 160 }}>
+                Output
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center" }}>
+                Dokumen Pendukung
+              </Table.Th>
             </Table.Tr>
           </Table.Thead>
 
           <Table.Tbody>
             {tableRows.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={9} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
-                  {totalRows === 0 
+                <Table.Td
+                  colSpan={10}
+                  align="center"
+                  style={{
+                    color: "var(--mantine-color-gray-5)",
+                    padding: "20px 0",
+                  }}
+                >
+                  {totalRows === 0
                     ? 'Belum ada Rencana Tindak Penanganan dengan Respon "Mengurangi Risiko".'
-                    : 'Tidak ada data pada halaman ini.'}
+                    : "Tidak ada data pada halaman ini."}
                 </Table.Td>
               </Table.Tr>
             ) : (
@@ -332,14 +469,40 @@ export default function PemantauanRisikoPage() {
                 <Table.Tr key={row.identId}>
                   <Table.Td align="center">{row.no}</Table.Td>
                   <Table.Td align="center">
-                    <Badge color={getBadgeColor(row.prioritasWarna)} variant="filled" size="sm">
+                    <Badge
+                      color={getBadgeColor(row.prioritasWarna)}
+                      variant="filled"
+                      size="sm"
+                    >
                       {row.prioritas}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>{row.rencanaTindakPenanganan || <Text size="xs" c="dimmed">Belum diisi</Text>}</Table.Td>
+                  <Table.Td>
+                    {row.rencanaTindakPenanganan || (
+                      <Text size="xs" c="dimmed">
+                        Belum diisi
+                      </Text>
+                    )}
+                  </Table.Td>
                   <Table.Td align="center">{row.targetWaktu || "-"}</Table.Td>
                   <Table.Td>{row.targetOutput || "-"}</Table.Td>
-                  <Table.Td align="center" style={{ fontWeight: 600 }}>{row.realisasiWaktu || "-"}</Table.Td>
+                  <Table.Td align="center">
+                    {row.keterjadiRisiko ? (
+                      <Badge
+                        color={
+                          row.keterjadiRisiko === "Terjadi" ? "red" : "green"
+                        }
+                        variant="light"
+                      >
+                        {row.keterjadiRisiko}
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </Table.Td>
+                  <Table.Td align="center" style={{ fontWeight: 600 }}>
+                    {row.realisasiWaktu || "-"}
+                  </Table.Td>
                   <Table.Td>{row.realisasiOutput || "-"}</Table.Td>
                   <Table.Td>
                     {row.dokumenPendukung ? (
@@ -347,12 +510,24 @@ export default function PemantauanRisikoPage() {
                         <IconFileText size={16} color="#495057" />
                         <Text
                           component="a"
-                          href={row.dokumenPendukung.startsWith("/uploads/") ? row.dokumenPendukung.replace("/uploads/", "/api/uploads/") : row.dokumenPendukung}
+                          href={
+                            row.dokumenPendukung.startsWith("/uploads/")
+                              ? row.dokumenPendukung.replace(
+                                  "/uploads/",
+                                  "/api/uploads/"
+                                )
+                              : row.dokumenPendukung
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           size="xs"
                           c="blue"
-                          style={{ textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 3 }}
+                          style={{
+                            textDecoration: "underline",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
                         >
                           Buka Dokumen
                           <IconExternalLink size={10} />
@@ -402,10 +577,26 @@ export default function PemantauanRisikoPage() {
         <Stack gap="md">
           {selectedRow && (
             <Card withBorder padding="xs" bg="var(--mantine-color-gray-0)">
-              <Text size="xs" fw={700} c="dimmed">RTP:</Text>
-              <Text size="xs" fw={600} mt={2}>{selectedRow.rencanaTindakPenanganan}</Text>
+              <Text size="xs" fw={700} c="dimmed">
+                RTP:
+              </Text>
+              <Text size="xs" fw={600} mt={2}>
+                {selectedRow.rencanaTindakPenanganan}
+              </Text>
             </Card>
           )}
+
+          <Select
+            label="Keterjadian Risiko"
+            placeholder="Pilih keterjadian risiko"
+            value={modalKeterjadian}
+            onChange={(val) => setModalKeterjadian(val ?? "")}
+            data={[
+              { value: "Terjadi", label: "Terjadi" },
+              { value: "Tidak Terjadi", label: "Tidak Terjadi" },
+            ]}
+            clearable
+          />
 
           <TextInput
             type="date"
@@ -423,7 +614,9 @@ export default function PemantauanRisikoPage() {
           />
 
           <Stack gap={4}>
-            <Text size="sm" fw={500}>Metode Dokumen Pendukung</Text>
+            <Text size="sm" fw={500}>
+              Metode Dokumen Pendukung
+            </Text>
             <SegmentedControl
               value={modalDocType}
               onChange={(val: any) => setModalDocType(val)}
@@ -445,17 +638,31 @@ export default function PemantauanRisikoPage() {
             />
           ) : (
             <Stack gap="xs">
-              <Text size="xs" fw={500} c="dimmed">Unggah dokumen pendukung pelaksanaan RTP</Text>
+              <Text size="xs" fw={500} c="dimmed">
+                Unggah dokumen pendukung pelaksanaan RTP
+              </Text>
               <Group>
                 <FileButton onChange={handleFileUpload} accept="*">
                   {(props) => (
-                    <Button {...props} leftSection={<IconUpload size={16} />} loading={uploading}>
+                    <Button
+                      {...props}
+                      leftSection={<IconUpload size={16} />}
+                      loading={uploading}
+                    >
                       Pilih Berkas
                     </Button>
                   )}
                 </FileButton>
                 {uploadedFile && (
-                  <Text size="xs" c="dimmed" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
                     <IconFileText size={14} />
                     {uploadedFile.name}
                   </Text>
@@ -468,9 +675,7 @@ export default function PemantauanRisikoPage() {
             <Button variant="default" onClick={() => setModalOpened(false)}>
               Batal
             </Button>
-            <Button onClick={handleSaveModal}>
-              Simpan Realisasi
-            </Button>
+            <Button onClick={handleSaveModal}>Simpan Realisasi</Button>
           </Group>
         </Stack>
       </Modal>

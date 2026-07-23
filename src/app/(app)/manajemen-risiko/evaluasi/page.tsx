@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
 import Link from "next/link";
 import { Title, Button, Group, Loader, Center, Stack, Text, Card, TextInput } from "@mantine/core";
+import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
 import type { HotTableRef } from "@handsontable/react-wrapper";
@@ -28,6 +29,7 @@ export default function EvaluasiRisikoPage() {
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
     setIsMounted(true);
@@ -53,6 +55,7 @@ export default function EvaluasiRisikoPage() {
   const dampakResult = useList({ resource: "level-dampak", pagination: { pageSize: 10000 } });
   const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 10000 } });
   const risikoResult = useList({ resource: "level-risiko", pagination: { pageSize: 10000 } });
+  const seleraResult = useList({ resource: "selera-risiko", pagination: { pageSize: 10000 } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
@@ -61,9 +64,17 @@ export default function EvaluasiRisikoPage() {
     (kemungkinanResult.query?.isPending ?? false) ||
     (dampakResult.query?.isPending ?? false) ||
     (matriksResult.query?.isPending ?? false) ||
-    (risikoResult.query?.isPending ?? false);
+    (risikoResult.query?.isPending ?? false) ||
+    (seleraResult.query?.isPending ?? false);
 
   const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
+  const currentYear = new Date().getFullYear();
+  const filteredIdentifikasiData = useMemo(() => {
+    return identifikasiData.filter((r: any) => {
+      const t = r.tahun ?? currentYear;
+      return t >= tahunDari && t <= tahunSampai;
+    });
+  }, [identifikasiData, tahunDari, tahunSampai]);
   const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
   const kemungkinanData = useMemo(() => kemungkinanResult.result?.data ?? [], [kemungkinanResult.result?.data]);
@@ -72,38 +83,74 @@ export default function EvaluasiRisikoPage() {
   const kemungkinanNamaList = useMemo(() => (kemungkinanData || []).map((o: any) => o.nama), [kemungkinanData]);
   const dampakNamaList = useMemo(() => (dampakData || []).map((o: any) => o.nama), [dampakData]);
   const risikoData = useMemo(() => risikoResult.result?.data ?? [], [risikoResult.result?.data]);
+  const seleraData = useMemo(() => seleraResult.result?.data ?? [], [seleraResult.result?.data]);
   const refetchQuery = evaluasiResult.query?.refetch;
 
   useEffect(() => {
     if (loading) return;
     const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
     const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const mapped = identifikasiData.map((r: Record<string, any>) => {
+    const seleraByKategori = new Map(seleraData.map((s: any) => [s.kategoriRisikoId, s]));
+    const withSort = filteredIdentifikasiData.map((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       const an = analisisById.get(r.id);
-      const prioritas = an?.levelRisiko?.nama ?? "";
+      const lkInheren = an?.levelKemungkinan;
+      const ldInheren = an?.levelDampak;
+      const besaranInheren = lkInheren?.skala != null && ldInheren?.skala != null
+        ? lkInheren.skala * ldInheren.skala
+        : 0;
+      const skalaDampak = ldInheren?.skala ?? 0;
+      const kategoriId = r.kategoriRisiko?.id;
+      const selera = seleraByKategori.get(kategoriId);
+      const besaranMinKategori = selera?.besaranRisikoMinimum ?? 0;
       const resLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
       const resLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
       const resLR = ev?.residualLevelRisiko?.nama ?? "";
       const resBesaran = resLK?.skala != null && resLD?.skala != null ? resLK.skala * resLD.skala : "";
-      return [
-        r.id,
-        ev?.id ?? null,
-        r.risiko,
-        resLK?.nama ?? "",
-        resLD?.nama ?? "",
-        resLR,
-        resBesaran,
-        ev?.responRisiko ?? "",
-        prioritas,
-      ];
+      return {
+        row: [
+          r.id,
+          ev?.id ?? null,
+          r.risiko,
+          resLK?.nama ?? "",
+          resLD?.nama ?? "",
+          resLR,
+          resBesaran,
+          ev?.responRisiko ?? "",
+          0,
+        ],
+        besaranInheren,
+        skalaDampak,
+        besaranMinKategori,
+      };
     });
+    withSort.sort((a, b) => {
+      if (b.besaranInheren !== a.besaranInheren) return b.besaranInheren - a.besaranInheren;
+      if (b.skalaDampak !== a.skalaDampak) return b.skalaDampak - a.skalaDampak;
+      if (b.besaranMinKategori !== a.besaranMinKategori) return b.besaranMinKategori - a.besaranMinKategori;
+      return 0;
+    });
+    let rank = 1;
+    for (let i = 0; i < withSort.length; i++) {
+      if (i > 0) {
+        const prev = withSort[i - 1];
+        const curr = withSort[i];
+        if (curr.besaranInheren === prev.besaranInheren &&
+            curr.skalaDampak === prev.skalaDampak &&
+            curr.besaranMinKategori === prev.besaranMinKategori) {
+          withSort[i].row[8] = prev.row[8];
+          continue;
+        }
+      }
+      withSort[i].row[8] = rank++;
+    }
+    const mapped = withSort.map(m => m.row);
     const padded = [...mapped];
     while (padded.length < 30) {
       padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, identifikasiData, evaluasiData, analisisData]);
+  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, seleraData]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;

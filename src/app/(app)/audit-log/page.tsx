@@ -22,9 +22,15 @@ import {
   Modal,
   ScrollArea,
   ActionIcon,
+  Grid,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { IconSearch, IconFilter, IconDownload, IconEye } from "@tabler/icons-react";
+import {
+  IconSearch,
+  IconFilter,
+  IconDownload,
+  IconEye,
+} from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
 
 interface AuditLog {
@@ -64,15 +70,23 @@ const formatDetails = (details: any): string => {
   if (!details || typeof details !== "object") return "-";
   const entries = Object.entries(details);
   if (entries.length === 0) return "-";
-  return entries.map(([key, val]) => `${key}: ${JSON.stringify(val)}`).join("; ");
+  return entries
+    .map(([key, val]) => `${key}: ${JSON.stringify(val)}`)
+    .join("; ");
 };
 
 export default function AuditLogPage() {
-  const { data: identity, isPending: isIdentityLoading } = useGetIdentity<any>();
+  const { data: identity, isPending: isIdentityLoading } =
+    useGetIdentity<any>();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isIdentityLoading && identity && (!identity.permissions || !identity.permissions.includes("audit-logs:read"))) {
+    if (
+      !isIdentityLoading &&
+      identity &&
+      (!identity.permissions ||
+        !identity.permissions.includes("audit-logs:read"))
+    ) {
       notifications.show({
         title: "Akses Ditolak",
         message: "Anda tidak memiliki hak akses untuk membuka halaman ini.",
@@ -88,11 +102,14 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   const [userId, setUserId] = useState("");
   const [action, setAction] = useState<string | null>(null);
   const [resource, setResource] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
+    null,
+    null,
+  ]);
   const [searchTerm, setSearchTerm] = useState("");
   const [detailsModalOpened, setDetailsModalOpened] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -144,7 +161,15 @@ export default function AuditLogPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ["Timestamp", "User", "Action", "Resource", "Resource ID", "IP Address", "Details"];
+    const headers = [
+      "Timestamp",
+      "User",
+      "Action",
+      "Resource",
+      "Resource ID",
+      "IP Address",
+      "Details",
+    ];
     const csvData = logs.map((log) => [
       dayjs(log.timestamp).format("YYYY-MM-DD HH:mm:ss"),
       `${log.userName} (${log.userId})`,
@@ -155,7 +180,10 @@ export default function AuditLogPage() {
       JSON.stringify(log.details || {}),
     ]);
 
-    const csv = [headers.join(","), ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
+    const csv = [
+      headers.join(","),
+      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -184,91 +212,151 @@ export default function AuditLogPage() {
   }
 
   return (
-    <Stack gap="md">
+    <Stack gap="sm">
       <Group justify="space-between">
         <Title order={2}>Audit Log</Title>
-        <Button leftSection={<IconDownload size={16} />} onClick={exportToCSV} disabled={logs.length === 0}>
+        <Button
+          leftSection={<IconDownload size={16} />}
+          onClick={exportToCSV}
+          disabled={logs.length === 0}
+        >
           Export CSV
         </Button>
       </Group>
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="md">
+      <Card shadow="sm" padding="sm" radius="md" withBorder>
+        <Stack gap="xs">
           <Group justify="space-between">
-            <Text size="sm" fw={500}>Filter Audit Logs</Text>
-            <Button variant="subtle" size="xs" onClick={handleReset}>Reset Filter</Button>
+            <Group gap="xs">
+              <IconFilter size={16} />
+              <Text size="sm" fw={500}>
+                Filter Audit Logs
+              </Text>
+            </Group>
+            <Button variant="subtle" size="xs" onClick={handleReset}>
+              Reset Filter
+            </Button>
           </Group>
 
-          <Group grow>
-            <TextInput placeholder="Search..." leftSection={<IconSearch size={16} />} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            <TextInput placeholder="User ID / Email" value={userId} onChange={(e) => setUserId(e.target.value)} />
-          </Group>
-
-          <Group grow>
-            <Select
-              placeholder="Select Action"
-              data={[
-                { value: "CREATE", label: "Create" },
-                { value: "UPDATE", label: "Update" },
-                { value: "DELETE", label: "Delete" },
-                { value: "VIEW", label: "View" },
-                { value: "LOGIN", label: "Login" },
-                { value: "LOGOUT", label: "Logout" },
-                { value: "DOWNLOAD", label: "Download" },
-                { value: "UPLOAD", label: "Upload" },
-                { value: "APPROVE", label: "Approve" },
-                { value: "REJECT", label: "Reject" },
-              ]}
-              value={action}
-              onChange={setAction}
-              clearable
-            />
-            <Select
-              placeholder="Select Resource"
-              data={[
-                { value: "sasaran", label: "Sasaran" },
-                { value: "prosesBisnis", label: "Proses Bisnis" },
-                { value: "pemangkuKepentingan", label: "Pemangku Kepentingan" },
-                { value: "peraturanPerundangan", label: "Peraturan Perundangan" },
-                { value: "jenisRisiko", label: "Jenis Risiko" },
-                { value: "sumberRisiko", label: "Sumber Risiko" },
-                { value: "kategoriRisiko", label: "Kategori Risiko" },
-                { value: "areaDampak", label: "Area Dampak" },
-                { value: "levelKemungkinan", label: "Level Kemungkinan" },
-                { value: "levelDampak", label: "Level Dampak" },
-                { value: "levelRisiko", label: "Level Risiko" },
-                { value: "opsiPenanganan", label: "Opsi Penanganan" },
-                { value: "kriteriaKemungkinan", label: "Kriteria Kemungkinan" },
-                { value: "kriteriaDampak", label: "Kriteria Dampak" },
-                { value: "seleraRisiko", label: "Selera Risiko" },
-                { value: "identifikasiRisiko", label: "Identifikasi Risiko" },
-                { value: "analisisRisiko", label: "Analisis Risiko" },
-                { value: "evaluasiRisiko", label: "Evaluasi Risiko" },
-                { value: "rencanaPenanganan", label: "Rencana Penanganan / Pemantauan" },
-                { value: "kri", label: "KRI" },
-                { value: "matriksAnalisisRisiko", label: "Matriks Analisis Risiko" },
-              ]}
-              value={resource}
-              onChange={setResource}
-              clearable
-            />
-          </Group>
-
-          <DatePickerInput type="range" placeholder="Select date range" value={dateRange} onChange={setDateRange} clearable />
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+              <TextInput
+                size="sm"
+                placeholder="Search..."
+                leftSection={<IconSearch size={14} />}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6, lg: 2 }}>
+              <TextInput
+                size="sm"
+                placeholder="User ID / Email"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4, lg: 2 }}>
+              <Select
+                size="sm"
+                placeholder="Select Action"
+                data={[
+                  { value: "CREATE", label: "Create" },
+                  { value: "UPDATE", label: "Update" },
+                  { value: "DELETE", label: "Delete" },
+                  { value: "VIEW", label: "View" },
+                  { value: "LOGIN", label: "Login" },
+                  { value: "LOGOUT", label: "Logout" },
+                  { value: "DOWNLOAD", label: "Download" },
+                  { value: "UPLOAD", label: "Upload" },
+                  { value: "APPROVE", label: "Approve" },
+                  { value: "REJECT", label: "Reject" },
+                ]}
+                value={action}
+                onChange={setAction}
+                clearable
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4, lg: 2 }}>
+              <Select
+                size="sm"
+                placeholder="Select Resource"
+                data={[
+                  { value: "sasaran", label: "Sasaran" },
+                  { value: "prosesBisnis", label: "Proses Bisnis" },
+                  {
+                    value: "pemangkuKepentingan",
+                    label: "Pemangku Kepentingan",
+                  },
+                  {
+                    value: "peraturanPerundangan",
+                    label: "Peraturan Perundangan",
+                  },
+                  { value: "jenisRisiko", label: "Jenis Risiko" },
+                  { value: "sumberRisiko", label: "Sumber Risiko" },
+                  { value: "kategoriRisiko", label: "Kategori Risiko" },
+                  { value: "areaDampak", label: "Area Dampak" },
+                  { value: "levelKemungkinan", label: "Level Kemungkinan" },
+                  { value: "levelDampak", label: "Level Dampak" },
+                  { value: "levelRisiko", label: "Level Risiko" },
+                  { value: "opsiPenanganan", label: "Opsi Penanganan" },
+                  {
+                    value: "kriteriaKemungkinan",
+                    label: "Kriteria Kemungkinan",
+                  },
+                  { value: "kriteriaDampak", label: "Kriteria Dampak" },
+                  { value: "seleraRisiko", label: "Selera Risiko" },
+                  { value: "identifikasiRisiko", label: "Identifikasi Risiko" },
+                  { value: "analisisRisiko", label: "Analisis Risiko" },
+                  { value: "evaluasiRisiko", label: "Evaluasi Risiko" },
+                  {
+                    value: "rencanaPenanganan",
+                    label: "Rencana Penanganan / Pemantauan",
+                  },
+                  { value: "kri", label: "KRI" },
+                  {
+                    value: "matriksAnalisisRisiko",
+                    label: "Matriks Analisis Risiko",
+                  },
+                ]}
+                value={resource}
+                onChange={setResource}
+                clearable
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
+              <DatePickerInput
+                size="sm"
+                type="range"
+                placeholder="Select date range"
+                value={dateRange}
+                onChange={setDateRange}
+                clearable
+              />
+            </Grid.Col>
+          </Grid>
         </Stack>
       </Card>
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="md">
+      <Card shadow="sm" padding="md" radius="md" withBorder>
+        <Stack gap="sm">
           <Group justify="space-between">
-            <Text size="sm" c="dimmed">Total: {total} records</Text>
-            <Text size="sm" c="dimmed">Page {page} of {totalPages}</Text>
+            <Text size="sm" c="dimmed">
+              Total: {total} records
+            </Text>
+            <Text size="sm" c="dimmed">
+              Page {page} of {totalPages}
+            </Text>
           </Group>
 
           {loading ? (
-            <Center p="xl"><Loader /></Center>
+            <Center p="xl">
+              <Loader />
+            </Center>
           ) : filteredLogs.length === 0 ? (
-            <Center p="xl"><Text c="dimmed">No audit logs found</Text></Center>
+            <Center p="xl">
+              <Text c="dimmed">No audit logs found</Text>
+            </Center>
           ) : (
             <>
               <Table striped highlightOnHover withTableBorder>
@@ -285,16 +373,35 @@ export default function AuditLogPage() {
                 <Table.Tbody>
                   {filteredLogs.map((log) => (
                     <Table.Tr key={log.id}>
-                      <Table.Td><Text size="sm">{dayjs(log.timestamp).format("YYYY-MM-DD HH:mm:ss")}</Text></Table.Td>
+                      <Table.Td>
+                        <Text size="sm">
+                          {dayjs(log.timestamp).format("YYYY-MM-DD HH:mm:ss")}
+                        </Text>
+                      </Table.Td>
                       <Table.Td>
                         <Stack gap={2}>
-                          <Text size="sm" fw={500}>{log.userName}</Text>
-                          <Text size="xs" c="dimmed">{log.userId}</Text>
+                          <Text size="sm" fw={500}>
+                            {log.userName}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {log.userId}
+                          </Text>
                         </Stack>
                       </Table.Td>
-                      <Table.Td><Badge color={actionColors[log.action] || "gray"} style={{ minWidth: "fit-content" }}>{log.action}</Badge></Table.Td>
-                      <Table.Td><Text size="sm">{log.resource}</Text></Table.Td>
-                      <Table.Td><Text size="sm">{cleanIP(log.ipAddress)}</Text></Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={actionColors[log.action] || "gray"}
+                          style={{ minWidth: "fit-content" }}
+                        >
+                          {log.action}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{log.resource}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{cleanIP(log.ipAddress)}</Text>
+                      </Table.Td>
                       <Table.Td align="center">
                         {log.details ? (
                           <ActionIcon
@@ -310,7 +417,9 @@ export default function AuditLogPage() {
                             <IconEye size={16} />
                           </ActionIcon>
                         ) : (
-                          <Text size="xs" c="dimmed">-</Text>
+                          <Text size="xs" c="dimmed">
+                            -
+                          </Text>
                         )}
                       </Table.Td>
                     </Table.Tr>
@@ -331,7 +440,6 @@ export default function AuditLogPage() {
           )}
         </Stack>
       </Card>
-    
 
       {/* Details Modal */}
       <Modal
@@ -344,47 +452,89 @@ export default function AuditLogPage() {
         {selectedLog && (
           <Stack gap="md">
             <Group>
-              <Text fw={600} size="sm">Timestamp:</Text>
-              <Text size="sm">{dayjs(selectedLog.timestamp).format("YYYY-MM-DD HH:mm:ss")}</Text>
+              <Text fw={600} size="sm">
+                Timestamp:
+              </Text>
+              <Text size="sm">
+                {dayjs(selectedLog.timestamp).format("YYYY-MM-DD HH:mm:ss")}
+              </Text>
             </Group>
             <Group>
-              <Text fw={600} size="sm">User:</Text>
-              <Text size="sm">{selectedLog.userName} (ID: {selectedLog.userId})</Text>
+              <Text fw={600} size="sm">
+                User:
+              </Text>
+              <Text size="sm">
+                {selectedLog.userName} (ID: {selectedLog.userId})
+              </Text>
             </Group>
             <Group>
-              <Text fw={600} size="sm">Action:</Text>
-              <Badge color={actionColors[selectedLog.action.toLowerCase()] || "gray"}>
+              <Text fw={600} size="sm">
+                Action:
+              </Text>
+              <Badge
+                color={actionColors[selectedLog.action.toLowerCase()] || "gray"}
+              >
                 {selectedLog.action}
               </Badge>
             </Group>
             <Group>
-              <Text fw={600} size="sm">Resource:</Text>
+              <Text fw={600} size="sm">
+                Resource:
+              </Text>
               <Text size="sm">{selectedLog.resource}</Text>
             </Group>
             <Group>
-              <Text fw={600} size="sm">Resource ID:</Text>
+              <Text fw={600} size="sm">
+                Resource ID:
+              </Text>
               <Text size="sm">{selectedLog.resourceId || "-"}</Text>
             </Group>
             <Group>
-              <Text fw={600} size="sm">IP Address:</Text>
+              <Text fw={600} size="sm">
+                IP Address:
+              </Text>
               <Text size="sm">{cleanIP(selectedLog.ipAddress)}</Text>
             </Group>
             <div>
-              <Text fw={600} size="sm" mb="xs">Details:</Text>
+              <Text fw={600} size="sm" mb="xs">
+                Details:
+              </Text>
               <ScrollArea h={200}>
-                <Paper p="sm" withBorder radius="md" style={{ backgroundColor: "var(--mantine-color-gray-0)" }}>
+                <Paper
+                  p="sm"
+                  withBorder
+                  radius="md"
+                  style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
+                >
                   <Stack gap="xs">
-                    {selectedLog.details && typeof selectedLog.details === "object" ? (
-                      Object.entries(selectedLog.details).map(([key, value]) => (
-                        <Group key={key} gap="xs">
-                          <Text size="sm" fw={500} c="dimmed" style={{ minWidth: 120 }}>{key}:</Text>
-                          <Text size="sm" style={{ wordBreak: "break-word", flex: 1 }}>
-                            {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
-                          </Text>
-                        </Group>
-                      ))
+                    {selectedLog.details &&
+                    typeof selectedLog.details === "object" ? (
+                      Object.entries(selectedLog.details).map(
+                        ([key, value]) => (
+                          <Group key={key} gap="xs">
+                            <Text
+                              size="sm"
+                              fw={500}
+                              c="dimmed"
+                              style={{ minWidth: 120 }}
+                            >
+                              {key}:
+                            </Text>
+                            <Text
+                              size="sm"
+                              style={{ wordBreak: "break-word", flex: 1 }}
+                            >
+                              {typeof value === "object"
+                                ? JSON.stringify(value, null, 2)
+                                : String(value)}
+                            </Text>
+                          </Group>
+                        )
+                      )
                     ) : (
-                      <Text size="sm" c="dimmed">No details available</Text>
+                      <Text size="sm" c="dimmed">
+                        No details available
+                      </Text>
                     )}
                   </Stack>
                 </Paper>
