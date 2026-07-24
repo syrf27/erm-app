@@ -11,7 +11,14 @@ import {
   Stack,
   Text,
   TextInput,
+  Modal,
+  Badge,
+  Table,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { IconSearch, IconDatabase, IconPlus } from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -29,26 +36,39 @@ export default function IdentifikasiRisikoPage() {
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [searchVal, setSearchVal] = useState("");
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { tahunDari, tahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
+
+  const [bankOpened, { open: openBank, close: closeBank }] =
+    useDisclosure(false);
+  const [bankQuery, setBankQuery] = useState("");
+  const [bankResults, setBankResults] = useState<any[]>([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankSearched, setBankSearched] = useState(false);
+  const [bankSearchMethod, setBankSearchMethod] = useState("");
+  const [bankImporting, setBankImporting] = useState<number | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchVal(query);
-    const hot = hotRef.current?.hotInstance;
-    if (hot) {
-      const searchPlugin = hot.getPlugin("search");
-      if (searchPlugin) {
-        // Query search and trigger render
-        (searchPlugin as any).query(query);
-        hot.render();
-      }
+  const handleSearchChange = () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      const hot = hotRef.current?.hotInstance;
+      if (hot) {
+        const searchPlugin = hot.getPlugin("search");
+        const query = searchInputRef.current?.value || "";
+        if (searchPlugin) {
+          (searchPlugin as any).query(query);
+        }
+      }
+    }, 150);
   };
 
   const { result: existingResult, query: listQuery } = useList({
@@ -405,6 +425,85 @@ export default function IdentifikasiRisikoPage() {
     prosesBisnisData,
   ]);
 
+  const handleBankSearch = useCallback(async () => {
+    if (!bankQuery.trim()) return;
+    setBankLoading(true);
+    setBankSearched(true);
+    try {
+      const res = await fetch("/api/bank-risiko/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: bankQuery.trim(),
+          limit: 15,
+          tahun: tahunDari === tahunSampai ? tahunDari : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        notifications.show({ title: "Error", message: data.error, color: "red" });
+        return;
+      }
+      setBankResults(data.results || []);
+      setBankSearchMethod(data.method || "text");
+    } catch {
+      notifications.show({ title: "Error", message: "Gagal mencari risiko", color: "red" });
+    } finally {
+      setBankLoading(false);
+    }
+  }, [bankQuery, tahunDari, tahunSampai]);
+
+  const handleBankImport = useCallback(
+    async (risk: any) => {
+      setBankImporting(risk.id);
+      try {
+        const payload = {
+          risiko: risk.risiko,
+          jenisRisikoId: risk.jenis_risiko_id,
+          sumberRisikoId: risk.sumber_risiko_id,
+          kategoriRisikoId: risk.kategori_risiko_id,
+          areaDampakId: risk.area_dampak_id,
+          penyebab: risk.penyebab,
+          dampak: risk.dampak,
+          sasaranId: risk.sasaran_id,
+          kegiatanId: risk.kegiatan_id,
+          prosesBisnisId: risk.proses_bisnis_id,
+          unitKerjaId: risk.unit_kerja_id,
+          tahun: tahunDari,
+        };
+
+        const res = await fetch("/api/identifikasi-risiko", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error ?? "Gagal mengimpor risiko");
+        }
+
+        notifications.show({
+          title: "Berhasil",
+          message: "Risiko berhasil ditambahkan ke tabel",
+          color: "green",
+        });
+
+        closeBank();
+        if (refetchQuery) refetchQuery();
+      } catch (e: any) {
+        notifications.show({
+          title: "Gagal",
+          message: e?.message ?? "Gagal mengimpor risiko",
+          color: "red",
+        });
+      } finally {
+        setBankImporting(null);
+      }
+    },
+    [tahunDari, refetchQuery, closeBank]
+  );
+
   const columns: Handsontable.ColumnSettings[] = useMemo(
     () => [
       { title: "ID", data: 0, type: "numeric", width: 1 },
@@ -522,10 +621,17 @@ export default function IdentifikasiRisikoPage() {
       <Group justify="space-between">
         <Title order={3}>Identifikasi Risiko</Title>
         <Group>
+          <Button
+            variant="light"
+            leftSection={<IconDatabase size={16} />}
+            onClick={openBank}
+          >
+            Cari dari Bank Risiko
+          </Button>
           <TextInput
             placeholder="Cari & Tandai Sel..."
             size="xs"
-            value={searchVal}
+            ref={searchInputRef}
             onChange={handleSearchChange}
             style={{ width: 220 }}
           />
@@ -633,6 +739,127 @@ export default function IdentifikasiRisikoPage() {
         manualColumnMove={true}
         search={true}
       />
+
+      <Modal
+        opened={bankOpened}
+        onClose={closeBank}
+        title="Cari dari Bank Risiko"
+        size="xl"
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Cari risiko yang sudah tercatat untuk ditambahkan ke tabel
+            identifikasi.
+          </Text>
+          <Group>
+            <TextInput
+              placeholder="Ketik kata kunci risiko..."
+              value={bankQuery}
+              onChange={(e) => setBankQuery(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleBankSearch();
+              }}
+              style={{ flex: 1 }}
+              leftSection={<IconSearch size={16} />}
+            />
+            <Button onClick={handleBankSearch} loading={bankLoading}>
+              Cari
+            </Button>
+          </Group>
+
+          {bankSearchMethod && bankSearched && (
+            <Text size="xs" c="dimmed">
+              Metode:{" "}
+              <Badge
+                size="xs"
+                color={bankSearchMethod === "semantic" ? "green" : "gray"}
+                variant="light"
+              >
+                {bankSearchMethod === "semantic" ? "Semantik" : "Teks"}
+              </Badge>
+            </Text>
+          )}
+
+          {bankLoading && (
+            <Center h={150}>
+              <Loader />
+            </Center>
+          )}
+
+          {!bankLoading && bankSearched && bankResults.length === 0 && (
+            <Center h={100}>
+              <Text c="dimmed">
+                Tidak ada hasil untuk &quot;{bankQuery}&quot;
+              </Text>
+            </Center>
+          )}
+
+          {!bankLoading && bankResults.length > 0 && (
+            <Table striped highlightOnHover withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Risiko</Table.Th>
+                  <Table.Th>Jenis</Table.Th>
+                  <Table.Th>Kategori</Table.Th>
+                  {bankSearchMethod === "semantic" && (
+                    <Table.Th w={80}>Skor</Table.Th>
+                  )}
+                  <Table.Th w={60}>Aksi</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {bankResults.map((r: any) => (
+                  <Table.Tr key={r.id}>
+                    <Table.Td maw={300}>
+                      <Text size="sm" lineClamp={2}>
+                        {r.risiko}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="xs" variant="light">
+                        {r.jenis_risiko_nama}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs">{r.kategori_risiko_nama}</Text>
+                    </Table.Td>
+                    {bankSearchMethod === "semantic" && (
+                      <Table.Td>
+                        <Badge
+                          size="xs"
+                          color={
+                            r.similarity >= 0.8
+                              ? "green"
+                              : r.similarity >= 0.6
+                              ? "yellow"
+                              : "gray"
+                          }
+                          variant="filled"
+                        >
+                          {(r.similarity * 100).toFixed(0)}%
+                        </Badge>
+                      </Table.Td>
+                    )}
+                    <Table.Td>
+                      <Tooltip label="Tambah ke tabel">
+                        <ActionIcon
+                          color="blue"
+                          variant="light"
+                          size="sm"
+                          loading={bankImporting === r.id}
+                          onClick={() => handleBankImport(r)}
+                        >
+                          <IconPlus size={14} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          )}
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

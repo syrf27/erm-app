@@ -46,6 +46,7 @@ import {
   IconUsers,
   IconLibrary,
   IconShieldCheck,
+  IconDatabase,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
@@ -114,6 +115,11 @@ const menuItems: MenuItem[] = [
     label: "Pelaporan Risiko",
     icon: <IconTargetArrow size={18} />,
     href: "/pelaporan-risiko",
+  },
+  {
+    label: "Bank Risiko",
+    icon: <IconDatabase size={18} />,
+    href: "/bank-risiko",
   },
   {
     label: "Audit Log",

@@ -4,6 +4,7 @@ import { resourceMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import { checkPermission } from "@/lib/access-control";
+import { generateAndStoreEmbedding } from "@/lib/embedding";
 import {
   delCache,
   delCacheByPattern,
@@ -134,6 +135,19 @@ export async function PATCH(
     }
     if (isAuthResource(resource)) {
       await delCacheByPattern("user:permissions:*");
+    }
+
+    if (resource === "identifikasi-risiko" && (body.risiko || body.penyebab || body.dampak)) {
+      const embeddingText = [
+        body.risiko ?? item.risiko,
+        body.penyebab ?? item.penyebab,
+        body.dampak ?? item.dampak,
+      ]
+        .filter(Boolean)
+        .join(". ");
+      await generateAndStoreEmbedding(Number(id), embeddingText).catch((e) =>
+        console.error("Embedding update failed for risk", id, e)
+      );
     }
 
     return NextResponse.json(item);
