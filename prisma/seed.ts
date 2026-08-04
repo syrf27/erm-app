@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/prisma";
+import { hashPassword } from "../src/lib/password-utils";
 
 async function main() {
   // 1. Seed JenisRisiko
@@ -443,31 +444,31 @@ async function main() {
       },
     });
 
-    // Resources list
+    // Resources list - use kebab-case for consistency with API routes
     const resources = [
       "sasaran",
-      "prosesBisnis",
-      "pemangkuKepentingan",
-      "peraturanPerundangan",
-      "jenisRisiko",
-      "sumberRisiko",
-      "kategoriRisiko",
-      "areaDampak",
-      "levelKemungkinan",
-      "levelDampak",
-      "levelRisiko",
-      "opsiPenanganan",
-      "kriteriaKemungkinan",
-      "kriteriaDampak",
-      "seleraRisiko",
-      "identifikasiRisiko",
-      "analisisRisiko",
-      "evaluasiRisiko",
-      "rencanaPenanganan",
+      "proses-bisnis",
+      "pemangku-kepentingan",
+      "peraturan-perundangan",
+      "jenis-risiko",
+      "sumber-risiko",
+      "kategori-risiko",
+      "area-dampak",
+      "level-kemungkinan",
+      "level-dampak",
+      "level-risiko",
+      "opsi-penanganan",
+      "kriteria-kemungkinan",
+      "kriteria-dampak",
+      "selera-risiko",
+      "identifikasi-risiko",
+      "analisis-risiko",
+      "evaluasi-risiko",
+      "rencana-penanganan",
       "kegiatan",
-      "unitKerja",
+      "unit-kerja",
       "kri",
-      "matriksAnalisisRisiko",
+      "matriks-analisis-risiko",
       "faq",
       "users",
       "roles",
@@ -511,52 +512,52 @@ async function main() {
     });
 
     // Create default users linked to roles
-    await prisma.user.create({
-      data: {
-        email: "admin@mr.com",
-        name: "Administrator",
-        password: "admin123",
-        roleId: adminRole.id,
-      },
-    });
+     await prisma.user.create({
+       data: {
+         email: "admin@mr.com",
+         name: "Administrator",
+         password: hashPassword("admin123"),
+         roleId: adminRole.id,
+       },
+     });
 
-    await prisma.user.create({
-      data: {
-        email: "ketuatim@mr.com",
-        name: "Ketua Tim",
-        password: "tim123",
-        roleId: ketuaTimRole.id,
-      },
-    });
+     await prisma.user.create({
+       data: {
+         email: "ketuatim@mr.com",
+         name: "Ketua Tim",
+         password: hashPassword("tim123"),
+         roleId: ketuaTimRole.id,
+       },
+     });
 
     console.log("Seeded Roles, Permissions, User-Role Mappings, and Junction Tables");
   }
 
-  // Always ensure all expected permissions exist (idempotent - handles new resources added later)
+// Always ensure all expected permissions exist (idempotent - handles new resources added later)
   const resources = [
     "sasaran",
-    "prosesBisnis",
-    "pemangkuKepentingan",
-    "peraturanPerundangan",
-    "jenisRisiko",
-    "sumberRisiko",
-    "kategoriRisiko",
-    "areaDampak",
-    "levelKemungkinan",
-    "levelDampak",
-    "levelRisiko",
-    "opsiPenanganan",
-    "kriteriaKemungkinan",
-    "kriteriaDampak",
-    "seleraRisiko",
-    "identifikasiRisiko",
-    "analisisRisiko",
-    "evaluasiRisiko",
-    "rencanaPenanganan",
+    "proses-bisnis",
+    "pemangku-kepentingan",
+    "peraturan-perundangan",
+    "jenis-risiko",
+    "sumber-risiko",
+    "kategori-risiko",
+    "area-dampak",
+    "level-kemungkinan",
+    "level-dampak",
+    "level-risiko",
+    "opsi-penanganan",
+    "kriteria-kemungkinan",
+    "kriteria-dampak",
+    "selera-risiko",
+    "identifikasi-risiko",
+    "analisis-risiko",
+    "evaluasi-risiko",
+    "rencana-penanganan",
     "kegiatan",
-    "unitKerja",
+    "unit-kerja",
     "kri",
-    "matriksAnalisisRisiko",
+    "matriks-analisis-risiko",
     "faq",
     "users",
     "roles",

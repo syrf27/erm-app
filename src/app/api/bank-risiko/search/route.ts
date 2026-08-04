@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateEmbedding } from "@/lib/embedding";
+import { checkPermission } from "@/lib/access-control";
 
-const SELECT_FIELDS = `SELECT
-  ir.id,
-  ir.risiko,
-  ir.penyebab,
-  ir.dampak,
-  ir.tahun,
-  ir."jenisRisikoId" as jenis_risiko_id,
-  jr.nama as jenis_risiko_nama,
-  ir."sumberRisikoId" as sumber_risiko_id,
-  sr.nama as sumber_risiko_nama,
-  ir."kategoriRisikoId" as kategori_risiko_id,
-  kr.nama as kategori_risiko_nama,
-  ir."areaDampakId" as area_dampak_id,
-  ad.nama as area_dampak_nama,
-  ir."sasaranId" as sasaran_id,
-  s.nama as sasaran_nama,
-  ir."kegiatanId" as kegiatan_id,
-  k.nama as kegiatan_nama,
-  ir."prosesBisnisId" as proses_bisnis_id,
-  pb.nama as proses_bisnis_nama,
-  ir."unitKerjaId" as unit_kerja_id,
-  uk.nama as unit_kerja_nama`;
+const SELECT_FIELDS = `
+  SELECT
+    ir.id,
+    ir.risiko,
+    ir.penyebab,
+    ir.dampak,
+    ir.tahun,
+    ir."jenisRisikoId" as jenis_risiko_id,
+    jr.nama as jenis_risiko_nama,
+    ir."sumberRisikoId" as sumber_risiko_id,
+    sr.nama as sumber_risiko_nama,
+    ir."kategoriRisikoId" as kategori_risiko_id,
+    kr.nama as kategori_risiko_nama,
+    ir."areaDampakId" as area_dampak_id,
+    ad.nama as area_dampak_nama,
+    ir."sasaranId" as sasaran_id,
+    s.nama as sasaran_nama,
+    ir."kegiatanId" as kegiatan_id,
+    k.nama as kegiatan_nama,
+    ir."prosesBisnisId" as proses_bisnis_id,
+    pb.nama as proses_bisnis_nama,
+    ir."unitKerjaId" as unit_kerja_id,
+    uk.nama as unit_kerja_nama`;
 
-const FROM_JOINS = `FROM "IdentifikasiRisiko" ir
+const FROM_JOINS = `
+  FROM "IdentifikasiRisiko" ir
   LEFT JOIN "JenisRisiko" jr ON jr.id = ir."jenisRisikoId"
   LEFT JOIN "SumberRisiko" sr ON sr.id = ir."sumberRisikoId"
   LEFT JOIN "KategoriRisiko" kr ON kr.id = ir."kategoriRisikoId"
@@ -41,90 +44,91 @@ async function doTextSearch(
   limit: number
 ) {
   const safeLimit = Number(limit);
+  const searchPattern = `%${searchText}%`;
 
   const hasTrgm = await prisma.$queryRaw<
     Array<{ exists: boolean }>
   >`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') as exists`;
 
   if (hasTrgm?.[0]?.exists) {
-    const escaped = searchText.replace(/'/g, "''");
-    let results: any[];
+    // Use parameterized query with pg_trgm similarity
     if (tahun) {
-      results = await prisma.$queryRawUnsafe(`
+      const results = await prisma.$queryRaw`
         ${SELECT_FIELDS},
         GREATEST(
-          similarity(ir.risiko, '${escaped}'),
-          similarity(COALESCE(ir.penyebab, ''), '${escaped}'),
-          similarity(COALESCE(ir.dampak, ''), '${escaped}')
+          similarity(ir.risiko, ${searchText}),
+          similarity(COALESCE(ir.penyebab, ''), ${searchText}),
+          similarity(COALESCE(ir.dampak, ''), ${searchText})
         ) AS similarity
         ${FROM_JOINS}
         WHERE ir.tahun = ${Number(tahun)}
           AND (
-            similarity(ir.risiko, '${escaped}') > 0.05
-            OR similarity(COALESCE(ir.penyebab, ''), '${escaped}') > 0.05
-            OR similarity(COALESCE(ir.dampak, ''), '${escaped}') > 0.05
-            OR ir.risiko ILIKE '%${escaped}%'
-            OR ir.penyebab ILIKE '%${escaped}%'
-            OR ir.dampak ILIKE '%${escaped}%'
+            similarity(ir.risiko, ${searchText}) > 0.05
+            OR similarity(COALESCE(ir.penyebab, ''), ${searchText}) > 0.05
+            OR similarity(COALESCE(ir.dampak, ''), ${searchText}) > 0.05
+            OR ir.risiko ILIKE ${searchPattern}
+            OR ir.penyebab ILIKE ${searchPattern}
+            OR ir.dampak ILIKE ${searchPattern}
           )
         ORDER BY similarity DESC
         LIMIT ${safeLimit}
-      `) as any[];
+      `;
+      return { results, method: "trgm" };
     } else {
-      results = await prisma.$queryRawUnsafe(`
+      const results = await prisma.$queryRaw`
         ${SELECT_FIELDS},
         GREATEST(
-          similarity(ir.risiko, '${escaped}'),
-          similarity(COALESCE(ir.penyebab, ''), '${escaped}'),
-          similarity(COALESCE(ir.dampak, ''), '${escaped}')
+          similarity(ir.risiko, ${searchText}),
+          similarity(COALESCE(ir.penyebab, ''), ${searchText}),
+          similarity(COALESCE(ir.dampak, ''), ${searchText})
         ) AS similarity
         ${FROM_JOINS}
         WHERE (
-          similarity(ir.risiko, '${escaped}') > 0.05
-          OR similarity(COALESCE(ir.penyebab, ''), '${escaped}') > 0.05
-          OR similarity(COALESCE(ir.dampak, ''), '${escaped}') > 0.05
-          OR ir.risiko ILIKE '%${escaped}%'
-          OR ir.penyebab ILIKE '%${escaped}%'
-          OR ir.dampak ILIKE '%${escaped}%'
+          similarity(ir.risiko, ${searchText}) > 0.05
+          OR similarity(COALESCE(ir.penyebab, ''), ${searchText}) > 0.05
+          OR similarity(COALESCE(ir.dampak, ''), ${searchText}) > 0.05
+          OR ir.risiko ILIKE ${searchPattern}
+          OR ir.penyebab ILIKE ${searchPattern}
+          OR ir.dampak ILIKE ${searchPattern}
         )
         ORDER BY similarity DESC
         LIMIT ${safeLimit}
-      `) as any[];
+      `;
+      return { results, method: "trgm" };
     }
-    return { results, method: "trgm" };
   }
 
-  const escapedText = searchText.replace(/'/g, "''");
-  let results: any[];
+  // Fallback to plain ILIKE without pg_trgm
   if (tahun) {
-    results = await prisma.$queryRawUnsafe(`
+    const results = await prisma.$queryRaw`
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
       WHERE (
-        ir.risiko ILIKE '%${escapedText}%'
-        OR ir.penyebab ILIKE '%${escapedText}%'
-        OR ir.dampak ILIKE '%${escapedText}%'
+        ir.risiko ILIKE ${searchPattern}
+        OR ir.penyebab ILIKE ${searchPattern}
+        OR ir.dampak ILIKE ${searchPattern}
       )
       AND ir.tahun = ${Number(tahun)}
       ORDER BY ir.id DESC
       LIMIT ${safeLimit}
-    `) as any[];
+    `;
+    return { results, method: "text" };
   } else {
-    results = await prisma.$queryRawUnsafe(`
+    const results = await prisma.$queryRaw`
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
       WHERE (
-        ir.risiko ILIKE '%${escapedText}%'
-        OR ir.penyebab ILIKE '%${escapedText}%'
-        OR ir.dampak ILIKE '%${escapedText}%'
+        ir.risiko ILIKE ${searchPattern}
+        OR ir.penyebab ILIKE ${searchPattern}
+        OR ir.dampak ILIKE ${searchPattern}
       )
       ORDER BY ir.id DESC
       LIMIT ${safeLimit}
-    `) as any[];
+    `;
+    return { results, method: "text" };
   }
-  return { results, method: "text" };
 }
 
 export async function POST(request: NextRequest) {
@@ -141,6 +145,13 @@ export async function POST(request: NextRequest) {
 
     const searchText = query.trim();
 
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkPermission("identifikasi-risiko", "read", { ipAddress, userAgent });
+    if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     const hasPgvector = await prisma.$queryRaw<
       Array<{ exists: boolean }>
     >`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') as exists`;
@@ -152,30 +163,32 @@ export async function POST(request: NextRequest) {
         >`SELECT COUNT(*) as count FROM risk_embeddings`;
 
         if (Number(hasEmbeddings[0].count) > 0) {
-          const queryEmbedding = await generateEmbedding(searchText);
+          const queryEmbedding = await generateEmbedding(searchText, "query");
           const queryVectorStr = `[${queryEmbedding.join(",")}]`;
           const safeLimit = Number(limit);
 
           let results: any[];
           if (tahun) {
-            results = await prisma.$queryRawUnsafe(`
+            const query = `
               ${SELECT_FIELDS},
-              1 - (re.embedding <=> '${queryVectorStr}'::vector) AS similarity
+              1 - (re.embedding <=> $1::vector) AS similarity
               ${FROM_JOINS}
               JOIN risk_embeddings re ON re.identifikasi_risiko_id = ir.id
-              WHERE ir.tahun = ${Number(tahun)}
+              WHERE ir.tahun = $2
               ORDER BY similarity DESC
-              LIMIT ${safeLimit}
-            `) as any[];
+              LIMIT $3
+            `;
+            results = await prisma.$queryRawUnsafe(query, queryVectorStr, Number(tahun), safeLimit);
           } else {
-            results = await prisma.$queryRawUnsafe(`
+            const query = `
               ${SELECT_FIELDS},
-              1 - (re.embedding <=> '${queryVectorStr}'::vector) AS similarity
+              1 - (re.embedding <=> $1::vector) AS similarity
               ${FROM_JOINS}
               JOIN risk_embeddings re ON re.identifikasi_risiko_id = ir.id
               ORDER BY similarity DESC
-              LIMIT ${safeLimit}
-            `) as any[];
+              LIMIT $2
+            `;
+            results = await prisma.$queryRawUnsafe(query, queryVectorStr, safeLimit);
           }
 
           return NextResponse.json({ results, method: "semantic" });
@@ -188,8 +201,9 @@ export async function POST(request: NextRequest) {
     const textResult = await doTextSearch(searchText, tahun, limit);
     return NextResponse.json(textResult);
   } catch (e: any) {
+    console.error("Search error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Search failed" },
+      { error: "Search failed" },
       { status: 500 }
     );
   }

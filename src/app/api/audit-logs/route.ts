@@ -4,7 +4,9 @@ import { getAuditLogs } from "@/lib/audit-log";
 import { checkPermission } from "@/lib/access-control";
 
 export async function GET(request: NextRequest) {
-  const isAllowed = await checkPermission("audit-logs", "read");
+  const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const isAllowed = await checkPermission("audit-logs", "read", { ipAddress, userAgent });
   if (!isAllowed) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }

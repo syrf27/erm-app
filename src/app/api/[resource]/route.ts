@@ -13,6 +13,27 @@ import {
   shouldInvalidateDashboard,
   isAuthResource,
 } from "@/lib/cache";
+import {
+  createIdentifikasiRisikoSchema,
+  createSasaranSchema,
+  createKegiatanSchema,
+  createProsesBisnisSchema,
+  createUnitKerjaSchema,
+  createReferenceSchema,
+  createLevelKemungkinanSchema,
+  createLevelDampakSchema,
+  createLevelRisikoSchema,
+  createMatriksAnalisisRisikoSchema,
+  createKRISchema,
+  createUserSchema,
+  createRoleSchema,
+  createPermissionSchema,
+  createAnalisisRisikoSchema,
+  createEvaluasiRisikoSchema,
+  createRencanaPenangananSchema,
+  createAuditLogSchema,
+} from "@/lib/validators";
+import { ZodError } from "zod";
 
 // Force recompile to load updated resource map
 function getDelegate(resource: string) {
@@ -30,7 +51,9 @@ export async function GET(
   try {
     const { resource } = await params;
     const model = resourceMap[resource];
-    const isAllowed = await checkPermission(model || resource, "read");
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkPermission(model || resource, "read", { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -101,8 +124,9 @@ export async function GET(
       headers: { "x-total-count": String(total) },
     });
   } catch (e: any) {
+    console.error("API error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -127,13 +151,99 @@ export async function POST(
 
     const { resource } = await params;
     const model = resourceMap[resource];
-    const isAllowed = await checkPermission(model || resource, "create");
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkPermission(model || resource, "create", { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+
+    // Validate input with Zod
     const body = await request.json();
+    let validatedData: any;
+
+    try {
+      switch (resource) {
+        case "identifikasi-risiko":
+          validatedData = createIdentifikasiRisikoSchema.parse(body);
+          break;
+        case "sasaran":
+          validatedData = createSasaranSchema.parse(body);
+          break;
+        case "kegiatan":
+          validatedData = createKegiatanSchema.parse(body);
+          break;
+        case "proses-bisnis":
+          validatedData = createProsesBisnisSchema.parse(body);
+          break;
+        case "unit-kerja":
+          validatedData = createUnitKerjaSchema.parse(body);
+          break;
+        case "jenis-risiko":
+        case "sumber-risiko":
+        case "kategori-risiko":
+        case "area-dampak":
+        case "level-risiko":
+        case "opsi-penanganan":
+        case "kriteria-dampak":
+        case "selera-risiko":
+        case "pemangku-kepentingan":
+        case "peraturan-perundangan":
+        case "faq":
+          validatedData = createReferenceSchema.parse(body);
+          break;
+        case "level-kemungkinan":
+          validatedData = createLevelKemungkinanSchema.parse(body);
+          break;
+        case "level-dampak":
+          validatedData = createLevelDampakSchema.parse(body);
+          break;
+        case "level-risiko":
+          validatedData = createLevelRisikoSchema.parse(body);
+          break;
+        case "matriks-analisis-risiko":
+          validatedData = createMatriksAnalisisRisikoSchema.parse(body);
+          break;
+        case "kri":
+          validatedData = createKRISchema.parse(body);
+          break;
+        case "users":
+          validatedData = createUserSchema.parse(body);
+          break;
+        case "roles":
+          validatedData = createRoleSchema.parse(body);
+          break;
+        case "permissions":
+          validatedData = createPermissionSchema.parse(body);
+          break;
+        case "analisis-risiko":
+          validatedData = createAnalisisRisikoSchema.parse(body);
+          break;
+        case "evaluasi-risiko":
+          validatedData = createEvaluasiRisikoSchema.parse(body);
+          break;
+        case "rencana-penanganan":
+          validatedData = createRencanaPenangananSchema.parse(body);
+          break;
+        case "audit-logs":
+          validatedData = createAuditLogSchema.parse(body);
+          break;
+        default:
+          // For unknown resources, just sanitize but don't validate strictly
+          validatedData = body;
+      }
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return NextResponse.json(
+          { error: "Validation failed", details: error.flatten().fieldErrors },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+
     const delegate = getDelegate(resource);
-    const item = await delegate.create({ data: body });
+    const item = await delegate.create({ data: validatedData });
 
     // Log audit
     await logAudit({
@@ -142,7 +252,7 @@ export async function POST(
       action: "CREATE",
       resource: resourceMap[resource] || resource,
       resourceId: item.id,
-      details: body,
+      details: validatedData,
       ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
       userAgent: request.headers.get("user-agent") || "unknown",
     });
@@ -158,8 +268,8 @@ export async function POST(
       await delCacheByPattern("user:permissions:*");
     }
 
-    if (resource === "identifikasi-risiko" && body.risiko) {
-      const embeddingText = [body.risiko, body.penyebab, body.dampak]
+    if (resource === "identifikasi-risiko" && (validatedData as any).risiko) {
+      const embeddingText = [validatedData.risiko, validatedData.penyebab, validatedData.dampak]
         .filter(Boolean)
         .join(". ");
       await generateAndStoreEmbedding(item.id, embeddingText).catch((e) =>
@@ -169,8 +279,9 @@ export async function POST(
 
     return NextResponse.json(item, { status: 201 });
   } catch (e: any) {
+    console.error("API POST error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

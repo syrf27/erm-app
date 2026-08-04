@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logAudit } from "@/lib/audit-log";
+import { checkPermission } from "@/lib/access-control";
 
 export async function POST(request: NextRequest) {
   try {
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkPermission("audit-logs", "create", { ipAddress, userAgent });
+    if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     const body = await request.json();
     
     const {
@@ -13,13 +21,6 @@ export async function POST(request: NextRequest) {
       resourceId,
       details,
     } = body;
-
-    // Get IP address and user agent from request
-    const ipAddress =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const userAgent = request.headers.get("user-agent") || "unknown";
 
     await logAudit({
       userId,

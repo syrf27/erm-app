@@ -28,6 +28,7 @@ import {
   IconExternalLink,
   IconDownload,
 } from "@tabler/icons-react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { Pagination } from "@/components/pagination";
 import { useYear } from "@/lib/year-context";
 
@@ -1002,14 +1003,14 @@ export default function PelaporanRisikoPage() {
               tableRows.map((row) => (
                 <Table.Tr key={row.identId}>
                   <Table.Td align="center">{row.no}</Table.Td>
-                  <Table.Td>{row.sasaran || "-"}</Table.Td>
-                  <Table.Td>{row.kegiatan || "-"}</Table.Td>
-                  <Table.Td>{row.prosesBisnis || "-"}</Table.Td>
-                  <Table.Td style={{ fontWeight: 600 }}>{row.risiko}</Table.Td>
-                  <Table.Td>{row.penyebab || "-"}</Table.Td>
-                  <Table.Td>{row.dampak || "-"}</Table.Td>
-                  <Table.Td>{row.kemungkinanAktual}</Table.Td>
-                  <Table.Td>{row.dampakAktual}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.sasaran || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.kegiatan || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.prosesBisnis || "-")}</Table.Td>
+                  <Table.Td style={{ fontWeight: 600 }}>{sanitizeHtml(row.risiko)}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.penyebab || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.dampak || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.kemungkinanAktual)}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.dampakAktual)}</Table.Td>
                   <Table.Td align="center">
                     {row.besaranAktual > 0 ? (
                       <Badge
@@ -1076,9 +1077,8 @@ export default function PelaporanRisikoPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td>{row.rencanaPenanganan || "-"}</Table.Td>
-                  <Table.Td align="center">{row.targetWaktu || "-"}</Table.Td>
-                  <Table.Td>{row.targetOutput || "-"}</Table.Td>
-                  <Table.Td>{row.penanggungJawab || "-"}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.targetOutput || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.penanggungJawab || "-")}</Table.Td>
                   <Table.Td align="center">
                     {row.keterjadiRisiko ? (
                       <Badge
@@ -1087,16 +1087,16 @@ export default function PelaporanRisikoPage() {
                         }
                         variant="light"
                       >
-                        {row.keterjadiRisiko}
+                        {sanitizeHtml(row.keterjadiRisiko)}
                       </Badge>
                     ) : (
                       "-"
                     )}
                   </Table.Td>
                   <Table.Td align="center">
-                    {row.realisasiWaktu || "-"}
+                    {sanitizeHtml(row.realisasiWaktu || "-")}
                   </Table.Td>
-                  <Table.Td>{row.realisasiOutput || "-"}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.realisasiOutput || "-")}</Table.Td>
                   <Table.Td>
                     {row.dokumenPendukung ? (
                       <Group gap="xs">
@@ -1130,9 +1130,9 @@ export default function PelaporanRisikoPage() {
                       "-"
                     )}
                   </Table.Td>
-                  <Table.Td>{row.kemungkinanResidual}</Table.Td>
-                  <Table.Td>{row.dampakResidual}</Table.Td>
-                  <Table.Td>{row.levelResidual || "-"}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.kemungkinanResidual)}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.dampakResidual)}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.levelResidual || "-")}</Table.Td>
                   <Table.Td align="center">
                     {row.besaranResidual > 0 ? (
                       <Badge

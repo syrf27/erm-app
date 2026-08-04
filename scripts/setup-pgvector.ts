@@ -27,7 +27,7 @@ async function main() {
         CREATE TABLE IF NOT EXISTS risk_embeddings (
           id SERIAL PRIMARY KEY,
           identifikasi_risiko_id INTEGER NOT NULL UNIQUE,
-          embedding vector(384),
+          embedding vector(768),
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         )

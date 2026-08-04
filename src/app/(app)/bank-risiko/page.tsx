@@ -21,6 +21,7 @@ import {
 import { IconSearch, IconPlus, IconCheck } from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface RiskResult {
   id: number;
@@ -238,31 +239,31 @@ export default function BankRisikoPage() {
                 <Table.Tr key={r.id}>
                   <Table.Td maw={300}>
                     <Text size="sm" lineClamp={2}>
-                      {r.risiko}
+                      {sanitizeHtml(r.risiko)}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Badge size="xs" variant="light">
-                      {r.jenis_risiko_nama}
+                      {sanitizeHtml(r.jenis_risiko_nama)}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="xs">{r.sumber_risiko_nama}</Text>
+                    <Text size="xs">{sanitizeHtml(r.sumber_risiko_nama)}</Text>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="xs">{r.kategori_risiko_nama}</Text>
+                    <Text size="xs">{sanitizeHtml(r.kategori_risiko_nama)}</Text>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="xs">{r.area_dampak_nama}</Text>
+                    <Text size="xs">{sanitizeHtml(r.area_dampak_nama)}</Text>
                   </Table.Td>
                   <Table.Td maw={200}>
                     <Text size="xs" lineClamp={2}>
-                      {r.penyebab || "-"}
+                      {sanitizeHtml(r.penyebab || "-")}
                     </Text>
                   </Table.Td>
                   <Table.Td maw={200}>
                     <Text size="xs" lineClamp={2}>
-                      {r.dampak || "-"}
+                      {sanitizeHtml(r.dampak || "-")}
                     </Text>
                   </Table.Td>
                   {searchMethod === "semantic" && (

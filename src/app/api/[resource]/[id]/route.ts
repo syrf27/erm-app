@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resourceMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, checkRecordPermission, getUserPermissions, canGrantPermissions } from "@/lib/access-control";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import {
   delCache,
@@ -12,6 +12,21 @@ import {
   shouldInvalidateDashboard,
   isAuthResource,
 } from "@/lib/cache";
+import {
+  updateIdentifikasiRisikoSchema,
+  updateSasaranSchema,
+  updateKegiatanSchema,
+  updateProsesBisnisSchema,
+  updateUnitKerjaSchema,
+  updateReferenceSchema,
+  updateUserSchema,
+  updateRoleSchema,
+  updateAnalisisRisikoSchema,
+  updateEvaluasiRisikoSchema,
+  updateRencanaPenangananSchema,
+  updateKRISchema,
+} from "@/lib/validators";
+import { ZodError } from "zod";
 
 function getDelegate(resource: string) {
   const model = resourceMap[resource];
@@ -22,12 +37,14 @@ function getDelegate(resource: string) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ resource: string; id: string }> }
 ) {
   const { resource, id } = await params;
   const model = resourceMap[resource];
-  const isAllowed = await checkPermission(model || resource, "read");
+  const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const isAllowed = await checkRecordPermission(model || resource, "read", Number(id), { ipAddress, userAgent });
   if (!isAllowed) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
@@ -58,11 +75,87 @@ export async function PATCH(
 
     const { resource, id } = await params;
     const model = resourceMap[resource];
-    const isAllowed = await checkPermission(model || resource, "update");
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkRecordPermission(model || resource, "update", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
     const body = await request.json();
+    let validatedData: any;
+
+    try {
+      switch (resource) {
+        case "identifikasi-risiko":
+          validatedData = updateIdentifikasiRisikoSchema.parse(body);
+          break;
+        case "sasaran":
+          validatedData = updateSasaranSchema.parse(body);
+          break;
+        case "kegiatan":
+          validatedData = updateKegiatanSchema.parse(body);
+          break;
+        case "proses-bisnis":
+          validatedData = updateProsesBisnisSchema.parse(body);
+          break;
+        case "unit-kerja":
+          validatedData = updateUnitKerjaSchema.parse(body);
+          break;
+        case "jenis-risiko":
+        case "sumber-risiko":
+        case "kategori-risiko":
+        case "area-dampak":
+        case "opsi-penanganan":
+        case "kriteria-dampak":
+        case "selera-risiko":
+        case "pemangku-kepentingan":
+        case "peraturan-perundangan":
+        case "faq":
+          validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "level-kemungkinan":
+          validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "level-dampak":
+          validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "level-risiko":
+          validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "matriks-analisis-risiko":
+          validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "kri":
+          validatedData = updateKRISchema.parse(body);
+          break;
+        case "users":
+          validatedData = updateUserSchema.parse(body);
+          break;
+        case "roles":
+          validatedData = updateRoleSchema.parse(body);
+          break;
+        case "analisis-risiko":
+          validatedData = updateAnalisisRisikoSchema.parse(body);
+          break;
+        case "evaluasi-risiko":
+          validatedData = updateEvaluasiRisikoSchema.parse(body);
+          break;
+        case "rencana-penanganan":
+          validatedData = updateRencanaPenangananSchema.parse(body);
+          break;
+        default:
+          validatedData = body;
+      }
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return NextResponse.json(
+          { error: "Validation failed", details: error.flatten().fieldErrors },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+
     const delegate = getDelegate(resource);
     let item;
     
@@ -84,11 +177,23 @@ export async function PATCH(
       
       item = await delegate.update({
         where: { id: Number(id) },
-        data: updateData,
+        data: validatedData,
       });
     } else if (resource === "users") {
       // Custom update logic for users overrides
-      const { permissions: overrides, ...rest } = body;
+      const { permissions: overrides, ...rest } = validatedData;
+      
+      // Validate permission hierarchy: admin can only grant permissions they themselves have
+      if (overrides !== undefined && userId !== "anonymous") {
+        const { canGrantPermissions } = await import("@/lib/access-control");
+        const validation = await canGrantPermissions(userId, overrides);
+        if (!validation.allowed) {
+          return NextResponse.json(
+            { error: "Cannot grant permissions you don't possess", invalidPermissions: validation.invalidPermissions },
+            { status: 403 }
+          );
+        }
+      }
       
       const updateData: any = { ...rest };
       if (overrides !== undefined) {
@@ -110,7 +215,7 @@ export async function PATCH(
     } else {
       item = await delegate.update({
         where: { id: Number(id) },
-        data: body,
+        data: validatedData,
       });
     }
 
@@ -120,8 +225,8 @@ export async function PATCH(
       userName,
       action: "UPDATE",
       resource: resourceMap[resource] || resource,
-      resourceId: id,
-      details: body,
+      resourceId: Number(id),
+      details: validatedData,
       ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
       userAgent: request.headers.get("user-agent") || "unknown",
     });
@@ -137,11 +242,11 @@ export async function PATCH(
       await delCacheByPattern("user:permissions:*");
     }
 
-    if (resource === "identifikasi-risiko" && (body.risiko || body.penyebab || body.dampak)) {
+    if (resource === "identifikasi-risiko" && (validatedData.risiko || validatedData.penyebab || validatedData.dampak)) {
       const embeddingText = [
-        body.risiko ?? item.risiko,
-        body.penyebab ?? item.penyebab,
-        body.dampak ?? item.dampak,
+        validatedData.risiko ?? item.risiko,
+        validatedData.penyebab ?? item.penyebab,
+        validatedData.dampak ?? item.dampak,
       ]
         .filter(Boolean)
         .join(". ");
@@ -152,8 +257,9 @@ export async function PATCH(
 
     return NextResponse.json(item);
   } catch (e: any) {
+    console.error("API PATCH error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -178,7 +284,9 @@ export async function DELETE(
 
     const { resource, id } = await params;
     const model = resourceMap[resource];
-    const isAllowed = await checkPermission(model || resource, "delete");
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkRecordPermission(model || resource, "delete", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -210,8 +318,9 @@ export async function DELETE(
 
     return NextResponse.json(item);
   } catch (e: any) {
+    console.error("API DELETE error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

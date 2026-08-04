@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import { useList } from "@refinedev/core";
 import {
   Title,
@@ -26,10 +26,196 @@ import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 if (typeof window !== "undefined") {
   registerAllModules();
 }
+
+interface BankModalProps {
+  opened: boolean;
+  onClose: () => void;
+  tahun: number;
+  onImport: () => void;
+}
+
+const BankRisikoModal = memo(function BankRisikoModal({
+  opened,
+  onClose,
+  tahun,
+  onImport,
+}: BankModalProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [searchMethod, setSearchMethod] = useState("");
+  const [importing, setImporting] = useState<number | null>(null);
+
+  const handleSearch = useCallback(async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await fetch("/api/bank-risiko/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim(), limit: 15, tahun }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        notifications.show({ title: "Error", message: data.error, color: "red" });
+        return;
+      }
+      setResults(data.results || []);
+      setSearchMethod(data.method || "text");
+    } catch {
+      notifications.show({ title: "Error", message: "Gagal mencari risiko", color: "red" });
+    } finally {
+      setLoading(false);
+    }
+  }, [query, tahun]);
+
+  const handleImport = useCallback(
+    async (risk: any) => {
+      setImporting(risk.id);
+      try {
+        const payload = {
+          risiko: risk.risiko,
+          jenisRisikoId: risk.jenis_risiko_id,
+          sumberRisikoId: risk.sumber_risiko_id,
+          kategoriRisikoId: risk.kategori_risiko_id,
+          areaDampakId: risk.area_dampak_id,
+          penyebab: risk.penyebab,
+          dampak: risk.dampak,
+          sasaranId: risk.sasaran_id,
+          kegiatanId: risk.kegiatan_id,
+          prosesBisnisId: risk.proses_bisnis_id,
+          unitKerjaId: risk.unit_kerja_id,
+          tahun,
+        };
+        const res = await fetch("/api/identifikasi-risiko", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error ?? "Gagal mengimpor risiko");
+        }
+        notifications.show({
+          title: "Berhasil",
+          message: "Risiko berhasil ditambahkan ke tabel",
+          color: "green",
+        });
+        onClose();
+        onImport();
+      } catch (e: any) {
+        notifications.show({ title: "Gagal", message: e?.message ?? "Gagal mengimpor risiko", color: "red" });
+      } finally {
+        setImporting(null);
+      }
+    },
+    [tahun, onClose, onImport]
+  );
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Cari dari Bank Risiko" size="xl">
+      <Stack>
+        <Text size="sm" c="dimmed">
+          Cari risiko yang sudah tercatat untuk ditambahkan ke tabel identifikasi.
+        </Text>
+        <Group>
+          <TextInput
+            placeholder="Ketik kata kunci risiko..."
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+            style={{ flex: 1 }}
+            leftSection={<IconSearch size={16} />}
+          />
+          <Button onClick={handleSearch} loading={loading}>
+            Cari
+          </Button>
+        </Group>
+
+        {searchMethod && searched && (
+          <Text size="xs" c="dimmed">
+            Metode:{" "}
+            <Badge
+              size="xs"
+              color={searchMethod === "semantic" ? "green" : "gray"}
+              variant="light"
+            >
+              {searchMethod === "semantic" ? "Semantik" : "Teks"}
+            </Badge>
+          </Text>
+        )}
+
+        {loading && <Center h={150}><Loader /></Center>}
+
+        {!loading && searched && results.length === 0 && (
+          <Center h={100}><Text c="dimmed">Tidak ada hasil untuk "{query}"</Text></Center>
+        )}
+
+        {!loading && results.length > 0 && (
+          <Table striped highlightOnHover withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Risiko</Table.Th>
+                <Table.Th>Jenis</Table.Th>
+                <Table.Th>Kategori</Table.Th>
+                {searchMethod === "semantic" && <Table.Th w={80}>Skor</Table.Th>}
+                <Table.Th w={60}>Aksi</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {results.map((r: any) => (
+                <Table.Tr key={r.id}>
+                  <Table.Td maw={300}>
+                    <Text size="sm" lineClamp={2}>{sanitizeHtml(r.risiko)}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="xs" variant="light">{sanitizeHtml(r.jenis_risiko_nama)}</Badge>
+                  </Table.Td>
+                  <Table.Td><Text size="xs">{sanitizeHtml(r.kategori_risiko_nama)}</Text></Table.Td>
+                  {searchMethod === "semantic" && (
+                    <Table.Td>
+                      <Badge
+                        size="xs"
+                        color={
+                          r.similarity >= 0.8 ? "green" : r.similarity >= 0.6 ? "yellow" : "gray"
+                        }
+                        variant="filled"
+                      >
+                        {(r.similarity * 100).toFixed(0)}%
+                      </Badge>
+                    </Table.Td>
+                  )}
+                  <Table.Td>
+                    <Tooltip label="Tambah ke tabel">
+                      <ActionIcon
+                        color="blue"
+                        variant="light"
+                        size="sm"
+                        loading={importing === r.id}
+                        onClick={() => handleImport(r)}
+                      >
+                        <IconPlus size={14} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+      </Stack>
+    </Modal>
+  );
+});
 
 export default function IdentifikasiRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
@@ -41,14 +227,7 @@ export default function IdentifikasiRisikoPage() {
   const { tahunDari, tahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
 
-  const [bankOpened, { open: openBank, close: closeBank }] =
-    useDisclosure(false);
-  const [bankQuery, setBankQuery] = useState("");
-  const [bankResults, setBankResults] = useState<any[]>([]);
-  const [bankLoading, setBankLoading] = useState(false);
-  const [bankSearched, setBankSearched] = useState(false);
-  const [bankSearchMethod, setBankSearchMethod] = useState("");
-  const [bankImporting, setBankImporting] = useState<number | null>(null);
+  const [bankOpened, { open: openBank, close: closeBank }] = useDisclosure(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -425,85 +604,6 @@ export default function IdentifikasiRisikoPage() {
     prosesBisnisData,
   ]);
 
-  const handleBankSearch = useCallback(async () => {
-    if (!bankQuery.trim()) return;
-    setBankLoading(true);
-    setBankSearched(true);
-    try {
-      const res = await fetch("/api/bank-risiko/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: bankQuery.trim(),
-          limit: 15,
-          tahun: tahunDari === tahunSampai ? tahunDari : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        notifications.show({ title: "Error", message: data.error, color: "red" });
-        return;
-      }
-      setBankResults(data.results || []);
-      setBankSearchMethod(data.method || "text");
-    } catch {
-      notifications.show({ title: "Error", message: "Gagal mencari risiko", color: "red" });
-    } finally {
-      setBankLoading(false);
-    }
-  }, [bankQuery, tahunDari, tahunSampai]);
-
-  const handleBankImport = useCallback(
-    async (risk: any) => {
-      setBankImporting(risk.id);
-      try {
-        const payload = {
-          risiko: risk.risiko,
-          jenisRisikoId: risk.jenis_risiko_id,
-          sumberRisikoId: risk.sumber_risiko_id,
-          kategoriRisikoId: risk.kategori_risiko_id,
-          areaDampakId: risk.area_dampak_id,
-          penyebab: risk.penyebab,
-          dampak: risk.dampak,
-          sasaranId: risk.sasaran_id,
-          kegiatanId: risk.kegiatan_id,
-          prosesBisnisId: risk.proses_bisnis_id,
-          unitKerjaId: risk.unit_kerja_id,
-          tahun: tahunDari,
-        };
-
-        const res = await fetch("/api/identifikasi-risiko", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err?.error ?? "Gagal mengimpor risiko");
-        }
-
-        notifications.show({
-          title: "Berhasil",
-          message: "Risiko berhasil ditambahkan ke tabel",
-          color: "green",
-        });
-
-        closeBank();
-        if (refetchQuery) refetchQuery();
-      } catch (e: any) {
-        notifications.show({
-          title: "Gagal",
-          message: e?.message ?? "Gagal mengimpor risiko",
-          color: "red",
-        });
-      } finally {
-        setBankImporting(null);
-      }
-    },
-    [tahunDari, refetchQuery, closeBank]
-  );
-
   const columns: Handsontable.ColumnSettings[] = useMemo(
     () => [
       { title: "ID", data: 0, type: "numeric", width: 1 },
@@ -738,128 +838,14 @@ export default function IdentifikasiRisikoPage() {
         manualColumnResize={true}
         manualColumnMove={true}
         search={true}
-      />
+/>
 
-      <Modal
+      <BankRisikoModal
         opened={bankOpened}
         onClose={closeBank}
-        title="Cari dari Bank Risiko"
-        size="xl"
-      >
-        <Stack>
-          <Text size="sm" c="dimmed">
-            Cari risiko yang sudah tercatat untuk ditambahkan ke tabel
-            identifikasi.
-          </Text>
-          <Group>
-            <TextInput
-              placeholder="Ketik kata kunci risiko..."
-              value={bankQuery}
-              onChange={(e) => setBankQuery(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleBankSearch();
-              }}
-              style={{ flex: 1 }}
-              leftSection={<IconSearch size={16} />}
-            />
-            <Button onClick={handleBankSearch} loading={bankLoading}>
-              Cari
-            </Button>
-          </Group>
-
-          {bankSearchMethod && bankSearched && (
-            <Text size="xs" c="dimmed">
-              Metode:{" "}
-              <Badge
-                size="xs"
-                color={bankSearchMethod === "semantic" ? "green" : "gray"}
-                variant="light"
-              >
-                {bankSearchMethod === "semantic" ? "Semantik" : "Teks"}
-              </Badge>
-            </Text>
-          )}
-
-          {bankLoading && (
-            <Center h={150}>
-              <Loader />
-            </Center>
-          )}
-
-          {!bankLoading && bankSearched && bankResults.length === 0 && (
-            <Center h={100}>
-              <Text c="dimmed">
-                Tidak ada hasil untuk &quot;{bankQuery}&quot;
-              </Text>
-            </Center>
-          )}
-
-          {!bankLoading && bankResults.length > 0 && (
-            <Table striped highlightOnHover withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Risiko</Table.Th>
-                  <Table.Th>Jenis</Table.Th>
-                  <Table.Th>Kategori</Table.Th>
-                  {bankSearchMethod === "semantic" && (
-                    <Table.Th w={80}>Skor</Table.Th>
-                  )}
-                  <Table.Th w={60}>Aksi</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {bankResults.map((r: any) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td maw={300}>
-                      <Text size="sm" lineClamp={2}>
-                        {r.risiko}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge size="xs" variant="light">
-                        {r.jenis_risiko_nama}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs">{r.kategori_risiko_nama}</Text>
-                    </Table.Td>
-                    {bankSearchMethod === "semantic" && (
-                      <Table.Td>
-                        <Badge
-                          size="xs"
-                          color={
-                            r.similarity >= 0.8
-                              ? "green"
-                              : r.similarity >= 0.6
-                              ? "yellow"
-                              : "gray"
-                          }
-                          variant="filled"
-                        >
-                          {(r.similarity * 100).toFixed(0)}%
-                        </Badge>
-                      </Table.Td>
-                    )}
-                    <Table.Td>
-                      <Tooltip label="Tambah ke tabel">
-                        <ActionIcon
-                          color="blue"
-                          variant="light"
-                          size="sm"
-                          loading={bankImporting === r.id}
-                          onClick={() => handleBankImport(r)}
-                        >
-                          <IconPlus size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          )}
-        </Stack>
-      </Modal>
+        tahun={tahunDari}
+        onImport={() => refetchQuery?.()}
+      />
     </Stack>
   );
 }

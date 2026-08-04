@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
-const MODEL_NAME = "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
+const MODEL_NAME = "Xenova/multilingual-e5-base";
+const PASSAGE_PREFIX = "passage: ";
+const QUERY_PREFIX = "query: ";
 
 let _pipeline: any = null;
 let _pipelineLoading: Promise<any> | null = null;
@@ -35,9 +37,13 @@ export function isEmbeddingAvailable(): boolean {
   return !_pipelineFailed;
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(
+  text: string,
+  type: "passage" | "query" = "passage"
+): Promise<number[]> {
   const extractor = await getPipeline();
-  const output = await extractor(text, {
+  const prefix = type === "passage" ? PASSAGE_PREFIX : QUERY_PREFIX;
+  const output = await extractor(prefix + text, {
     pooling: "mean",
     normalize: true,
   });
@@ -55,7 +61,7 @@ export async function generateAndStoreEmbedding(
 
   try {
     console.log("[embedding] Generating for risk #" + identifikasiRisikoId);
-    const embedding = await generateEmbedding(text);
+    const embedding = await generateEmbedding(text, "passage");
 
     const hasPgvector = await prisma.$queryRaw<
       Array<{ exists: boolean }>

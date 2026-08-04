@@ -3,20 +3,55 @@
 import type { AuthProvider } from "@refinedev/core";
 import Cookies from "js-cookie";
 
-const mockUsers = [
-  {
-    name: "John Doe",
-    email: "johndoe@mail.com",
-    roles: ["admin"],
-    avatar: "https://i.pravatar.cc/150?img=1",
-  },
-  {
-    name: "Jane Doe",
-    email: "janedoe@mail.com",
-    roles: ["editor"],
-    avatar: "https://i.pravatar.cc/150?img=1",
-  },
-];
+const AUTH_COOKIE = "auth";
+const PERMISSIONS_STORAGE_KEY = "rm_permissions";
+const PROFILE_STORAGE_KEY = "rm_profile";
+
+function setSession(user: { name: string; email: string; role: string; permissions?: string[]; avatar?: string }) {
+  const identity = { name: user.name, email: user.email, role: user.role };
+
+  Cookies.set(AUTH_COOKIE, JSON.stringify(identity), {
+    expires: 30,
+    path: "/",
+  });
+
+  try {
+    localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(user.permissions || []));
+    if (user.avatar) {
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ avatar: user.avatar }));
+    }
+  } catch {
+    // Ignore localStorage errors (e.g. private mode)
+  }
+}
+
+function clearSession() {
+  Cookies.remove(AUTH_COOKIE, { path: "/" });
+  try {
+    localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+function readStoredPermissions(): string[] {
+  try {
+    const raw = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStoredProfile(): { avatar?: string } {
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
 
 export const authProviderClient: AuthProvider = {
   login: async ({ email, password }) => {
@@ -33,10 +68,7 @@ export const authProviderClient: AuthProvider = {
 
     const user = await response.json();
 
-    Cookies.set("auth", JSON.stringify(user), {
-      expires: 30,
-      path: "/",
-    });
+    setSession(user);
 
     return {
       success: true,
@@ -44,14 +76,14 @@ export const authProviderClient: AuthProvider = {
     };
   },
   logout: async () => {
-    Cookies.remove("auth", { path: "/" });
+    clearSession();
     return {
       success: true,
       redirectTo: "/login",
     };
   },
   check: async () => {
-    const auth = Cookies.get("auth");
+    const auth = Cookies.get(AUTH_COOKIE);
     if (auth) {
       return {
         authenticated: true,
@@ -65,20 +97,19 @@ export const authProviderClient: AuthProvider = {
     };
   },
   getPermissions: async () => {
-    const auth = Cookies.get("auth");
-    if (auth) {
-      const parsedUser = JSON.parse(auth);
-      return parsedUser.permissions || [];
-    }
-    return null;
+    const auth = Cookies.get(AUTH_COOKIE);
+    if (!auth) return null;
+    return readStoredPermissions();
   },
   getIdentity: async () => {
-    const auth = Cookies.get("auth");
-    if (auth) {
-      const parsedUser = JSON.parse(auth);
-      return parsedUser;
-    }
-    return null;
+    const auth = Cookies.get(AUTH_COOKIE);
+    if (!auth) return null;
+    const parsedUser = JSON.parse(auth);
+    return {
+      ...parsedUser,
+      ...readStoredProfile(),
+      permissions: readStoredPermissions(),
+    };
   },
   onError: async (error) => {
     if (error.response?.status === 401) {

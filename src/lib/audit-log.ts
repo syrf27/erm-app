@@ -10,7 +10,8 @@ export type AuditAction =
   | "DOWNLOAD"
   | "UPLOAD"
   | "APPROVE"
-  | "REJECT";
+  | "REJECT"
+  | "ACCESS_DENIED";
 
 interface LogAuditParams {
   userId: string;
