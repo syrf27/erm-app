@@ -187,7 +187,11 @@ export default function PelaporanRisikoPage() {
         warnaAktual: wAktual,
         pengendalian: an?.pengendalianUraian ?? "",
         efektivitas: an?.pengendalianEfektivitas ?? "",
-        respon: ev?.responRisiko ?? "Menerima Risiko",
+        respon: ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
+                ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
+                ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
+                ev?.responRisiko === "menerima" ? "Menerima Risiko" :
+                (ev?.responRisiko ?? "Menerima Risiko"),
         rencanaPenanganan: rp?.rencanaTidakPenanganan ?? "",
         targetWaktu: rp?.targetWaktu ?? "",
         targetOutput: rp?.targetOutput ?? "",

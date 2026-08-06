@@ -67,6 +67,25 @@ async function main() {
   }
   console.log("Seeded UnitKerja");
 
+  // Seed Team
+  const teamData = [
+    { nama: "Tim Keuangan", kode: "TIM_KEU" },
+    { nama: "Tim Perencanaan", kode: "TIM_PERENCANAAN" },
+    { nama: "Tim Kepegawaian & Umum", kode: "TIM_KEPEGAWAIAN" },
+    { nama: "Tim Teknologi Informasi", kode: "TIM_TI" },
+    { nama: "Tim Penyelenggaraan Pelatihan", kode: "TIM_PELATIHAN" },
+    { nama: "Tim Kurikulum & Pembelajaran", kode: "TIM_KURIKULUM" },
+  ];
+
+  for (const t of teamData) {
+    await prisma.team.upsert({
+      where: { kode: t.kode },
+      update: {},
+      create: t,
+    });
+  }
+  console.log("Seeded Teams");
+
   // Seed Kegiatan
   const kegiatanNamaList = [
     "10 - DOKUMEN RKA-KL",
@@ -444,6 +463,13 @@ async function main() {
       },
     });
 
+    const anggotaTimRole = await prisma.role.create({
+      data: {
+        name: "anggota tim",
+        description: "Team member with access to context, risk management, KRI, and reports, but restricted from administrative functions.",
+      },
+    });
+
     // Resources list - use kebab-case for consistency with API routes
     const resources = [
       "sasaran",
@@ -460,7 +486,7 @@ async function main() {
       "opsi-penanganan",
       "kriteria-kemungkinan",
       "kriteria-dampak",
-      "selera-risiko",
+      "matriks-risiko",
       "identifikasi-risiko",
       "analisis-risiko",
       "evaluasi-risiko",
@@ -505,10 +531,16 @@ async function main() {
         && !(perm.resource === "faq" && perm.action !== "read")
     );
     await prisma.rolePermission.createMany({
-      data: ketuaTimPermissions.map((perm) => ({
-        roleId: ketuaTimRole.id,
-        permissionId: perm.id,
-      })),
+      data: [
+        ...ketuaTimPermissions.map((perm) => ({
+          roleId: ketuaTimRole.id,
+          permissionId: perm.id,
+        })),
+        ...ketuaTimPermissions.map((perm) => ({
+          roleId: anggotaTimRole.id,
+          permissionId: perm.id,
+        })),
+      ],
     });
 
     // Create default users linked to roles
@@ -549,7 +581,7 @@ async function main() {
     "opsi-penanganan",
     "kriteria-kemungkinan",
     "kriteria-dampak",
-    "selera-risiko",
+    "matriks-risiko",
     "identifikasi-risiko",
     "analisis-risiko",
     "evaluasi-risiko",
@@ -561,7 +593,9 @@ async function main() {
     "faq",
     "users",
     "roles",
+    "permissions",
     "audit-logs",
+    "teams",
   ];
   const actions = ["create", "read", "update", "delete"];
 

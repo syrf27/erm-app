@@ -239,6 +239,7 @@ model IdentifikasiRisiko {
   unitKerjaId       Int?
   sasaranId         Int?
   prosesBisnisId    Int?
+  teamId            Int?
   tahun             Int                @default(2026)
   analisisRisiko    AnalisisRisiko?
   evaluasiRisiko    EvaluasiRisiko?
@@ -250,6 +251,7 @@ model IdentifikasiRisiko {
   sasaran           Sasaran?           @relation(fields: [sasaranId], references: [id])
   sumberRisiko      SumberRisiko       @relation(fields: [sumberRisikoId], references: [id])
   unitKerja         UnitKerja?         @relation(fields: [unitKerjaId], references: [id])
+  team              Team?              @relation(fields: [teamId], references: [id])
   kris              Kri[]
   rencanaPenanganan RencanaPenanganan?
 }
@@ -306,6 +308,17 @@ model RencanaPenanganan {
   identifikasiRisiko         IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
   residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
   residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
+  dokumenPendukungs          DokumenPendukung[]
+}
+
+model DokumenPendukung {
+  id                  Int               @id @default(autoincrement())
+  rencanaPenangananId Int
+  title               String
+  url                 String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  rencanaPenanganan   RencanaPenanganan @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
 }
 
 model Faq {
@@ -340,6 +353,9 @@ model User {
   updatedAt   DateTime         @updatedAt
   role        Role             @relation(fields: [roleId], references: [id])
   permissions UserPermission[]
+  fcmTokens   FcmToken[]
+  teams       UserTeam[]
+  notifications Notification[]
 }
 
 model Role {
@@ -389,6 +405,54 @@ model risk_embeddings {
   embedding              Unsupported("vector")?
   created_at             DateTime?              @default(now()) @db.Timestamp(6)
   updated_at             DateTime?              @default(now()) @db.Timestamp(6)
+}
 
-  @@index([embedding], map: "idx_risk_embeddings_embedding")
+model FcmToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id                 Int                  @id @default(autoincrement())
+  nama               String               @unique
+  kode               String               @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  identifikasiRisiko IdentifikasiRisiko[]
+  users              UserTeam[]
+}
+
+model UserTeam {
+  userId Int  @map("user_id")
+  teamId Int  @map("team_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+  @@map("user_teams")
+}
+
+model Repositori {
+  id        Int      @id @default(autoincrement())
+  title     String
+  url       String
+  category  String   @default("pedoman") // e.g. "pedoman" | "laporan"
+  tahun     Int      @default(2026)
+  uploader  String   @default("Admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  body      String
+  url       String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

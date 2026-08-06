@@ -50,10 +50,86 @@ export async function GET(
 ) {
   try {
     const { resource } = await params;
+
+    if (resource === "custom-pemantauan-risiko") {
+      const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+      const userAgent = request.headers.get("user-agent") || "unknown";
+      const isAllowed = await checkPermission("rencana-penanganan", "read", { ipAddress, userAgent });
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+
+      const { searchParams } = new URL(request.url);
+      const tahunDari = parseInt(searchParams.get("tahunDari") || "0", 10);
+      const tahunSampai = parseInt(searchParams.get("tahunSampai") || "9999", 10);
+
+      const allRisksForYear = await prisma.identifikasiRisiko.findMany({
+        where: {
+          tahun: {
+            gte: tahunDari,
+            lte: tahunSampai,
+          },
+        },
+        include: {
+          analisisRisiko: {
+            include: {
+              levelRisiko: true,
+              levelKemungkinan: true,
+              levelDampak: true,
+            },
+          },
+          evaluasiRisiko: true,
+          rencanaPenanganan: {
+            include: {
+              dokumenPendukungs: true,
+            },
+          },
+        },
+      });
+
+      // Calculate besaran inheren (lk.skala * ld.skala) for sorting
+      const scoredRisks = allRisksForYear.map((r) => {
+        const lkSkala = r.analisisRisiko?.levelKemungkinan?.skala ?? 0;
+        const ldSkala = r.analisisRisiko?.levelDampak?.skala ?? 0;
+        const besaran = lkSkala * ldSkala;
+        return {
+          risk: r,
+          besaran,
+          areaDampakId: r.areaDampakId,
+          kategoriRisikoId: r.kategoriRisikoId,
+          id: r.id,
+        };
+      });
+
+      // Sort according to Guidebook rules
+      scoredRisks.sort((a, b) => {
+        if (b.besaran !== a.besaran) return b.besaran - a.besaran;
+        if (b.areaDampakId !== a.areaDampakId) return b.areaDampakId - a.areaDampakId;
+        if (b.kategoriRisikoId !== a.kategoriRisikoId) return b.kategoriRisikoId - a.kategoriRisikoId;
+        return b.id - a.id;
+      });
+
+      // Assign global priority ranks
+      const rankedRisks = scoredRisks.map((item, index) => {
+        return {
+          ...item.risk,
+          priorityRank: index + 1,
+        };
+      });
+
+      // Filter only those that require mitigation (respon: mengurangi)
+      const filteredRisks = rankedRisks.filter((r) => {
+        const respon = r.evaluasiRisiko?.responRisiko;
+        return respon === "mengurangi" || respon === "Mengurangi Risiko";
+      });
+
+      return NextResponse.json(filteredRisks);
+    }
+
     const model = resourceMap[resource];
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkPermission(model || resource, "read", { ipAddress, userAgent });
+    const isAllowed = await checkPermission(resource, "read", { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -153,7 +229,7 @@ export async function POST(
     const model = resourceMap[resource];
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkPermission(model || resource, "create", { ipAddress, userAgent });
+    const isAllowed = await checkPermission(resource, "create", { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -186,7 +262,7 @@ export async function POST(
         case "level-risiko":
         case "opsi-penanganan":
         case "kriteria-dampak":
-        case "selera-risiko":
+        case "matriks-risiko":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
         case "faq":
@@ -243,7 +319,39 @@ export async function POST(
     }
 
     const delegate = getDelegate(resource);
-    const item = await delegate.create({ data: validatedData });
+    let item;
+    if (resource === "users") {
+      const { teamIds, password: rawPassword, ...rest } = validatedData;
+      const { hashPassword } = await import("@/lib/password-utils");
+      const hashedPassword = hashPassword(rawPassword);
+      const createData: any = {
+        ...rest,
+        password: hashedPassword,
+      };
+      if (teamIds && Array.isArray(teamIds)) {
+        createData.teams = {
+          create: teamIds.map((tId: number) => ({
+            teamId: tId,
+          })),
+        };
+      }
+      item = await delegate.create({ data: createData });
+    } else if (resource === "rencana-penanganan") {
+      const { dokumenPendukungs, ...rest } = body;
+      const validatedRtp = createRencanaPenangananSchema.parse(rest);
+      const createData: any = { ...validatedRtp };
+      if (dokumenPendukungs && Array.isArray(dokumenPendukungs)) {
+        createData.dokumenPendukungs = {
+          create: dokumenPendukungs.map((d: any) => ({
+            title: d.title,
+            url: d.url,
+          })),
+        };
+      }
+      item = await delegate.create({ data: createData });
+    } else {
+      item = await delegate.create({ data: validatedData });
+    }
 
     // Log audit
     await logAudit({
@@ -274,6 +382,13 @@ export async function POST(
         .join(". ");
       await generateAndStoreEmbedding(item.id, embeddingText).catch((e) =>
         console.error("Embedding generation failed for risk", item.id, e)
+      );
+    }
+
+    if (resource === "rencana-penanganan") {
+      const { sendRtpPushNotification } = await import("@/lib/push-notification");
+      sendRtpPushNotification(item.id).catch((e) =>
+        console.error("Failed to send push notification on RTP creation", e)
       );
     }
 

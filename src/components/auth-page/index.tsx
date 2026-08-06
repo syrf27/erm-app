@@ -75,11 +75,30 @@ export const AuthPage = ({ type = "login" }: { type?: AuthPageType }) => {
     type === "register" ? isRegistering :
     isSending;
 
-  if (type === "login") {
-    return <LoginView form={form} handleSubmit={handleSubmit} isLoading={isLoading} error={error} />;
-  }
-
-  return <SecondaryAuthView type={type} form={form} handleSubmit={handleSubmit} isLoading={isLoading} error={error} />;
+  return (
+    <>
+      <style>{`
+        @media (max-width: 768px) {
+          .auth-container {
+            flex-direction: column !important;
+          }
+          .auth-left-pane {
+            display: none !important;
+          }
+          .auth-right-pane {
+            padding: 24px !important;
+            flex: 1 !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+      {type === "login" ? (
+        <LoginView form={form} handleSubmit={handleSubmit} isLoading={isLoading} error={error} />
+      ) : (
+        <SecondaryAuthView type={type} form={form} handleSubmit={handleSubmit} isLoading={isLoading} error={error} />
+      )}
+    </>
+  );
 };
 
 interface AuthViewProps {
@@ -93,8 +112,9 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
   const router = useRouter();
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="auth-container" style={{ display: "flex", minHeight: "100vh" }}>
       <div
+        className="auth-left-pane"
         style={{
           flex: 3,
           position: "relative",
@@ -216,6 +236,7 @@ function LoginView({ form, handleSubmit, isLoading, error }: AuthViewProps) {
       </div>
 
       <div
+        className="auth-right-pane"
         style={{
           flex: 2,
           display: "flex",
@@ -357,8 +378,9 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
   const isRegister = type === "register";
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="auth-container" style={{ display: "flex", minHeight: "100vh" }}>
       <div
+        className="auth-left-pane"
         style={{
           flex: 3,
           position: "relative",
@@ -412,6 +434,7 @@ function SecondaryAuthView({ type, form, handleSubmit, isLoading, error }: AuthV
       </div>
 
       <div
+        className="auth-right-pane"
         style={{
           flex: 2,
           display: "flex",

@@ -254,7 +254,11 @@ export default function PelaporanRisikoPage() {
         warnaAktual: wAktual,
         pengendalian: an?.pengendalianUraian ?? "",
         efektivitas: an?.pengendalianEfektivitas ?? "",
-        respon: ev?.responRisiko ?? "Menerima Risiko",
+        respon: ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
+                ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
+                ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
+                ev?.responRisiko === "menerima" ? "Menerima Risiko" :
+                (ev?.responRisiko ?? "Menerima Risiko"),
         rencanaPenanganan: rp?.rencanaTidakPenanganan ?? "",
         targetWaktu: rp?.targetWaktu ?? "",
         targetOutput: rp?.targetOutput ?? "",
@@ -1077,6 +1081,7 @@ export default function PelaporanRisikoPage() {
                     </Badge>
                   </Table.Td>
                   <Table.Td>{row.rencanaPenanganan || "-"}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.targetWaktu || "-")}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.targetOutput || "-")}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.penanggungJawab || "-")}</Table.Td>
                   <Table.Td align="center">

@@ -44,7 +44,7 @@ export async function GET(
   const model = resourceMap[resource];
   const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
   const userAgent = request.headers.get("user-agent") || "unknown";
-  const isAllowed = await checkRecordPermission(model || resource, "read", Number(id), { ipAddress, userAgent });
+  const isAllowed = await checkRecordPermission(resource, "read", Number(id), { ipAddress, userAgent });
   if (!isAllowed) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
@@ -77,7 +77,7 @@ export async function PATCH(
     const model = resourceMap[resource];
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkRecordPermission(model || resource, "update", Number(id), { ipAddress, userAgent });
+    const isAllowed = await checkRecordPermission(resource, "update", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -107,7 +107,7 @@ export async function PATCH(
         case "area-dampak":
         case "opsi-penanganan":
         case "kriteria-dampak":
-        case "selera-risiko":
+        case "matriks-risiko":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
         case "faq":
@@ -180,8 +180,8 @@ export async function PATCH(
         data: validatedData,
       });
     } else if (resource === "users") {
-      // Custom update logic for users overrides
-      const { permissions: overrides, ...rest } = validatedData;
+      // Custom update logic for users overrides and teams many-to-many
+      const { permissions: overrides, teamIds, password: rawPassword, ...rest } = validatedData;
       
       // Validate permission hierarchy: admin can only grant permissions they themselves have
       if (overrides !== undefined && userId !== "anonymous") {
@@ -196,6 +196,12 @@ export async function PATCH(
       }
       
       const updateData: any = { ...rest };
+      
+      if (rawPassword) {
+        const { hashPassword } = await import("@/lib/password-utils");
+        updateData.password = hashPassword(rawPassword);
+      }
+
       if (overrides !== undefined) {
         updateData.permissions = {
           deleteMany: {},
@@ -207,7 +213,33 @@ export async function PATCH(
           },
         };
       }
+
+      if (teamIds !== undefined && Array.isArray(teamIds)) {
+        updateData.teams = {
+          deleteMany: {},
+          create: teamIds.map((tId: number) => ({
+            teamId: tId,
+          })),
+        };
+      }
       
+      item = await delegate.update({
+        where: { id: Number(id) },
+        data: updateData,
+      });
+    } else if (resource === "rencana-penanganan") {
+      const { dokumenPendukungs, ...rest } = body;
+      const validatedRtp = updateRencanaPenangananSchema.parse(rest);
+      const updateData: any = { ...validatedRtp };
+      if (dokumenPendukungs !== undefined && Array.isArray(dokumenPendukungs)) {
+        updateData.dokumenPendukungs = {
+          deleteMany: {},
+          create: dokumenPendukungs.map((d: any) => ({
+            title: d.title,
+            url: d.url,
+          })),
+        };
+      }
       item = await delegate.update({
         where: { id: Number(id) },
         data: updateData,
@@ -255,6 +287,13 @@ export async function PATCH(
       );
     }
 
+    if (resource === "rencana-penanganan" || resource === "pelaporan-risiko") {
+      const { sendRtpPushNotification } = await import("@/lib/push-notification");
+      sendRtpPushNotification(item.id).catch((e) =>
+        console.error("Failed to send push notification on RTP update", e)
+      );
+    }
+
     return NextResponse.json(item);
   } catch (e: any) {
     console.error("API PATCH error:", e);
@@ -286,7 +325,7 @@ export async function DELETE(
     const model = resourceMap[resource];
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkRecordPermission(model || resource, "delete", Number(id), { ipAddress, userAgent });
+    const isAllowed = await checkRecordPermission(resource, "delete", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }

@@ -275,6 +275,10 @@ export default function IdentifikasiRisikoPage() {
     resource: "unit-kerja",
     pagination: { mode: "off" },
   });
+  const teamList = useList({
+    resource: "teams",
+    pagination: { mode: "off" },
+  });
   const sasaranList = useList({
     resource: "sasaran",
     pagination: { mode: "off" },
@@ -295,6 +299,7 @@ export default function IdentifikasiRisikoPage() {
     (kategoriList.query?.isPending ?? false) ||
     (areaList.query?.isPending ?? false) ||
     (unitKerjaList.query?.isPending ?? false) ||
+    (teamList.query?.isPending ?? false) ||
     (sasaranList.query?.isPending ?? false) ||
     (kegiatanList.query?.isPending ?? false) ||
     (prosesBisnisList.query?.isPending ?? false);
@@ -332,6 +337,10 @@ export default function IdentifikasiRisikoPage() {
     () => unitKerjaList?.result?.data ?? [],
     [unitKerjaList?.result?.data]
   );
+  const teamData = useMemo(
+    () => teamList?.result?.data ?? [],
+    [teamList?.result?.data]
+  );
   const sasaranData = useMemo(
     () => sasaranList?.result?.data ?? [],
     [sasaranList?.result?.data]
@@ -365,6 +374,10 @@ export default function IdentifikasiRisikoPage() {
     () => (unitKerjaData || []).map((o: any) => o.nama),
     [unitKerjaData]
   );
+  const teamNamaList = useMemo(
+    () => (teamData || []).map((o: any) => o.nama),
+    [teamData]
+  );
   const sasaranNamaList = useMemo(
     () => (sasaranData || []).map((o: any) => o.nama),
     [sasaranData]
@@ -387,6 +400,7 @@ export default function IdentifikasiRisikoPage() {
       const kr = kategoriData.find((o: any) => o.id === r.kategoriRisikoId);
       const ad = areaData.find((o: any) => o.id === r.areaDampakId);
       const uk = (unitKerjaData || []).find((o: any) => o.id === r.unitKerjaId);
+      const tim = (teamData || []).find((o: any) => o.id === r.teamId);
       const kg = (kegiatanData || []).find((o: any) => o.id === r.kegiatanId);
       const sasaran = r.sasaranId
         ? (sasaranData || []).find((o: any) => o.id === r.sasaranId)
@@ -410,13 +424,12 @@ export default function IdentifikasiRisikoPage() {
         ad?.nama ?? "",
         r.penyebab ?? "",
         r.dampak ?? "",
-        uk?.nama ?? "",
         r.tahun ?? currentYear,
       ];
     });
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, "", "", "", "", "", "", "", "", "", "", "", currentYear]);
+      padded.push([null, "", "", "", "", "", "", "", "", "", "", currentYear]);
     }
     setLocalData(padded);
   }, [
@@ -427,6 +440,7 @@ export default function IdentifikasiRisikoPage() {
     kategoriData,
     areaData,
     unitKerjaData,
+    teamData,
     sasaranData,
     kegiatanData,
     prosesBisnisData,
@@ -495,9 +509,9 @@ export default function IdentifikasiRisikoPage() {
             (o: any) => o.id === selectedProsesBisnis.kegiatanId
           )
         : null;
-      const unitKerjaId = row[11]
-        ? (unitKerjaData || []).find((o: any) => o.nama === row[11])?.id
-        : selectedKegiatan?.unitKerjaId ?? null;
+      const teamId = null;
+      const tahun = parseInt(row[11] as string, 10) || currentYear;
+      const unitKerjaId = selectedKegiatan?.unitKerjaId ?? null;
       const kegiatanId =
         selectedKegiatan?.id ?? selectedProsesBisnis?.kegiatanId ?? null;
       const sasaranId =
@@ -512,11 +526,12 @@ export default function IdentifikasiRisikoPage() {
         areaDampakId,
         sasaranId,
         unitKerjaId,
+        teamId,
         kegiatanId,
         prosesBisnisId,
         penyebab: (row[9] as string) || null,
         dampak: (row[10] as string) || null,
-        tahun: (row[12] as number) || currentYear,
+        tahun: (row[13] as number) || currentYear,
       };
 
       if (isNaN(id) || id === 0 || id === null) {
@@ -684,17 +699,7 @@ export default function IdentifikasiRisikoPage() {
       },
       { title: "Penyebab", data: 9, type: "text", width: 200 },
       { title: "Dampak", data: 10, type: "text", width: 200 },
-      {
-        title: "Unit Kerja",
-        data: 11,
-        type: "autocomplete",
-        source: unitKerjaNamaList || [],
-        width: 150,
-        strict: false,
-        filter: false,
-        visibleRows: 8,
-      },
-      { title: "Tahun", data: 12, type: "numeric", width: 1 },
+      { title: "Tahun", data: 11, type: "numeric", width: 1 },
     ],
     [
       jenisNamaList,
@@ -702,6 +707,7 @@ export default function IdentifikasiRisikoPage() {
       kategoriNamaList,
       areaNamaList,
       unitKerjaNamaList,
+      teamNamaList,
       sasaranNamaList,
       kegiatanNamaList,
       prosesBisnisNamaList,
@@ -761,10 +767,9 @@ export default function IdentifikasiRisikoPage() {
           "Area Dampak",
           "Penyebab",
           "Dampak",
-          "Unit Kerja",
         ]}
         hiddenColumns={{
-          columns: [0, 12],
+          columns: [0],
           indicators: false,
         }}
         afterChange={(changes, source) => {

@@ -13,7 +13,7 @@ export const resourceMap: Record<string, string> = {
   "opsi-penanganan": "opsiPenanganan",
   "kriteria-kemungkinan": "kriteriaKemungkinan",
   "kriteria-dampak": "kriteriaDampak",
-  "selera-risiko": "seleraRisiko",
+  "matriks-risiko": "seleraRisiko",
   "identifikasi-risiko": "identifikasiRisiko",
   "unit-kerja": "unitKerja",
   kegiatan: "kegiatan",
@@ -27,6 +27,9 @@ export const resourceMap: Record<string, string> = {
   users: "user",
   roles: "role",
   permissions: "permission",
+  teams: "team",
+  "dokumen-pendukung": "dokumenPendukung",
+  repositori: "repositori",
 };
 
 export const includeMap: Record<string, any> = {
@@ -43,6 +46,11 @@ export const includeMap: Record<string, any> = {
     permissions: {
       include: {
         permission: true,
+      },
+    },
+    teams: {
+      include: {
+        team: true,
       },
     },
   },
@@ -62,7 +70,7 @@ export const includeMap: Record<string, any> = {
     kategoriRisiko: { select: { id: true, nama: true } },
     levelKemungkinan: { select: { id: true, nama: true } },
   },
-  "selera-risiko": {
+  "matriks-risiko": {
     kategoriRisiko: { select: { id: true, nama: true } },
   },
   "identifikasi-risiko": {
@@ -75,6 +83,7 @@ export const includeMap: Record<string, any> = {
     sumberRisiko: { select: { id: true, nama: true } },
     kategoriRisiko: { select: { id: true, nama: true } },
     areaDampak: { select: { id: true, nama: true } },
+    team: { select: { id: true, nama: true } },
   },
   "analisis-risiko": {
     identifikasiRisiko: { select: { id: true, risiko: true } },
@@ -83,9 +92,17 @@ export const includeMap: Record<string, any> = {
     levelRisiko: { select: { id: true, nama: true } },
   },
   "rencana-penanganan": {
-    identifikasiRisiko: { select: { id: true, risiko: true } },
+    identifikasiRisiko: {
+      select: {
+        id: true,
+        risiko: true,
+        teamId: true,
+        team: { select: { id: true, nama: true } },
+      },
+    },
     residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
     residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+    dokumenPendukungs: true,
   },
   "pelaporan-risiko": {
     identifikasiRisiko: { select: { id: true, risiko: true } },

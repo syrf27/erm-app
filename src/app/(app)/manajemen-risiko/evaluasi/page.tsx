@@ -55,7 +55,7 @@ export default function EvaluasiRisikoPage() {
   const dampakResult = useList({ resource: "level-dampak", pagination: { pageSize: 10000 } });
   const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 10000 } });
   const risikoResult = useList({ resource: "level-risiko", pagination: { pageSize: 10000 } });
-  const seleraResult = useList({ resource: "selera-risiko", pagination: { pageSize: 10000 } });
+  const seleraResult = useList({ resource: "matriks-risiko", pagination: { pageSize: 10000 } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
@@ -99,15 +99,14 @@ export default function EvaluasiRisikoPage() {
       const besaranInheren = lkInheren?.skala != null && ldInheren?.skala != null
         ? lkInheren.skala * ldInheren.skala
         : 0;
-      const skalaDampak = ldInheren?.skala ?? 0;
-      const kategoriId = r.kategoriRisiko?.id;
-      const selera = seleraByKategori.get(kategoriId);
-      const besaranMinKategori = selera?.besaranRisikoMinimum ?? 0;
+      const areaDampakId = r.areaDampak?.id ?? 0;
+      const kategoriRisikoId = r.kategoriRisiko?.id ?? 0;
       const resLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
       const resLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
       const resLR = ev?.residualLevelRisiko?.nama ?? "";
       const resBesaran = resLK?.skala != null && resLD?.skala != null ? resLK.skala * resLD.skala : "";
       return {
+        id: r.id,
         row: [
           r.id,
           ev?.id ?? null,
@@ -116,33 +115,26 @@ export default function EvaluasiRisikoPage() {
           resLD?.nama ?? "",
           resLR,
           resBesaran,
-          ev?.responRisiko ?? "",
+          ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
+          ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
+          ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
+          ev?.responRisiko === "menerima" ? "Menerima Risiko" :
+          (ev?.responRisiko ?? ""),
           0,
         ],
         besaranInheren,
-        skalaDampak,
-        besaranMinKategori,
+        areaDampakId,
+        kategoriRisikoId,
       };
     });
     withSort.sort((a, b) => {
       if (b.besaranInheren !== a.besaranInheren) return b.besaranInheren - a.besaranInheren;
-      if (b.skalaDampak !== a.skalaDampak) return b.skalaDampak - a.skalaDampak;
-      if (b.besaranMinKategori !== a.besaranMinKategori) return b.besaranMinKategori - a.besaranMinKategori;
-      return 0;
+      if (b.areaDampakId !== a.areaDampakId) return b.areaDampakId - a.areaDampakId;
+      if (b.kategoriRisikoId !== a.kategoriRisikoId) return b.kategoriRisikoId - a.kategoriRisikoId;
+      return b.id - a.id;
     });
-    let rank = 1;
     for (let i = 0; i < withSort.length; i++) {
-      if (i > 0) {
-        const prev = withSort[i - 1];
-        const curr = withSort[i];
-        if (curr.besaranInheren === prev.besaranInheren &&
-            curr.skalaDampak === prev.skalaDampak &&
-            curr.besaranMinKategori === prev.besaranMinKategori) {
-          withSort[i].row[8] = prev.row[8];
-          continue;
-        }
-      }
-      withSort[i].row[8] = rank++;
+      withSort[i].row[8] = i + 1;
     }
     const mapped = withSort.map(m => m.row);
     const padded = [...mapped];
@@ -150,7 +142,7 @@ export default function EvaluasiRisikoPage() {
       padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, seleraData]);
+  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, seleraData, kemungkinanData, dampakData]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -177,7 +169,11 @@ export default function EvaluasiRisikoPage() {
       if (!respon && resLKId == null && resLDId == null) return;
 
       const payload: Record<string, any> = {
-        responRisiko: respon || null,
+        responRisiko: respon === "Mengurangi Risiko" ? "mengurangi" :
+                      respon === "Mengalihkan Risiko" ? "mentransfer" :
+                      respon === "Menghindari Risiko" ? "menghindari" :
+                      respon === "Menerima Risiko" ? "menerima" :
+                      (respon || null),
         residualLevelKemungkinanId: resLKId,
         residualLevelDampakId: resLDId,
         residualLevelRisikoId: resLRId,

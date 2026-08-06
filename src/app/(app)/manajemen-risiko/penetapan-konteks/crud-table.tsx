@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useMemo } from "react";
 import {
@@ -44,6 +44,7 @@ interface CrudTableProps {
 
 const resourceLabels: Record<string, string> = {
   "unit-kerja": "Unit Kerja",
+  teams: "Tim Kerja",
   kegiatan: "Kegiatan",
   sasaran: "Sasaran",
   "proses-bisnis": "Proses Bisnis",
@@ -58,7 +59,7 @@ const resourceLabels: Record<string, string> = {
   "kriteria-kemungkinan": "Kriteria Kemungkinan",
   "kriteria-dampak": "Kriteria Dampak",
   "level-risiko": "Level Risiko",
-  "selera-risiko": "Selera Risiko",
+  "matriks-risiko": "Matriks Risiko",
   "opsi-penanganan": "Opsi Penanganan",
   kri: "Key Risk Indicator",
 };
@@ -67,6 +68,10 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
   "unit-kerja": [
     { key: "kode", label: "Kode", type: "text", required: true },
     { key: "nama", label: "Unit Kerja", type: "text", required: true },
+  ],
+  teams: [
+    { key: "kode", label: "Kode", type: "text", required: true },
+    { key: "nama", label: "Tim Kerja", type: "text", required: true },
   ],
   kegiatan: [
     { key: "nama", label: "Kegiatan", type: "text", required: true },
@@ -130,7 +135,7 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
     { key: "nama", label: "Nama", type: "text", required: true },
     { key: "deskripsi", label: "Deskripsi", type: "text" },
   ],
-  "selera-risiko": [
+  "matriks-risiko": [
     { key: "kategoriRisikoId", label: "Kategori Risiko", type: "select", required: true, relationResource: "kategori-risiko", relationField: "kategoriRisiko" },
     { key: "besaranRisikoMinimum", label: "Besaran Risiko Minimum", type: "number", required: true },
     { key: "deskripsi", label: "Deskripsi", type: "text" },
@@ -240,21 +245,7 @@ export function CrudTable({ resource }: CrudTableProps) {
         { resource, id: editingItem.id, values: formData },
         {
           onSuccess: () => {
-            notifications.show({
-              title: "Berhasil",
-              message: `${label} berhasil diperbarui`,
-              color: "green",
-              icon: <IconCheck size={18} />,
-            });
             close();
-          },
-          onError: () => {
-            notifications.show({
-              title: "Gagal",
-              message: `Gagal memperbarui ${label}`,
-              color: "red",
-              icon: <IconX size={18} />,
-            });
           },
         },
       );
@@ -263,21 +254,7 @@ export function CrudTable({ resource }: CrudTableProps) {
         { resource, values: formData },
         {
           onSuccess: () => {
-            notifications.show({
-              title: "Berhasil",
-              message: `${label} berhasil ditambahkan`,
-              color: "green",
-              icon: <IconCheck size={18} />,
-            });
             close();
-          },
-          onError: () => {
-            notifications.show({
-              title: "Gagal",
-              message: `Gagal menambahkan ${label}`,
-              color: "red",
-              icon: <IconX size={18} />,
-            });
           },
         },
       );
@@ -290,21 +267,9 @@ export function CrudTable({ resource }: CrudTableProps) {
       { resource, id: deleteTarget.id },
       {
         onSuccess: () => {
-          notifications.show({
-            title: "Berhasil",
-            message: `${label} berhasil dihapus`,
-            color: "green",
-            icon: <IconCheck size={18} />,
-          });
           setDeleteTarget(null);
         },
         onError: () => {
-          notifications.show({
-            title: "Gagal",
-            message: `Gagal menghapus ${label}`,
-            color: "red",
-            icon: <IconX size={18} />,
-          });
           setDeleteTarget(null);
         },
       },

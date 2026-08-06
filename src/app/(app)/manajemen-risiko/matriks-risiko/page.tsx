@@ -14,6 +14,8 @@ import {
   Table,
   Button,
   Badge,
+  TextInput,
+  Pagination,
 } from "@mantine/core";
 import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
 
@@ -42,8 +44,11 @@ interface RiskData {
   } | null;
 }
 
-export default function RiskAppetitePage() {
-  const [selectedRiskId, setSelectedRiskId] = useState<number | null>(null);
+export default function MatriksRisikoPage() {
+  const [selectedRiskIds, setSelectedRiskIds] = useState<number[]>([]);
+  const [searchVal, setSearchVal] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
 
   // Fetch all configuration and transaction data
   const identQuery = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
@@ -145,22 +150,51 @@ export default function RiskAppetitePage() {
     });
   }, [loading, identData, analisisData, rencanaData, lkData, ldData, matriksData]);
 
+  // Filter and Paginate the list
+  const filteredRisks = useMemo(() => {
+    if (!processedRisks) return [];
+    return processedRisks.filter((r) =>
+      r.risiko.toLowerCase().includes(searchVal.toLowerCase()) ||
+      r.penyebab.toLowerCase().includes(searchVal.toLowerCase())
+    );
+  }, [processedRisks, searchVal]);
+
+  const paginatedRisks = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredRisks.slice(start, end);
+  }, [filteredRisks, page, pageSize]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchVal(val);
+    setPage(1);
+  };
+
   // Set default selected risk
   useEffect(() => {
-    if (processedRisks.length > 0 && selectedRiskId === null) {
-      // Find first risk with valid transition
+    if (processedRisks.length > 0 && selectedRiskIds.length === 0) {
       const firstValid = processedRisks.find((r) => r.aktual && r.residual);
       if (firstValid) {
-        setSelectedRiskId(firstValid.id);
+        setSelectedRiskIds([firstValid.id]);
       } else {
-        setSelectedRiskId(processedRisks[0].id);
+        setSelectedRiskIds([processedRisks[0].id]);
       }
     }
-  }, [processedRisks, selectedRiskId]);
+  }, [processedRisks, selectedRiskIds]);
 
-  const selectedRisk = useMemo(() => {
-    return processedRisks.find((r) => r.id === selectedRiskId) ?? null;
-  }, [processedRisks, selectedRiskId]);
+  const selectedRisks = useMemo(() => {
+    return processedRisks.filter((r) => selectedRiskIds.includes(r.id));
+  }, [processedRisks, selectedRiskIds]);
+
+  const toggleRiskSelection = (id: number) => {
+    setSelectedRiskIds((prev) => {
+      if (prev.includes(id)) {
+        if (prev.length === 1) return prev; // Keep at least one selected
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
+  };
 
   // Map color names to Hex
   const getColorHex = (warna: string) => {
@@ -211,33 +245,54 @@ export default function RiskAppetitePage() {
     return cells;
   }, [lkData, ldData, matriksData]);
 
-  // Calculate coordinates for transition arrow
-  const arrowCoordinates = useMemo(() => {
-    if (!selectedRisk || !selectedRisk.aktual || !selectedRisk.residual) return null;
+  // Calculate coordinates for all selected transition arrows
+  const transitionArrows = useMemo(() => {
+    return selectedRisks.map((risk, index) => {
+      if (!risk.aktual || !risk.residual) return null;
 
-    const Ka = selectedRisk.aktual.kemungkinanSkala;
-    const Da = selectedRisk.aktual.dampakSkala;
-    const Kr = selectedRisk.residual.kemungkinanSkala;
-    const Dr = selectedRisk.residual.dampakSkala;
+      const Ka = risk.aktual.kemungkinanSkala;
+      const Da = risk.aktual.dampakSkala;
+      const Kr = risk.residual.kemungkinanSkala;
+      const Dr = risk.residual.dampakSkala;
 
-    // Grid coordinates on a 500x500 viewbox (100px per cell)
-    const x1 = (Da - 1) * 100 + 50;
-    const y1 = (5 - Ka) * 100 + 50;
-    const x2 = (Dr - 1) * 100 + 50;
-    const y2 = (5 - Kr) * 100 + 50;
+      const x1 = (Da - 1) * 100 + 50;
+      const y1 = (5 - Ka) * 100 + 50;
+      const x2 = (Dr - 1) * 100 + 50;
+      const y2 = (5 - Kr) * 100 + 50;
 
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.sqrt(dx * dx + dy * dy);
 
-    // Shorten line endpoints slightly to make room for circles and arrowheads
-    const x1_s = len > 0 ? x1 + (dx / len) * 22 : x1;
-    const y1_s = len > 0 ? y1 + (dy / len) * 22 : y1;
-    const x2_s = len > 0 ? x2 - (dx / len) * 26 : x2;
-    const y2_s = len > 0 ? y2 - (dy / len) * 26 : y2;
+      const x1_s = len > 0 ? x1 + (dx / len) * 22 : x1;
+      const y1_s = len > 0 ? y1 + (dy / len) * 22 : y1;
+      const x2_s = len > 0 ? x2 - (dx / len) * 26 : x2;
+      const y2_s = len > 0 ? y2 - (dy / len) * 26 : y2;
 
-    return { x1, y1, x2, y2, x1_s, y1_s, x2_s, y2_s, isSame: len === 0 };
-  }, [selectedRisk]);
+      // Clean, bright colors for overlays
+      const colors = ["#e03131", "#228be6", "#7950f2", "#fab005", "#15aabf", "#e64980", "#40c057"];
+      const color = colors[index % colors.length];
+
+      return {
+        id: risk.id,
+        color,
+        x1, y1, x2, y2, x1_s, y1_s, x2_s, y2_s,
+        isSame: len === 0
+      };
+    }).filter(Boolean) as {
+      id: number;
+      color: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      x1_s: number;
+      y1_s: number;
+      x2_s: number;
+      y2_s: number;
+      isSame: boolean;
+    }[];
+  }, [selectedRisks]);
 
   if (loading) {
     return (
@@ -269,7 +324,7 @@ export default function RiskAppetitePage() {
     <Stack gap="lg">
       <Group justify="space-between">
         <Stack gap={0}>
-          <Title order={3}>Risk Appetite & Heatmap Perpindahan</Title>
+          <Title order={3}>Matriks Risiko & Heatmap Perpindahan</Title>
           <Text size="sm" c="dimmed">
             Visualisasi perpindahan tingkat risiko dari Kondisi Aktual ke Kondisi Residual Harapan.
           </Text>
@@ -480,7 +535,7 @@ export default function RiskAppetitePage() {
                   </div>
 
                   {/* SVG Overlay for Arrows */}
-                  {arrowCoordinates && (
+                  {transitionArrows.length > 0 && (
                     <svg
                       viewBox="0 0 500 500"
                       style={{
@@ -494,122 +549,151 @@ export default function RiskAppetitePage() {
                       }}
                     >
                       <defs>
-                        <marker
-                          id="heatmap-arrow"
-                          viewBox="0 0 10 10"
-                          refX="6"
-                          refY="5"
-                          markerWidth="8"
-                          markerHeight="8"
-                          orient="auto-start-reverse"
-                        >
-                          <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#e03131" />
-                        </marker>
+                        {transitionArrows.map((arrow) => (
+                          <marker
+                            key={`marker-${arrow.id}`}
+                            id={`heatmap-arrow-${arrow.id}`}
+                            viewBox="0 0 10 10"
+                            refX="6"
+                            refY="5"
+                            markerWidth="8"
+                            markerHeight="8"
+                            orient="auto-start-reverse"
+                          >
+                            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill={arrow.color} />
+                          </marker>
+                        ))}
                       </defs>
 
-                      {arrowCoordinates.isSame ? (
-                        <>
-                          <circle
-                            cx={arrowCoordinates.x1}
-                            cy={arrowCoordinates.y1}
-                            r="25"
-                            fill="none"
-                            stroke="#e03131"
-                            strokeWidth="3.5"
-                          />
-                          <text
-                            x={arrowCoordinates.x1}
-                            y={arrowCoordinates.y1 + 5}
-                            fill="#e03131"
-                            fontSize="13"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                          >
-                            A+R
-                          </text>
-                        </>
-                      ) : (
-                        <>
-                          {/* Aktual Cell Indicator */}
-                          <circle
-                            cx={arrowCoordinates.x1}
-                            cy={arrowCoordinates.y1}
-                            r="22"
-                            fill="none"
-                            stroke="#1c7ed6"
-                            strokeWidth="3.5"
-                          />
-                          <circle
-                            cx={arrowCoordinates.x1}
-                            cy={arrowCoordinates.y1}
-                            r="23"
-                            fill="none"
-                            stroke="#fff"
-                            strokeWidth="1.5"
-                          />
-                          <circle
-                            cx={arrowCoordinates.x1 - 15}
-                            cy={arrowCoordinates.y1 - 15}
-                            r="11"
-                            fill="#1c7ed6"
-                          />
-                          <text
-                            x={arrowCoordinates.x1 - 15}
-                            y={arrowCoordinates.y1 - 11}
-                            fill="#fff"
-                            fontSize="10"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                          >
-                            A
-                          </text>
+                      {transitionArrows.map((arrow) => (
+                        <g key={`group-${arrow.id}`}>
+                          {arrow.isSame ? (
+                            <>
+                              <circle
+                                cx={arrow.x1}
+                                cy={arrow.y1}
+                                r="25"
+                                fill="none"
+                                stroke={arrow.color}
+                                strokeWidth="3.5"
+                              />
+                              <text
+                                x={arrow.x1}
+                                y={arrow.y1 + 5}
+                                fill={arrow.color}
+                                fontSize="12"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                {arrow.id}
+                              </text>
+                            </>
+                          ) : (
+                            <>
+                              {/* Transition line */}
+                              <line
+                                x1={arrow.x1_s}
+                                y1={arrow.y1_s}
+                                x2={arrow.x2_s}
+                                y2={arrow.y2_s}
+                                stroke={arrow.color}
+                                strokeWidth="4"
+                                markerEnd={`url(#heatmap-arrow-${arrow.id})`}
+                              />
 
-                          {/* Residual Cell Indicator */}
-                          <circle
-                            cx={arrowCoordinates.x2}
-                            cy={arrowCoordinates.y2}
-                            r="22"
-                            fill="none"
-                            stroke="#2b8a3e"
-                            strokeWidth="3.5"
-                          />
-                          <circle
-                            cx={arrowCoordinates.x2}
-                            cy={arrowCoordinates.y2}
-                            r="23"
-                            fill="none"
-                            stroke="#fff"
-                            strokeWidth="1.5"
-                          />
-                          <circle
-                            cx={arrowCoordinates.x2 + 15}
-                            cy={arrowCoordinates.y2 - 15}
-                            r="11"
-                            fill="#2b8a3e"
-                          />
-                          <text
-                            x={arrowCoordinates.x2 + 15}
-                            y={arrowCoordinates.y2 - 11}
-                            fill="#fff"
-                            fontSize="10"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                          >
-                            R
-                          </text>
+                              {/* Aktual Cell Indicator */}
+                              <circle
+                                cx={arrow.x1}
+                                cy={arrow.y1}
+                                r="18"
+                                fill="none"
+                                stroke={arrow.color}
+                                strokeWidth="2.5"
+                              />
+                              <circle
+                                cx={arrow.x1}
+                                cy={arrow.y1}
+                                r="19"
+                                fill="none"
+                                stroke="#fff"
+                                strokeWidth="1"
+                              />
+                              <circle
+                                cx={arrow.x1 - 12}
+                                cy={arrow.y1 - 12}
+                                r="9"
+                                fill={arrow.color}
+                              />
+                              <text
+                                x={arrow.x1 - 12}
+                                y={arrow.y1 - 9}
+                                fill="#fff"
+                                fontSize="8"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                A
+                              </text>
+                              {/* Label ID inside center of circle */}
+                              <text
+                                x={arrow.x1}
+                                y={arrow.y1 + 4}
+                                fill={arrow.color}
+                                fontSize="10"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                {arrow.id}
+                              </text>
 
-                          {/* Transition line */}
-                          <line
-                            x1={arrowCoordinates.x1_s}
-                            y1={arrowCoordinates.y1_s}
-                            x2={arrowCoordinates.x2_s}
-                            y2={arrowCoordinates.y2_s}
-                            stroke="#e03131"
-                            strokeWidth="4"
-                            markerEnd="url(#heatmap-arrow)"
-                          />
-                        </>
-                      )}
+                              {/* Residual Cell Indicator */}
+                              <circle
+                                cx={arrow.x2}
+                                cy={arrow.y2}
+                                r="18"
+                                fill="none"
+                                stroke={arrow.color}
+                                strokeWidth="2.5"
+                              />
+                              <circle
+                                cx={arrow.x2}
+                                cy={arrow.y2}
+                                r="19"
+                                fill="none"
+                                stroke="#fff"
+                                strokeWidth="1"
+                              />
+                              <circle
+                                cx={arrow.x2 + 12}
+                                cy={arrow.y2 - 12}
+                                r="9"
+                                fill={arrow.color}
+                              />
+                              <text
+                                x={arrow.x2 + 12}
+                                y={arrow.y2 - 9}
+                                fill="#fff"
+                                fontSize="8"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                R
+                              </text>
+                              {/* Label ID inside center of circle */}
+                              <text
+                                x={arrow.x2}
+                                y={arrow.y2 + 4}
+                                fill={arrow.color}
+                                fontSize="10"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                {arrow.id}
+                              </text>
+                            </>
+                          )}
+                        </g>
+                      ))}
                     </svg>
                   )}
                 </div>
@@ -629,81 +713,57 @@ export default function RiskAppetitePage() {
               </Text>
 
               {/* Risk Details Summary */}
-              {selectedRisk ? (
-                <Stack gap="md">
-                  <Card withBorder radius="sm" padding="sm" bg="var(--mantine-color-gray-0)">
-                    <Stack gap="xs">
-                      <Text size="xs" fw={700} c="dimmed">RISIKO</Text>
-                      <Text size="sm" fw={600}>{selectedRisk.risiko}</Text>
-                      {selectedRisk.penyebab && (
-                        <>
-                          <Text size="xs" fw={700} c="dimmed">PENYEBAB</Text>
-                          <Text size="xs">{selectedRisk.penyebab}</Text>
-                        </>
-                      )}
-                    </Stack>
-                  </Card>
-
-                  <Grid gutter="xs">
-                    <Grid.Col span={6}>
-                      <Card withBorder padding="xs" radius="sm" style={{ borderLeft: "4px solid #228be6" }}>
-                        <Text size="xs" fw={700} c="dimmed">AKTUAL (A)</Text>
-                        {selectedRisk.aktual ? (
-                          <Stack gap={2} mt="xs">
-                            <Text size="lg" fw={700} c="blue">{selectedRisk.aktual.besaran}</Text>
-                            <Badge color={selectedRisk.aktual.warna} size="xs" variant="filled">
-                              {selectedRisk.aktual.level}
-                            </Badge>
-                            <Text size="10px" c="dimmed" mt={4}>
-                              K: {selectedRisk.aktual.kemungkinan} ({selectedRisk.aktual.kemungkinanSkala})
-                            </Text>
-                            <Text size="10px" c="dimmed">
-                              D: {selectedRisk.aktual.dampak} ({selectedRisk.aktual.dampakSkala})
-                            </Text>
-                          </Stack>
-                        ) : (
-                          <Text size="xs" c="dimmed" mt="xs">Belum dianalisis</Text>
-                        )}
+              {selectedRisks.length > 0 ? (
+                <Stack gap="sm" style={{ maxHeight: 320, overflowY: "auto" }}>
+                  {selectedRisks.map((risk) => {
+                    const arrow = transitionArrows.find((a) => a.id === risk.id);
+                    const color = arrow?.color || "#e03131";
+                    return (
+                      <Card key={risk.id} withBorder radius="sm" padding="xs" style={{ borderLeft: `4px solid ${color}` }}>
+                        <Stack gap="xs">
+                          <Group justify="space-between">
+                            <Text size="xs" fw={700} style={{ color }}>RISIKO (ID {risk.id})</Text>
+                          </Group>
+                          <Text size="xs" fw={600} lineClamp={2}>{risk.risiko}</Text>
+                          {risk.penyebab && (
+                            <Text size="10px" c="dimmed" lineClamp={1}>Penyebab: {risk.penyebab}</Text>
+                          )}
+                          <Grid gutter="xs">
+                            <Grid.Col span={6}>
+                              <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
+                                <Text size="9px" fw={700} c="dimmed">AKTUAL (A)</Text>
+                                {risk.aktual ? (
+                                  <Group gap={6} mt={2}>
+                                    <Text size="xs" fw={700} c="blue">{risk.aktual.besaran}</Text>
+                                    <Badge color={risk.aktual.warna} size="9px" style={{ fontSize: "8px" }}>
+                                      {risk.aktual.level}
+                                    </Badge>
+                                  </Group>
+                                ) : (
+                                  <Text size="9px" c="dimmed">Belum dianalisis</Text>
+                                )}
+                              </Card>
+                            </Grid.Col>
+                            <Grid.Col span={6}>
+                              <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
+                                <Text size="9px" fw={700} c="dimmed">RESIDUAL (R)</Text>
+                                {risk.residual ? (
+                                  <Group gap={6} mt={2}>
+                                    <Text size="xs" fw={700} c="green">{risk.residual.besaran}</Text>
+                                    <Badge color={risk.residual.warna} size="9px" style={{ fontSize: "8px" }}>
+                                      {risk.residual.level}
+                                    </Badge>
+                                  </Group>
+                                ) : (
+                                  <Text size="9px" c="dimmed">Belum ditangani</Text>
+                                )}
+                              </Card>
+                            </Grid.Col>
+                          </Grid>
+                        </Stack>
                       </Card>
-                    </Grid.Col>
-
-                    <Grid.Col span={6}>
-                      <Card withBorder padding="xs" radius="sm" style={{ borderLeft: "4px solid #40c057" }}>
-                        <Text size="xs" fw={700} c="dimmed">RESIDUAL (R)</Text>
-                        {selectedRisk.residual ? (
-                          <Stack gap={2} mt="xs">
-                            <Text size="lg" fw={700} c="green">{selectedRisk.residual.besaran}</Text>
-                            <Badge color={selectedRisk.residual.warna} size="xs" variant="filled">
-                              {selectedRisk.residual.level}
-                            </Badge>
-                            <Text size="10px" c="dimmed" mt={4}>
-                              K: {selectedRisk.residual.kemungkinan} ({selectedRisk.residual.kemungkinanSkala})
-                            </Text>
-                            <Text size="10px" c="dimmed">
-                              D: {selectedRisk.residual.dampak} ({selectedRisk.residual.dampakSkala})
-                            </Text>
-                          </Stack>
-                        ) : (
-                          <Text size="xs" c="dimmed" mt="xs">Rencana penanganan belum diisi</Text>
-                        )}
-                      </Card>
-                    </Grid.Col>
-                  </Grid>
-
-                  {selectedRisk.aktual && selectedRisk.residual && (
-                    <Group gap="xs" justify="center" mt="xs">
-                      <Badge color="blue" variant="light">
-                        Aktual: {selectedRisk.aktual.besaran}
-                      </Badge>
-                      <IconArrowRight size={14} />
-                      <Badge color="green" variant="light">
-                        Residual: {selectedRisk.residual.besaran}
-                      </Badge>
-                      <Badge color={selectedRisk.residual.besaran < selectedRisk.aktual.besaran ? "teal" : "gray"}>
-                        Turun {selectedRisk.aktual.besaran - selectedRisk.residual.besaran} poin
-                      </Badge>
-                    </Group>
-                  )}
+                    );
+                  })}
                 </Stack>
               ) : (
                 <Text size="sm" c="dimmed" ta="center">Belum ada risiko dipilih</Text>
@@ -713,32 +773,49 @@ export default function RiskAppetitePage() {
             {/* List Table of All Risks */}
             <Card withBorder padding="xs" radius="md">
               <Title order={6} p="xs">Daftar Risiko Teridentifikasi</Title>
-              <Table highlightOnHover style={{ cursor: "pointer", fontSize: 12 }}>
+              <TextInput
+                placeholder="Cari risiko..."
+                size="xs"
+                value={searchVal}
+                onChange={(e) => handleSearchChange(e.currentTarget.value)}
+                mb="xs"
+                mx="xs"
+              />
+              <Table highlightOnHover style={{ cursor: "pointer", fontSize: 11 }}>
                 <Table.Thead>
                   <Table.Tr>
+                    <Table.Th w={40}></Table.Th>
                     <Table.Th>Risiko</Table.Th>
-                    <Table.Th w={80}>Aktual</Table.Th>
-                    <Table.Th w={80}>Residual</Table.Th>
+                    <Table.Th w={60}>Aktual</Table.Th>
+                    <Table.Th w={60}>Residual</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {processedRisks.length === 0 ? (
+                  {paginatedRisks.length === 0 ? (
                     <Table.Tr>
-                      <Table.Td colSpan={3} ta="center" c="dimmed">Belum ada data</Table.Td>
+                      <Table.Td colSpan={4} ta="center" c="dimmed">Belum ada data</Table.Td>
                     </Table.Tr>
                   ) : (
-                    processedRisks.map((r) => (
+                    paginatedRisks.map((r) => (
                       <Table.Tr
                         key={r.id}
-                        onClick={() => setSelectedRiskId(r.id)}
+                        onClick={() => toggleRiskSelection(r.id)}
                         style={{
                           backgroundColor:
-                            selectedRiskId === r.id
+                            selectedRiskIds.includes(r.id)
                               ? "var(--mantine-color-blue-light)"
                               : undefined,
                         }}
                       >
-                        <Table.Td style={{ fontWeight: selectedRiskId === r.id ? 600 : 400 }}>
+                        <Table.Td>
+                          <input
+                            type="checkbox"
+                            checked={selectedRiskIds.includes(r.id)}
+                            onChange={() => {}}
+                            style={{ pointerEvents: "none", cursor: "pointer" }}
+                          />
+                        </Table.Td>
+                        <Table.Td style={{ fontWeight: selectedRiskIds.includes(r.id) ? 600 : 400 }}>
                           {r.risiko}
                         </Table.Td>
                         <Table.Td>
@@ -760,6 +837,16 @@ export default function RiskAppetitePage() {
                   )}
                 </Table.Tbody>
               </Table>
+              {filteredRisks.length > pageSize && (
+                <Group justify="center" mt="sm" pb="xs">
+                  <Pagination
+                    total={Math.ceil(filteredRisks.length / pageSize)}
+                    value={page}
+                    onChange={setPage}
+                    size="xs"
+                  />
+                </Group>
+              )}
             </Card>
           </Stack>
         </Grid.Col>

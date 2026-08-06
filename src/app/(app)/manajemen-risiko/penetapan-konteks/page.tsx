@@ -7,7 +7,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { CrudTable } from "./crud-table";
 
 const tabs = [
-  { value: "unit-kerja", label: "Unit Kerja" },
+  { value: "teams", label: "Tim Kerja" },
   { value: "kegiatan", label: "Kegiatan" },
   { value: "sasaran", label: "Sasaran" },
   { value: "proses-bisnis", label: "Proses Bisnis" },
@@ -22,7 +22,7 @@ const tabs = [
   { value: "kriteria-kemungkinan", label: "Kriteria Kemungkinan" },
   { value: "kriteria-dampak", label: "Kriteria Dampak" },
   { value: "level-risiko", label: "Level Risiko" },
-  { value: "selera-risiko", label: "Selera Risiko" },
+  { value: "matriks-risiko", label: "Matriks Risiko" },
   { value: "opsi-penanganan", label: "Opsi Penanganan" },
 ];
 

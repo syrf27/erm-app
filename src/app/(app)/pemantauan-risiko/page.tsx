@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useList, useCreate, useUpdate } from "@refinedev/core";
+import { useCreate, useUpdate, useCustom } from "@refinedev/core";
 import {
   Title,
   Button,
@@ -45,6 +45,7 @@ interface RiskRow {
   realisasiWaktu: string;
   realisasiOutput: string;
   dokumenPendukung: string;
+  dokumenPendukungs: Array<{ id: number; title: string; url: string }>;
 }
 
 export default function PemantauanRisikoPage() {
@@ -58,95 +59,60 @@ export default function PemantauanRisikoPage() {
   const [modalWaktu, setModalWaktu] = useState("");
   const [modalOutput, setModalOutput] = useState("");
   const [modalKeterjadian, setModalKeterjadian] = useState("");
-  const [modalDocType, setModalDocType] = useState<"link" | "upload">("link");
-  const [modalDocLink, setModalDocLink] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<{
-    name: string;
+  const [modalDocs, setModalDocs] = useState<Array<{
+    id?: number;
+    title: string;
     url: string;
-  } | null>(null);
+    docType: "link" | "upload";
+    uploadedName: string;
+  }>>([]);
 
-  const identResult = useList({
-    resource: "identifikasi-risiko",
-    pagination: { mode: "off" }, // Need all for filtering
+  const result = useCustom({
+    url: "/api/custom-pemantauan-risiko",
+    method: "get",
+    config: {
+      query: {
+        tahunDari,
+        tahunSampai,
+      },
+    },
   });
-  const analisisResult = useList({
-    resource: "analisis-risiko",
-    pagination: { mode: "off" },
+
+  const customData = result.result;
+  const isLoading = result.query.isLoading;
+  const refetchQuery = result.query.refetch;
+
+  console.log("Pemantauan Page useCustom query status:", {
+    isLoading,
+    dataExists: !!customData,
+    data: customData
   });
-  const evaluasiResult = useList({
-    resource: "evaluasi-risiko",
-    pagination: { mode: "off" },
-  });
-  const rencanaResult = useList({
-    resource: "rencana-penanganan",
-    pagination: { mode: "off" },
-  });
+
   const { mutate: createMutate } = useCreate();
   const { mutate: updateMutate } = useUpdate();
-
-  const loading =
-    (identResult.query?.isPending ?? false) ||
-    (analisisResult.query?.isPending ?? false) ||
-    (evaluasiResult.query?.isPending ?? false) ||
-    (rencanaResult.query?.isPending ?? false);
-
-  const identifikasiData = useMemo(
-    () => identResult.result?.data ?? [],
-    [identResult.result?.data]
-  );
-
-  const currentYear = new Date().getFullYear();
-  const filteredIdentifikasiData = useMemo(() => {
-    return identifikasiData.filter((r: any) => {
-      const t = r.tahun ?? currentYear;
-      return t >= tahunDari && t <= tahunSampai;
-    });
-  }, [identifikasiData, tahunDari, tahunSampai]);
-
-  const analisisData = useMemo(
-    () => analisisResult.result?.data ?? [],
-    [analisisResult.result?.data]
-  );
-  const evaluasiData = useMemo(
-    () => evaluasiResult.result?.data ?? [],
-    [evaluasiResult.result?.data]
-  );
-  const rencanaData = useMemo(
-    () => rencanaResult.result?.data ?? [],
-    [rencanaResult.result?.data]
-  );
-  const refetchQuery = rencanaResult.query?.refetch;
+  const loading = isLoading;
 
   // Compile data row mapping
   const allRows = useMemo((): RiskRow[] => {
     if (loading) return [];
+    
+    // Support both direct array response and wrapped data objects
+    const list = Array.isArray(customData?.data)
+      ? customData.data
+      : Array.isArray((customData?.data as any)?.data)
+      ? (customData?.data as any).data
+      : [];
 
-    const analisisById = new Map(
-      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
-    );
-    const evaluasiById = new Map(
-      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
-    );
-    const rencanaById = new Map(
-      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
-    );
-
-    // Only filter risks with respon "Mengurangi Risiko"
-    const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
-      const ev = evaluasiById.get(r.id);
-      return ev?.responRisiko === "Mengurangi Risiko";
-    });
-
-    return filtered.map((r: Record<string, any>, index): RiskRow => {
-      const an = analisisById.get(r.id);
-      const rp = rencanaById.get(r.id);
+    return list.map((r: any, index: number): RiskRow => {
+      const an = r.analisisRisiko;
+      const rp = r.rencanaPenanganan;
 
       return {
         identId: r.id,
         rencanaId: rp?.id ?? null,
         no: index + 1,
-        prioritas: an?.levelRisiko?.nama ?? "Sedang",
+        prioritas: String(r.priorityRank ?? "-"),
         prioritasWarna: an?.levelRisiko?.warna ?? "Kuning",
         rencanaTindakPenanganan: rp?.rencanaTidakPenanganan ?? "",
         targetWaktu: rp?.targetWaktu ?? "",
@@ -155,9 +121,10 @@ export default function PemantauanRisikoPage() {
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
         dokumenPendukung: rp?.dokumenPendukung ?? "",
+        dokumenPendukungs: rp?.dokumenPendukungs ?? [],
       };
     });
-  }, [loading, filteredIdentifikasiData, analisisData, evaluasiData, rencanaData]);
+  }, [loading, customData]);
 
   // Paginate rows
   const totalRows = allRows.length;
@@ -206,31 +173,27 @@ export default function PemantauanRisikoPage() {
     setModalOutput(row.realisasiOutput);
     setModalKeterjadian(row.keterjadiRisiko);
 
-    // Check if the current value looks like a link or local uploaded file path
-    const isLocalUpload =
-      row.dokumenPendukung.startsWith("/uploads/") ||
-      row.dokumenPendukung.startsWith("/api/uploads/");
-    if (isLocalUpload) {
-      setModalDocType("upload");
-      const cleanName = row.dokumenPendukung
-        .replace("/api/uploads/", "")
-        .replace("/uploads/", "");
-      setUploadedFile({
-        name: cleanName.split("_").slice(1).join("_") || "File Pendukung",
-        url: row.dokumenPendukung,
-      });
-      setModalDocLink("");
-    } else {
-      setModalDocType("link");
-      setModalDocLink(row.dokumenPendukung);
-      setUploadedFile(null);
-    }
+    // Map existing documents list to form state
+    const docs = (row.dokumenPendukungs || []).map((d) => {
+      const isLocalUpload = d.url.startsWith("/uploads/") || d.url.startsWith("/api/uploads/");
+      const cleanName = isLocalUpload
+        ? d.url.replace("/api/uploads/", "").replace("/uploads/", "").split("_").slice(1).join("_")
+        : "";
+      return {
+        id: d.id,
+        title: d.title,
+        url: d.url,
+        docType: (isLocalUpload ? "upload" : "link") as "upload" | "link",
+        uploadedName: cleanName || "File Pendukung",
+      };
+    });
 
+    setModalDocs(docs);
     setModalOpened(true);
   };
 
-  // Upload file logic
-  const handleFileUpload = async (file: File | null) => {
+  // Upload file logic for specific document index
+  const handleFileUploadForIndex = async (file: File | null, index: number) => {
     if (!file) return;
     setUploading(true);
     const formData = new FormData();
@@ -245,7 +208,16 @@ export default function PemantauanRisikoPage() {
       if (!res.ok) throw new Error("Gagal mengupload berkas");
       const data = await res.json();
 
-      setUploadedFile({ name: data.filename, url: data.url });
+      setModalDocs((prev) => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          url: data.url,
+          uploadedName: data.filename,
+        };
+        return next;
+      });
+
       notifications.show({
         title: "Berhasil",
         message: "Berkas berhasil diupload",
@@ -266,18 +238,20 @@ export default function PemantauanRisikoPage() {
   const handleSaveModal = () => {
     if (!selectedRow) return;
 
-    let docValue = "";
-    if (modalDocType === "upload") {
-      docValue = uploadedFile?.url ?? "";
-    } else {
-      docValue = modalDocLink;
-    }
+    // Filter out invalid items
+    const docList = modalDocs
+      .filter((d) => d.title.trim() !== "" && d.url.trim() !== "")
+      .map((d) => ({
+        title: d.title.trim(),
+        url: d.url.trim(),
+      }));
 
     const payload = {
       keterjadiRisiko: modalKeterjadian || null,
       realisasiWaktu: convertToDisplayDate(modalWaktu) || null,
       realisasiOutput: modalOutput || null,
-      dokumenPendukung: docValue || null,
+      dokumenPendukung: docList.length > 0 ? docList[0].url : null, // legacy field fallback
+      dokumenPendukungs: docList,
     };
 
     if (selectedRow.rencanaId === null) {
@@ -311,7 +285,6 @@ export default function PemantauanRisikoPage() {
       const origKeterjadian = selectedRow.keterjadiRisiko;
       const origWaktu = selectedRow.realisasiWaktu;
       const origOutput = selectedRow.realisasiOutput;
-      const origDokumen = selectedRow.dokumenPendukung;
 
       setModalOpened(false);
 
@@ -340,9 +313,6 @@ export default function PemantauanRisikoPage() {
               setModalKeterjadian(origKeterjadian);
               setModalWaktu(origWaktu);
               setModalOutput(origOutput);
-              setModalDocType(origDokumen ? "link" : "upload");
-              setModalDocLink(origDokumen ?? "");
-              setUploadedFile(origDokumen ? { name: "", url: origDokumen } : null);
               setModalOpened(true);
               if (refetchQuery) refetchQuery();
             } else {
@@ -505,34 +475,35 @@ export default function PemantauanRisikoPage() {
                   </Table.Td>
                   <Table.Td>{row.realisasiOutput || "-"}</Table.Td>
                   <Table.Td>
-                    {row.dokumenPendukung ? (
-                      <Group gap="xs" style={{ wordBreak: "break-all" }}>
-                        <IconFileText size={16} color="#495057" />
-                        <Text
-                          component="a"
-                          href={
-                            row.dokumenPendukung.startsWith("/uploads/")
-                              ? row.dokumenPendukung.replace(
-                                  "/uploads/",
-                                  "/api/uploads/"
-                                )
-                              : row.dokumenPendukung
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          size="xs"
-                          c="blue"
-                          style={{
-                            textDecoration: "underline",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
-                          }}
-                        >
-                          Buka Dokumen
-                          <IconExternalLink size={10} />
-                        </Text>
-                      </Group>
+                    {row.dokumenPendukungs && row.dokumenPendukungs.length > 0 ? (
+                      <Stack gap="xs">
+                        {row.dokumenPendukungs.map((doc) => (
+                          <Group key={doc.id} gap="xs" wrap="nowrap" style={{ wordBreak: "break-all" }}>
+                            <IconFileText size={16} color="#495057" style={{ flexShrink: 0 }} />
+                            <Text
+                              component="a"
+                              href={
+                                doc.url.startsWith("/uploads/")
+                                  ? doc.url.replace("/uploads/", "/api/uploads/")
+                                  : doc.url
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              size="xs"
+                              c="blue"
+                              style={{
+                                textDecoration: "underline",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              {doc.title}
+                              <IconExternalLink size={10} />
+                            </Text>
+                          </Group>
+                        ))}
+                      </Stack>
                     ) : (
                       "-"
                     )}
@@ -576,7 +547,7 @@ export default function PemantauanRisikoPage() {
       >
         <Stack gap="md">
           {selectedRow && (
-            <Card withBorder padding="xs" bg="var(--mantine-color-gray-0)">
+            <Card withBorder padding="xs">
               <Text size="xs" fw={700} c="dimmed">
                 RTP:
               </Text>
@@ -613,63 +584,146 @@ export default function PemantauanRisikoPage() {
             onChange={(e) => setModalOutput(e.currentTarget.value)}
           />
 
-          <Stack gap={4}>
-            <Text size="sm" fw={500}>
-              Metode Dokumen Pendukung
-            </Text>
-            <SegmentedControl
-              value={modalDocType}
-              onChange={(val: any) => setModalDocType(val)}
-              data={[
-                { label: "Input Link", value: "link" },
-                { label: "Upload File", value: "upload" },
-              ]}
-              mb="xs"
-            />
-          </Stack>
-
-          {modalDocType === "link" ? (
-            <TextInput
-              label="Link Dokumen Pendukung"
-              placeholder="https://drive.google.com/..."
-              value={modalDocLink}
-              onChange={(e) => setModalDocLink(e.currentTarget.value)}
-              rightSection={<IconLink size={16} color="#adb5bd" />}
-            />
-          ) : (
-            <Stack gap="xs">
-              <Text size="xs" fw={500} c="dimmed">
-                Unggah dokumen pendukung pelaksanaan RTP
+          <Stack gap="xs" mt="xs">
+            <Group justify="space-between" align="center">
+              <Text size="sm" fw={600}>
+                Dokumen Pendukung ({modalDocs.length})
               </Text>
-              <Group>
-                <FileButton onChange={handleFileUpload} accept="*">
-                  {(props) => (
-                    <Button
-                      {...props}
-                      leftSection={<IconUpload size={16} />}
-                      loading={uploading}
-                    >
-                      Pilih Berkas
-                    </Button>
-                  )}
-                </FileButton>
-                {uploadedFile && (
-                  <Text
-                    size="xs"
-                    c="dimmed"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <IconFileText size={14} />
-                    {uploadedFile.name}
-                  </Text>
-                )}
-              </Group>
-            </Stack>
-          )}
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() =>
+                  setModalDocs((prev) => [
+                    ...prev,
+                    { title: "", url: "", docType: "link", uploadedName: "" },
+                  ])
+                }
+              >
+                + Tambah Dokumen
+              </Button>
+            </Group>
+
+            {modalDocs.length === 0 ? (
+              <Text size="xs" c="dimmed" fs="italic" ta="center" py="md">
+                Belum ada dokumen pendukung ditambahkan.
+              </Text>
+            ) : (
+              <Stack gap="sm">
+                {modalDocs.map((doc, idx) => (
+                  <Card key={idx} withBorder padding="xs" radius="sm">
+                    <Stack gap="xs">
+                      <Group justify="space-between">
+                        <Text size="xs" fw={700} c="dimmed">
+                          Dokumen #{idx + 1}
+                        </Text>
+                        <Button
+                          variant="subtle"
+                          color="red"
+                          size="xs"
+                          onClick={() =>
+                            setModalDocs((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                          style={{ height: 20, padding: "0 4px" }}
+                        >
+                          Hapus
+                        </Button>
+                      </Group>
+
+                      <TextInput
+                        label="Judul Dokumen"
+                        placeholder="Contoh: Notulensi Rapat, SK Tim, dll."
+                        required
+                        value={doc.title}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value;
+                          setModalDocs((prev) => {
+                            const next = [...prev];
+                            next[idx].title = val;
+                            return next;
+                          });
+                        }}
+                      />
+
+                      <Stack gap={2}>
+                        <Text size="xs" fw={500}>
+                          Tipe Dokumen
+                        </Text>
+                        <SegmentedControl
+                          size="xs"
+                          value={doc.docType}
+                          onChange={(val: string) => {
+                            setModalDocs((prev) => {
+                              const next = [...prev];
+                              next[idx].docType = val as "link" | "upload";
+                              return next;
+                            });
+                          }}
+                          data={[
+                            { label: "Link URL", value: "link" },
+                            { label: "Upload Berkas", value: "upload" },
+                          ]}
+                        />
+                      </Stack>
+
+                      {doc.docType === "link" ? (
+                        <TextInput
+                          label="Tautan (Link)"
+                          placeholder="https://google.com atau Google Drive"
+                          value={doc.url}
+                          onChange={(e) => {
+                            const val = e.currentTarget.value;
+                            setModalDocs((prev) => {
+                              const next = [...prev];
+                              next[idx].url = val;
+                              return next;
+                            });
+                          }}
+                        />
+                      ) : (
+                        <Group gap="xs" align="flex-end">
+                          <FileButton
+                            onChange={(file) => handleFileUploadForIndex(file, idx)}
+                            accept="*"
+                          >
+                            {(props) => (
+                              <Button
+                                {...props}
+                                size="xs"
+                                variant="light"
+                                leftSection={<IconUpload size={14} />}
+                                loading={uploading}
+                              >
+                                Unggah Berkas
+                              </Button>
+                            )}
+                          </FileButton>
+                          {doc.url ? (
+                            <Text
+                              size="xs"
+                              c="blue"
+                              fw={500}
+                              component="a"
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                            >
+                              <IconFileText size={14} />
+                              {doc.uploadedName || "File Terunggah"}
+                            </Text>
+                          ) : (
+                            <Text size="xs" c="dimmed" fs="italic">
+                              Belum ada berkas diunggah
+                            </Text>
+                          )}
+                        </Group>
+                      )}
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+          </Stack>
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={() => setModalOpened(false)}>

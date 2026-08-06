@@ -166,13 +166,19 @@ export const createUserSchema = z.object({
   name: z.string().min(1).max(500),
   password: z.string().min(8, "Password minimal 8 karakter").max(100),
   roleId: positiveInt,
+  teamIds: z.array(z.number()).optional(),
 });
 
 export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   name: z.string().min(1).max(500).optional(),
   roleId: optionalPositiveInt,
-  // Password handled separately for security
+  password: z.string().min(8, "Password minimal 8 karakter").max(100).optional(),
+  teamIds: z.array(z.number()).optional(),
+  permissions: z.array(z.object({
+    permissionId: z.number(),
+    value: z.string(),
+  })).optional(),
 });
 
 // Role schemas

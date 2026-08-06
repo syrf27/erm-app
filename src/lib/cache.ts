@@ -15,7 +15,7 @@ const REFERENCE_RESOURCES = [
   "opsi-penanganan",
   "kriteria-kemungkinan",
   "kriteria-dampak",
-  "selera-risiko",
+  "matriks-risiko",
   "unit-kerja",
   "kegiatan",
   "matriks-analisis-risiko",

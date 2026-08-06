@@ -74,6 +74,16 @@ export default function AnalisisRisikoPage() {
   const risikoData = useMemo(() => levelRisikoList.result?.data ?? [], [levelRisikoList.result?.data]);
   const matriksData = useMemo(() => matriksList.result?.data ?? [], [matriksList.result?.data]);
 
+  const kemungkinanDataRef = useRef(kemungkinanData);
+  const dampakDataRef = useRef(dampakData);
+  const matriksDataRef = useRef(matriksData);
+
+  useEffect(() => {
+    kemungkinanDataRef.current = kemungkinanData;
+    dampakDataRef.current = dampakData;
+    matriksDataRef.current = matriksData;
+  }, [kemungkinanData, dampakData, matriksData]);
+
   const kemungkinanNamaList = useMemo(() => kemungkinanData.map((o: any) => o.nama), [kemungkinanData]);
   const dampakNamaList = useMemo(() => dampakData.map((o: any) => o.nama), [dampakData]);
   const risikoNamaList = useMemo(() => risikoData.map((o: any) => o.nama), [risikoData]);
@@ -81,19 +91,24 @@ export default function AnalisisRisikoPage() {
   useEffect(() => {
     if (loading) return;
     const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
+    console.log("useEffect load mapping - matriksData length:", matriksData.length);
+    if (matriksData.length > 0) {
+      console.log("matriksData first element:", matriksData[0]);
+    }
     const mapped = filteredIdentifikasiData.map((r: Record<string, any>) => {
       const a = analisisById.get(r.id);
       const lk = kemungkinanData.find((o: any) => o.id === a?.levelKemungkinanId);
       const ld = dampakData.find((o: any) => o.id === a?.levelDampakId);
-      const lr = risikoData.find((o: any) => o.id === a?.levelRisikoId);
       const besaran = lk?.skala != null && ld?.skala != null ? lk.skala * ld.skala : "";
+      const lrNama = besaran !== "" ? getLevelRisikoFromBesaran(besaran) : "";
+
       return [
         r.id,
         a?.id ?? null,
         r.risiko,
         lk?.nama ?? "",
         ld?.nama ?? "",
-        lr?.nama ?? "",
+        lrNama,
         besaran,
         a?.pengendalianUraian ?? "",
         a?.pengendalianEfektivitas ?? "",
@@ -104,7 +119,7 @@ export default function AnalisisRisikoPage() {
       padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, filteredIdentifikasiData, analisisData, kemungkinanData, dampakData, risikoData]);
+  }, [loading, filteredIdentifikasiData, analisisData, kemungkinanData, dampakData, risikoData, matriksData]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -334,13 +349,23 @@ export default function AnalisisRisikoPage() {
           if (!hot) return;
           for (const [row, col] of changes) {
             if (col === 3 || col === 4) {
-              recalcAnalisisRow(hot, row, kemungkinanData, dampakData, matriksData);
+              recalcAnalisisRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
             }
           }
         }}
       />
     </Stack>
   );
+}
+
+function getLevelRisikoFromBesaran(besaran: number | string): string {
+  const score = typeof besaran === "string" ? parseInt(besaran, 10) : besaran;
+  if (isNaN(score) || score <= 0) return "";
+  if (score >= 1 && score <= 5) return "Sangat Rendah";
+  if (score >= 6 && score <= 10) return "Rendah";
+  if (score >= 11 && score <= 14) return "Sedang";
+  if (score >= 15 && score <= 19) return "Tinggi";
+  return "Sangat Tinggi"; // 20 - 25
 }
 
 function recalcAnalisisRow(
@@ -360,14 +385,8 @@ function recalcAnalisisRow(
   const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
   hot.setDataAtCell(row, 6, besaran, "recalc");
 
-  const match = matriksData.find(
-    (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
-  );
-  
-  if (!match) return;
-  
-  const lrNama = match.levelRisiko?.nama;
-  if (lrNama) {
+  if (besaran !== "") {
+    const lrNama = getLevelRisikoFromBesaran(besaran);
     hot.setDataAtCell(row, 5, lrNama, "recalc");
   }
 }

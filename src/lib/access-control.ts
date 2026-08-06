@@ -57,6 +57,9 @@ function hasBasePermission(
   resource: string,
   action: string
 ): boolean {
+  // Admin role bypasses all checks and has full access
+  if (context.roleName?.toLowerCase() === "admin") return true;
+
   // Check deny overrides first
   const hasDenyOverride = context.permissions.userPermissions.some(
     (up) => up.resource === resource && up.action === action && up.value === "deny"

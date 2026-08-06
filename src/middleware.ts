@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
     const identifier = userId ? `user:${userId}` : `ip:${ipAddress}`;
 
     try {
-      const result = await rateLimit(identifier, 100, 60000);
+      const result = await rateLimit(identifier, 1000, 60000);
       if (result && !result.success) {
         return new NextResponse(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
