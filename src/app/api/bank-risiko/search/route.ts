@@ -53,80 +53,104 @@ async function doTextSearch(
   if (hasTrgm?.[0]?.exists) {
     // Use parameterized query with pg_trgm similarity
     if (tahun) {
-      const results = await prisma.$queryRaw`
+      const query = `
         ${SELECT_FIELDS},
         GREATEST(
-          similarity(ir.risiko, ${searchText}),
-          similarity(COALESCE(ir.penyebab, ''), ${searchText}),
-          similarity(COALESCE(ir.dampak, ''), ${searchText})
+          similarity(ir.risiko, $1),
+          similarity(COALESCE(ir.penyebab, ''), $1),
+          similarity(COALESCE(ir.dampak, ''), $1)
         ) AS similarity
         ${FROM_JOINS}
-        WHERE ir.tahun = ${Number(tahun)}
+        WHERE ir.tahun = $2
           AND (
-            similarity(ir.risiko, ${searchText}) > 0.05
-            OR similarity(COALESCE(ir.penyebab, ''), ${searchText}) > 0.05
-            OR similarity(COALESCE(ir.dampak, ''), ${searchText}) > 0.05
-            OR ir.risiko ILIKE ${searchPattern}
-            OR ir.penyebab ILIKE ${searchPattern}
-            OR ir.dampak ILIKE ${searchPattern}
+            similarity(ir.risiko, $1) > 0.05
+            OR similarity(COALESCE(ir.penyebab, ''), $1) > 0.05
+            OR similarity(COALESCE(ir.dampak, ''), $1) > 0.05
+            OR ir.risiko ILIKE $3
+            OR ir.penyebab ILIKE $3
+            OR ir.dampak ILIKE $3
           )
         ORDER BY similarity DESC
-        LIMIT ${safeLimit}
+        LIMIT $4
       `;
+      const results = await prisma.$queryRawUnsafe(
+        query,
+        searchText,
+        Number(tahun),
+        searchPattern,
+        safeLimit
+      );
       return { results, method: "trgm" };
     } else {
-      const results = await prisma.$queryRaw`
+      const query = `
         ${SELECT_FIELDS},
         GREATEST(
-          similarity(ir.risiko, ${searchText}),
-          similarity(COALESCE(ir.penyebab, ''), ${searchText}),
-          similarity(COALESCE(ir.dampak, ''), ${searchText})
+          similarity(ir.risiko, $1),
+          similarity(COALESCE(ir.penyebab, ''), $1),
+          similarity(COALESCE(ir.dampak, ''), $1)
         ) AS similarity
         ${FROM_JOINS}
         WHERE (
-          similarity(ir.risiko, ${searchText}) > 0.05
-          OR similarity(COALESCE(ir.penyebab, ''), ${searchText}) > 0.05
-          OR similarity(COALESCE(ir.dampak, ''), ${searchText}) > 0.05
-          OR ir.risiko ILIKE ${searchPattern}
-          OR ir.penyebab ILIKE ${searchPattern}
-          OR ir.dampak ILIKE ${searchPattern}
+          similarity(ir.risiko, $1) > 0.05
+          OR similarity(COALESCE(ir.penyebab, ''), $1) > 0.05
+          OR similarity(COALESCE(ir.dampak, ''), $1) > 0.05
+          OR ir.risiko ILIKE $2
+          OR ir.penyebab ILIKE $2
+          OR ir.dampak ILIKE $2
         )
         ORDER BY similarity DESC
-        LIMIT ${safeLimit}
+        LIMIT $3
       `;
+      const results = await prisma.$queryRawUnsafe(
+        query,
+        searchText,
+        searchPattern,
+        safeLimit
+      );
       return { results, method: "trgm" };
     }
   }
 
   // Fallback to plain ILIKE without pg_trgm
   if (tahun) {
-    const results = await prisma.$queryRaw`
+    const query = `
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
       WHERE (
-        ir.risiko ILIKE ${searchPattern}
-        OR ir.penyebab ILIKE ${searchPattern}
-        OR ir.dampak ILIKE ${searchPattern}
+        ir.risiko ILIKE $1
+        OR ir.penyebab ILIKE $1
+        OR ir.dampak ILIKE $1
       )
-      AND ir.tahun = ${Number(tahun)}
+      AND ir.tahun = $2
       ORDER BY ir.id DESC
-      LIMIT ${safeLimit}
+      LIMIT $3
     `;
+    const results = await prisma.$queryRawUnsafe(
+      query,
+      searchPattern,
+      Number(tahun),
+      safeLimit
+    );
     return { results, method: "text" };
   } else {
-    const results = await prisma.$queryRaw`
+    const query = `
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
       WHERE (
-        ir.risiko ILIKE ${searchPattern}
-        OR ir.penyebab ILIKE ${searchPattern}
-        OR ir.dampak ILIKE ${searchPattern}
+        ir.risiko ILIKE $1
+        OR ir.penyebab ILIKE $1
+        OR ir.dampak ILIKE $1
       )
       ORDER BY ir.id DESC
-      LIMIT ${safeLimit}
+      LIMIT $2
     `;
+    const results = await prisma.$queryRawUnsafe(
+      query,
+      searchPattern,
+      safeLimit
+    );
     return { results, method: "text" };
   }
 }
