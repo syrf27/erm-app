@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   serverExternalPackages: ["@xenova/transformers", "onnxruntime-node"],
   async headers() {
     return [
