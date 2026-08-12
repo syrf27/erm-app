@@ -48,9 +48,24 @@ export default function EvaluasiRisikoPage() {
     }
   };
 
-  const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
-  const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
-  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
+  const identResult = useList({
+    resource: "identifikasi-risiko",
+    pagination: { pageSize: 1000 },
+    filters: [
+      {
+        field: "tahun",
+        operator: "gte",
+        value: tahunDari,
+      },
+      {
+        field: "tahun",
+        operator: "lte",
+        value: tahunSampai,
+      },
+    ],
+  });
+  const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 1000 } });
+  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 1000 } });
   const kemungkinanResult = useList({ resource: "level-kemungkinan", pagination: { pageSize: 10000 } });
   const dampakResult = useList({ resource: "level-dampak", pagination: { pageSize: 10000 } });
   const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 10000 } });
@@ -70,11 +85,8 @@ export default function EvaluasiRisikoPage() {
   const identifikasiData = useMemo(() => identResult.result?.data ?? [], [identResult.result?.data]);
   const currentYear = new Date().getFullYear();
   const filteredIdentifikasiData = useMemo(() => {
-    return identifikasiData.filter((r: any) => {
-      const t = r.tahun ?? currentYear;
-      return t >= tahunDari && t <= tahunSampai;
-    });
-  }, [identifikasiData, tahunDari, tahunSampai]);
+    return identifikasiData;
+  }, [identifikasiData]);
   const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
   const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
   const kemungkinanData = useMemo(() => kemungkinanResult.result?.data ?? [], [kemungkinanResult.result?.data]);

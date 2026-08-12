@@ -187,22 +187,31 @@ export function CrudTable({ resource }: CrudTableProps) {
   const label = resourceLabels[resource] ?? resource;
   const fields = fieldConfigs[resource] ?? [];
 
-  // Fetch relation options for select fields
+  const hasKategoriRelation = useMemo(() => fields.some(f => f.relationResource === "kategori-risiko"), [fields]);
+  const hasLevelKemungkinanRelation = useMemo(() => fields.some(f => f.relationResource === "level-kemungkinan"), [fields]);
+  const hasLevelDampakRelation = useMemo(() => fields.some(f => f.relationResource === "level-dampak"), [fields]);
+  const hasIdentifikasiRisikoRelation = useMemo(() => fields.some(f => f.relationResource === "identifikasi-risiko"), [fields]);
+
+  // Fetch relation options for select fields only if required by active fields config
   const kategoriRisikoQuery = useList({
     resource: "kategori-risiko",
     pagination: { mode: "off" },
+    queryOptions: { enabled: hasKategoriRelation },
   });
   const levelKemungkinanQuery = useList({
     resource: "level-kemungkinan",
     pagination: { mode: "off" },
+    queryOptions: { enabled: hasLevelKemungkinanRelation },
   });
   const levelDampakQuery = useList({
     resource: "level-dampak",
     pagination: { mode: "off" },
+    queryOptions: { enabled: hasLevelDampakRelation },
   });
   const identifikasiRisikoQuery = useList({
     resource: "identifikasi-risiko",
-    pagination: { mode: "off" },
+    pagination: { mode: "server", pageSize: 200 },
+    queryOptions: { enabled: hasIdentifikasiRisikoRelation },
   });
 
   const optionMap: Record<string, { value: string; label: string }[]> = useMemo(() => ({

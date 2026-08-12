@@ -5,6 +5,9 @@ import pg from "pg";
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 1, // Only open 1 connection per serverless function instance to prevent connection exhaustion
+  idleTimeoutMillis: 5000, // Close idle connections quickly
+  connectionTimeoutMillis: 5000, // Fail fast if database is unreachable
 });
 
 const globalForPrisma = globalThis as unknown as {

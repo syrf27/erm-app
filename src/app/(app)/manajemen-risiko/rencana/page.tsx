@@ -68,19 +68,31 @@ export default function RencanaPenangananPage() {
 
   const identResult = useList({
     resource: "identifikasi-risiko",
-    pagination: { pageSize: 10000 },
+    pagination: { pageSize: 1000 },
+    filters: [
+      {
+        field: "tahun",
+        operator: "gte",
+        value: tahunDari,
+      },
+      {
+        field: "tahun",
+        operator: "lte",
+        value: tahunSampai,
+      },
+    ],
   });
   const analisisResult = useList({
     resource: "analisis-risiko",
-    pagination: { pageSize: 10000 },
+    pagination: { pageSize: 1000 },
   });
   const evaluasiResult = useList({
     resource: "evaluasi-risiko",
-    pagination: { pageSize: 10000 },
+    pagination: { pageSize: 1000 },
   });
   const rencanaResult = useList({
     resource: "rencana-penanganan",
-    pagination: { pageSize: 10000 },
+    pagination: { pageSize: 1000 },
   });
   const kemungkinanList = useList({
     resource: "level-kemungkinan",
@@ -124,11 +136,8 @@ export default function RencanaPenangananPage() {
 
   const currentYear = new Date().getFullYear();
   const filteredIdentifikasiData = useMemo(() => {
-    return identifikasiData.filter((r: any) => {
-      const t = r.tahun ?? currentYear;
-      return t >= tahunDari && t <= tahunSampai;
-    });
-  }, [identifikasiData, tahunDari, tahunSampai]);
+    return identifikasiData;
+  }, [identifikasiData]);
 
   const analisisData = useMemo(
     () => analisisResult.result?.data ?? [],

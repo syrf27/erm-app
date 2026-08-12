@@ -252,7 +252,19 @@ export default function IdentifikasiRisikoPage() {
 
   const { result: existingResult, query: listQuery } = useList({
     resource: "identifikasi-risiko",
-    pagination: { pageSize: 10000 },
+    pagination: { pageSize: 1000 },
+    filters: [
+      {
+        field: "tahun",
+        operator: "gte",
+        value: tahunDari,
+      },
+      {
+        field: "tahun",
+        operator: "lte",
+        value: tahunSampai,
+      },
+    ],
   });
 
   const jenisList = useList({
@@ -311,11 +323,8 @@ export default function IdentifikasiRisikoPage() {
   const refetchQuery = listQuery?.refetch;
 
   const filteredData = useMemo(() => {
-    return existingData.filter((r: any) => {
-      const t = r.tahun ?? currentYear;
-      return t >= tahunDari && t <= tahunSampai;
-    });
-  }, [existingData, tahunDari, tahunSampai]);
+    return existingData;
+  }, [existingData]);
 
   const jenisData = useMemo(
     () => jenisList?.result?.data ?? [],

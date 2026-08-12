@@ -41,8 +41,23 @@ export default function AnalisisRisikoPage() {
     }
   };
 
-   const identResult = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
-  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
+   const identResult = useList({
+    resource: "identifikasi-risiko",
+    pagination: { pageSize: 1000 },
+    filters: [
+      {
+        field: "tahun",
+        operator: "gte",
+        value: tahunDari,
+      },
+      {
+        field: "tahun",
+        operator: "lte",
+        value: tahunSampai,
+      },
+    ],
+  });
+  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 1000 } });
 
   const levelKemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const levelDampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
@@ -63,11 +78,8 @@ export default function AnalisisRisikoPage() {
 
   const currentYear = new Date().getFullYear();
   const filteredIdentifikasiData = useMemo(() => {
-    return identifikasiData.filter((r: any) => {
-      const t = r.tahun ?? currentYear;
-      return t >= tahunDari && t <= tahunSampai;
-    });
-  }, [identifikasiData, tahunDari, tahunSampai]);
+    return identifikasiData;
+  }, [identifikasiData]);
 
   const kemungkinanData = useMemo(() => levelKemungkinanList.result?.data ?? [], [levelKemungkinanList.result?.data]);
   const dampakData = useMemo(() => levelDampakList.result?.data ?? [], [levelDampakList.result?.data]);
