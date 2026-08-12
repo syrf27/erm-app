@@ -185,10 +185,35 @@ export async function GET(
       });
     }
 
+    // Build where clause from searchParams filters
+    const where: any = {};
+    const paramsArray = Array.from(searchParams.entries());
+    for (const [key, value] of paramsArray) {
+      if (key.startsWith("_") || key === "id") continue;
+
+      if (key.endsWith("_gte")) {
+        const field = key.slice(0, -4);
+        where[field] = { ...where[field], gte: isNaN(Number(value)) ? value : Number(value) };
+      } else if (key.endsWith("_lte")) {
+        const field = key.slice(0, -4);
+        where[field] = { ...where[field], lte: isNaN(Number(value)) ? value : Number(value) };
+      } else if (key.endsWith("_ne")) {
+        const field = key.slice(0, -3);
+        where[field] = { ...where[field], not: isNaN(Number(value)) ? value : Number(value) };
+      } else if (key.endsWith("_like")) {
+        const field = key.slice(0, -5);
+        where[field] = { ...where[field], contains: value, mode: "insensitive" };
+      } else {
+        // Exact match
+        where[key] = isNaN(Number(value)) ? value : Number(value);
+      }
+    }
+
     const take = _end - _start;
     const [total, data] = await Promise.all([
-      delegate.count(),
+      delegate.count({ where }),
       delegate.findMany({
+        where,
         skip: _start,
         take,
         orderBy: { [_sort]: _order },
