@@ -7,6 +7,19 @@ export const dynamic = "force-dynamic";
 
 // OpenCode Zen API configurations
 const ZEN_API_URL = "https://opencode.ai/zen/v1/chat/completions";
+let pdfWorkerConfigured = false;
+
+function getPdfParseModule() {
+  const pdfParseModule = require("pdf-parse");
+
+  if (!pdfWorkerConfigured) {
+    const { getData } = require("pdf-parse/worker");
+    pdfParseModule.PDFParse.setWorker(getData());
+    pdfWorkerConfigured = true;
+  }
+
+  return pdfParseModule;
+}
 
 async function extractTextFromFile(url: string): Promise<string> {
   const buffer = await readFileFromStorage(url);
@@ -25,15 +38,11 @@ async function extractTextFromFile(url: string): Promise<string> {
       }
     }
 
-    // Gunakan kelas PDFParse dari pdf-parse.
-    // Dengan menyetel disableWorker: true, library akan memproses PDF sepenuhnya
-    // di server-side main thread tanpa memicu inisialisasi worker thread (aman 100% dari crash Next.js).
-    const pdfParseModule = require("pdf-parse");
+    const pdfParseModule = getPdfParseModule();
     const uint8Array = new Uint8Array(buffer);
     
     const parser = new pdfParseModule.PDFParse({
       data: uint8Array,
-      disableWorker: true,
       useSystemFonts: true,
       disableFontFace: true,
     });
