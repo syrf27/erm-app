@@ -1,4 +1,4 @@
-import { del, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
 import { existsSync } from "fs";
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { basename, extname, resolve } from "path";
@@ -72,6 +72,15 @@ function getLocalFilename(location: string): string {
   return basename(filename);
 }
 
+function getUploadPathname(location: string): string {
+  if (isVercelBlobUrl(location)) {
+    const url = new URL(location);
+    return url.pathname.replace(/^\/+/, "");
+  }
+
+  return `${BLOB_UPLOAD_PREFIX}/${getLocalFilename(location)}`;
+}
+
 function getLocalPath(filename: string): string {
   const safeFilename = basename(filename);
   const filePath = resolve(LOCAL_UPLOADS_DIR, safeFilename);
@@ -99,19 +108,19 @@ export async function uploadFile({ buffer, filename, contentType }: UploadFileIn
 
   const pathname = `${BLOB_UPLOAD_PREFIX}/${safeFilename}`;
   const blob = await put(pathname, buffer, {
-    access: "public",
+    access: "private",
     addRandomSuffix: false,
     contentType: contentType || getContentTypeFromFilename(safeFilename),
   });
 
   return {
-    url: blob.url,
+    url: `/api/uploads/${safeFilename}`,
     pathname: blob.pathname,
   };
 }
 
 export async function readFileFromStorage(location: string): Promise<Buffer> {
-  if (isLocalUploadUrl(location)) {
+  if (isLocalUploadUrl(location) && getStorageDriver() === "local") {
     const filePath = getLocalPath(getLocalFilename(location));
 
     if (!existsSync(filePath)) {
@@ -119,6 +128,19 @@ export async function readFileFromStorage(location: string): Promise<Buffer> {
     }
 
     return readFile(filePath);
+  }
+
+  if (isLocalUploadUrl(location) || isVercelBlobUrl(location)) {
+    const blob = await get(getUploadPathname(location), {
+      access: "private",
+      useCache: false,
+    });
+
+    if (!blob || blob.statusCode !== 200 || !blob.stream) {
+      throw new Error("File not found");
+    }
+
+    return Buffer.from(await new Response(blob.stream).arrayBuffer());
   }
 
   const response = await fetch(location);
@@ -134,7 +156,7 @@ export async function deleteFile(location: string): Promise<void> {
     return;
   }
 
-  if (isLocalUploadUrl(location)) {
+  if (isLocalUploadUrl(location) && getStorageDriver() === "local") {
     try {
       await unlink(getLocalPath(getLocalFilename(location)));
     } catch (error: any) {
@@ -150,5 +172,5 @@ export async function deleteFile(location: string): Promise<void> {
     return;
   }
 
-  await del(location);
+  await del(getUploadPathname(location));
 }
