@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join, extname, basename } from "path";
+import { extname } from "path";
 import { checkPermission } from "@/lib/access-control";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
+import { uploadFile } from "@/lib/storage";
 import crypto from "crypto";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -101,18 +101,11 @@ export async function POST(request: NextRequest) {
     // Generate secure filename using UUID
     const uuid = crypto.randomUUID();
     const filename = `${uuid}${extension}`;
-    // Store files outside web root for security
-    const uploadDir = join(process.cwd(), "uploads");
-    await mkdir(uploadDir, { recursive: true });
-    const filePath = join(uploadDir, filename);
-
-    // Ensure path is within upload dir (prevent path traversal)
-    const resolvedPath = join(uploadDir, filename);
-    if (!resolvedPath.startsWith(uploadDir)) {
-      return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
-    }
-
-    await writeFile(resolvedPath, buffer);
+    const storedFile = await uploadFile({
+      buffer,
+      filename,
+      contentType: file.type || undefined,
+    });
 
     await logAudit({
       userId,
@@ -120,13 +113,13 @@ export async function POST(request: NextRequest) {
       action: "UPLOAD",
       resource: "upload",
       resourceId: filename,
-      details: { originalName: file.name, size: file.size, mimeType: file.type },
+      details: { originalName: file.name, size: file.size, mimeType: file.type, url: storedFile.url },
       ipAddress,
       userAgent,
     });
 
     return NextResponse.json({
-      url: `/api/uploads/${filename}`,
+      url: storedFile.url,
       filename: file.name,
       originalName: file.name,
       size: file.size,

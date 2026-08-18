@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkPermission } from "@/lib/access-control";
-import { join } from "path";
-import { readFile } from "fs/promises";
+import { getStorageExtension, readFileFromStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -10,23 +9,10 @@ export const dynamic = "force-dynamic";
 const ZEN_API_URL = "https://opencode.ai/zen/v1/chat/completions";
 
 async function extractTextFromFile(url: string): Promise<string> {
-  const isLocal = url.startsWith("/uploads/") || url.startsWith("/api/uploads/");
-  let buffer: Buffer;
+  const buffer = await readFileFromStorage(url);
+  const extension = getStorageExtension(url);
 
-  if (isLocal) {
-    const filename = url.split("/").pop();
-    if (!filename) throw new Error("Invalid filename in URL");
-    const filePath = join("/Users/alfiansyrff/dev/erm-app", "uploads", filename);
-    buffer = await readFile(filePath);
-  } else {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch external file: ${res.statusText}`);
-    const arrayBuffer = await res.arrayBuffer();
-    buffer = Buffer.from(arrayBuffer);
-  }
-
-  const lowercaseUrl = url.toLowerCase();
-  if (lowercaseUrl.endsWith(".pdf")) {
+  if (extension === ".pdf") {
     if (typeof global !== "undefined") {
       if (!(global as any).DOMMatrix) {
         (global as any).DOMMatrix = class DOMMatrix {};
@@ -59,7 +45,7 @@ async function extractTextFromFile(url: string): Promise<string> {
     
     console.log("[summarize-debug] Main thread PDF parsing completed. Extracted character length:", textContent.length);
     return textContent;
-  } else if (lowercaseUrl.endsWith(".txt")) {
+  } else if (extension === ".txt") {
     const text = buffer.toString("utf-8");
     console.log("[summarize-debug] TXT parsing completed. Extracted character length:", text.length);
     return text;

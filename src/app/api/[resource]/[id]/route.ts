@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import { checkPermission, checkRecordPermission, getUserPermissions, canGrantPermissions } from "@/lib/access-control";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
+import { deleteFile } from "@/lib/storage";
 import {
   delCache,
   delCacheByPattern,
@@ -34,6 +35,18 @@ function getDelegate(resource: string) {
   const delegate = (prisma as any)[model];
   if (!delegate) throw new Error(`Prisma model not found: ${model}`);
   return delegate;
+}
+
+async function cleanupStoredFiles(urls: string[]) {
+  await Promise.all(
+    urls
+      .filter((url): url is string => typeof url === "string" && url.length > 0)
+      .map((url) =>
+        deleteFile(url).catch((error) => {
+          console.error(`Failed to delete stored file "${url}":`, error);
+        })
+      )
+  );
 }
 
 export async function GET(
@@ -230,6 +243,15 @@ export async function PATCH(
     } else if (resource === "rencana-penanganan") {
       const { dokumenPendukungs, ...rest } = body;
       const validatedRtp = updateRencanaPenangananSchema.parse(rest);
+      const existingDocs = await prisma.dokumenPendukung.findMany({
+        where: { rencanaPenangananId: Number(id) },
+        select: { url: true },
+      });
+      const nextDocUrls = new Set(
+        Array.isArray(dokumenPendukungs)
+          ? dokumenPendukungs.map((d: any) => d?.url).filter((url: any): url is string => typeof url === "string")
+          : []
+      );
       const updateData: any = { ...validatedRtp };
       if (dokumenPendukungs !== undefined && Array.isArray(dokumenPendukungs)) {
         updateData.dokumenPendukungs = {
@@ -244,6 +266,7 @@ export async function PATCH(
         where: { id: Number(id) },
         data: updateData,
       });
+      await cleanupStoredFiles(existingDocs.map((doc) => doc.url).filter((url) => !nextDocUrls.has(url)));
     } else {
       item = await delegate.update({
         where: { id: Number(id) },
@@ -330,7 +353,34 @@ export async function DELETE(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
     const delegate = getDelegate(resource);
+    const filesToDelete: string[] = [];
+
+    if (resource === "repositori") {
+      const existing = await prisma.repositori.findUnique({
+        where: { id: Number(id) },
+        select: { url: true },
+      });
+      if (existing?.url) filesToDelete.push(existing.url);
+    } else if (resource === "dokumen-pendukung") {
+      const existing = await prisma.dokumenPendukung.findUnique({
+        where: { id: Number(id) },
+        select: { url: true },
+      });
+      if (existing?.url) filesToDelete.push(existing.url);
+    } else if (resource === "rencana-penanganan" || resource === "pelaporan-risiko") {
+      const existing = await prisma.rencanaPenanganan.findUnique({
+        where: { id: Number(id) },
+        select: {
+          dokumenPendukung: true,
+          dokumenPendukungs: { select: { url: true } },
+        },
+      });
+      if (existing?.dokumenPendukung) filesToDelete.push(existing.dokumenPendukung);
+      filesToDelete.push(...(existing?.dokumenPendukungs.map((doc) => doc.url) || []));
+    }
+
     const item = await delegate.delete({ where: { id: Number(id) } });
+    await cleanupStoredFiles(filesToDelete);
 
     // Log audit
     await logAudit({
