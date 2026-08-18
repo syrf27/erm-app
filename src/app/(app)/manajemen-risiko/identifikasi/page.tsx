@@ -16,9 +16,11 @@ import {
   Table,
   ActionIcon,
   Tooltip,
+  FileButton,
+  ScrollArea,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconSearch, IconDatabase, IconPlus } from "@tabler/icons-react";
+import { IconSearch, IconDatabase, IconPlus, IconDownload, IconUpload } from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -88,10 +90,10 @@ const BankRisikoModal = memo(function BankRisikoModal({
           areaDampakId: risk.area_dampak_id,
           penyebab: risk.penyebab,
           dampak: risk.dampak,
-          sasaranId: risk.sasaran_id,
-          kegiatanId: risk.kegiatan_id,
-          prosesBisnisId: risk.proses_bisnis_id,
-          unitKerjaId: risk.unit_kerja_id,
+          ...(risk.sasaran_id != null && { sasaranId: risk.sasaran_id }),
+          ...(risk.kegiatan_id != null && { kegiatanId: risk.kegiatan_id }),
+          ...(risk.proses_bisnis_id != null && { prosesBisnisId: risk.proses_bisnis_id }),
+          ...(risk.unit_kerja_id != null && { unitKerjaId: risk.unit_kerja_id }),
           tahun,
         };
         const res = await fetch("/api/identifikasi-risiko", {
@@ -228,6 +230,14 @@ export default function IdentifikasiRisikoPage() {
   const currentYear = new Date().getFullYear();
 
   const [bankOpened, { open: openBank, close: closeBank }] = useDisclosure(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    total: number;
+    created: number;
+    updated: number;
+    failed: number;
+    details: { row: number; status: string; risiko: string; error?: string }[];
+  } | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -321,6 +331,66 @@ export default function IdentifikasiRisikoPage() {
     [existingResult?.data]
   );
   const refetchQuery = listQuery?.refetch;
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch(
+        `/api/import/identifikasi-risiko/template?tahunDari=${tahunDari}&tahunSampai=${tahunSampai}`
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Gagal mengunduh template");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Template_Import_Identifikasi_Risiko_${
+        tahunDari === tahunSampai ? tahunDari : `${tahunDari}-${tahunSampai}`
+      }.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      notifications.show({
+        title: "Berhasil",
+        message: "Template berhasil diunduh (berisi data tahun terpilih)",
+        color: "green",
+      });
+    } catch (e: any) {
+      notifications.show({
+        title: "Gagal",
+        message: e?.message ?? "Gagal mengunduh template",
+        color: "red",
+      });
+    }
+  };
+
+  const handleImportExcel = async (file: File | null) => {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("tahunDari", String(tahunDari));
+      const res = await fetch("/api/import/identifikasi-risiko", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengimport file");
+      }
+      setImportResult(data);
+      if (refetchQuery) refetchQuery();
+    } catch (e: any) {
+      notifications.show({
+        title: "Gagal",
+        message: e?.message ?? "Gagal mengimport file",
+        color: "red",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
     return existingData;
@@ -518,7 +588,6 @@ export default function IdentifikasiRisikoPage() {
             (o: any) => o.id === selectedProsesBisnis.kegiatanId
           )
         : null;
-      const teamId = null;
       const tahun = parseInt(row[11] as string, 10) || currentYear;
       const unitKerjaId = selectedKegiatan?.unitKerjaId ?? null;
       const kegiatanId =
@@ -527,20 +596,21 @@ export default function IdentifikasiRisikoPage() {
         selectedSasaran?.id ?? selectedKegiatan?.sasaranId ?? null;
       const prosesBisnisId = selectedProsesBisnis?.id ?? null;
 
+      // Kolom FK opsional dikirim hanya jika ada nilainya - schema validasi
+      // menolak null untuk field opsional.
       const payload = {
         risiko,
         jenisRisikoId,
         sumberRisikoId,
         kategoriRisikoId,
         areaDampakId,
-        sasaranId,
-        unitKerjaId,
-        teamId,
-        kegiatanId,
-        prosesBisnisId,
+        ...(sasaranId !== null && { sasaranId }),
+        ...(unitKerjaId !== null && { unitKerjaId }),
+        ...(kegiatanId !== null && { kegiatanId }),
+        ...(prosesBisnisId !== null && { prosesBisnisId }),
         penyebab: (row[9] as string) || null,
         dampak: (row[10] as string) || null,
-        tahun: (row[13] as number) || currentYear,
+        tahun,
       };
 
       if (isNaN(id) || id === 0 || id === null) {
@@ -743,6 +813,27 @@ export default function IdentifikasiRisikoPage() {
           >
             Cari dari Bank Risiko
           </Button>
+          <Button
+            variant="light"
+            color="indigo"
+            leftSection={<IconDownload size={16} />}
+            onClick={handleDownloadTemplate}
+          >
+            Unduh Template
+          </Button>
+          <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={handleImportExcel}>
+            {(props) => (
+              <Button
+                {...props}
+                variant="light"
+                color="green"
+                leftSection={<IconUpload size={16} />}
+                loading={importing}
+              >
+                Import Excel
+              </Button>
+            )}
+          </FileButton>
           <TextInput
             placeholder="Cari & Tandai Sel..."
             size="xs"
@@ -860,6 +951,72 @@ export default function IdentifikasiRisikoPage() {
         tahun={tahunDari}
         onImport={() => refetchQuery?.()}
       />
+
+      <Modal
+        opened={importResult !== null}
+        onClose={() => setImportResult(null)}
+        title="Hasil Import Excel"
+        size="lg"
+      >
+        <Stack gap="sm">
+          <Group gap="xs">
+            <Badge color="green">{importResult?.created} dibuat</Badge>
+            <Badge color="blue">{importResult?.updated} diperbarui</Badge>
+            <Badge color="red">{importResult?.failed} gagal</Badge>
+            <Badge variant="light" color="gray">
+              {importResult?.total} total baris
+            </Badge>
+          </Group>
+          {importResult && importResult.details.length > 0 && (
+            <ScrollArea.Autosize mah={360} type="hover">
+              <Table striped withTableBorder withColumnBorders style={{ fontSize: 12 }}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th style={{ width: 60 }}>Baris</Table.Th>
+                    <Table.Th style={{ width: 90 }}>Status</Table.Th>
+                    <Table.Th>Risiko</Table.Th>
+                    <Table.Th style={{ width: "40%" }}>Keterangan</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {importResult.details.map((d) => (
+                    <Table.Tr key={d.row}>
+                      <Table.Td>{d.row}</Table.Td>
+                      <Table.Td>
+                        <Badge
+                          size="xs"
+                          color={
+                            d.status === "created"
+                              ? "green"
+                              : d.status === "updated"
+                              ? "blue"
+                              : "red"
+                          }
+                        >
+                          {d.status === "created"
+                            ? "Baru"
+                            : d.status === "updated"
+                            ? "Diperbarui"
+                            : "Gagal"}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>{d.risiko || "-"}</Table.Td>
+                      <Table.Td c={d.error ? "red" : "dimmed"}>
+                        {d.error || "OK"}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea.Autosize>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setImportResult(null)}>
+              Tutup
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

@@ -1,0 +1,54 @@
+npm warn Unknown project config "strict-peer-dependencies". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+ [31m[1m⨯[22m[39m Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+    at new Promise (<anonymous>) {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-4091[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'::'[39m,
+  port: [33m3000[39m
+}
+D:\erm-app\node_modules\execa\lib\error.js:60
+		error = new Error(message);
+		        ^
+
+Error: Command failed with exit code 1: D:\erm-app\node_modules\.bin\next.cmd start
+ [31m[1m⨯[22m[39m Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+    at new Promise (<anonymous>) {
+  code: [32m'EADDRINUSE'[39m,
+  errno: [33m-4091[39m,
+  syscall: [32m'listen'[39m,
+  address: [32m'::'[39m,
+  port: [33m3000[39m
+}
+    at makeError (D:\erm-app\node_modules\execa\lib\error.js:60:11)
+    at handlePromise (D:\erm-app\node_modules\execa\index.js:118:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async runScript (D:\erm-app\node_modules\@refinedev\cli\dist\cli.cjs:1278:10) {
+  shortMessage: 'Command failed with exit code 1: D:\\erm-app\\node_modules\\.bin\\next.cmd start',
+  command: 'D:\\erm-app\\node_modules\\.bin\\next.cmd start',
+  escapedCommand: '"D:\\erm-app\\node_modules\\.bin\\next.cmd" start',
+  exitCode: 1,
+  signal: undefined,
+  signalDescription: undefined,
+  stdout: '',
+  stderr: ' \x1B[31m\x1B[1m⨯\x1B[22m\x1B[39m Failed to start server\n' +
+    'Error: listen EADDRINUSE: address already in use :::3000\n' +
+    '    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)\n' +
+    '    at new Promise (<anonymous>) {\n' +
+    "  code: \x1B[32m'EADDRINUSE'\x1B[39m,\n" +
+    '  errno: \x1B[33m-4091\x1B[39m,\n' +
+    "  syscall: \x1B[32m'listen'\x1B[39m,\n" +
+    "  address: \x1B[32m'::'\x1B[39m,\n" +
+    '  port: \x1B[33m3000\x1B[39m\n' +
+    '}',
+  failed: true,
+  timedOut: false,
+  isCanceled: false,
+  killed: false
+}
+
+Node.js v24.15.0

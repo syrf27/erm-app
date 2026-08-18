@@ -7,8 +7,8 @@ export async function GET(request: NextRequest) {
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Enforce authorization check
-    const isAllowed = await checkPermission("rencana-penanganan", "read", { ipAddress, userAgent });
+    // Enforce authorization check for repositori resource
+    const isAllowed = await checkPermission("repositori", "read", { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       category: d.category, // "pedoman" | "laporan"
       tahun: d.tahun,
       uploader: d.uploader,
+      summary: d.summary,
       createdAt: d.createdAt,
     }));
 
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
       category: "bukti_dukung",
       tahun: d.rencanaPenanganan?.identifikasiRisiko?.tahun ?? 2026,
       uploader: d.rencanaPenanganan?.penanggungJawab ?? "Tim Mitigasi",
+      summary: d.summary,
       createdAt: d.createdAt,
       relatedRisk: d.rencanaPenanganan?.identifikasiRisiko?.risiko || "",
     }));

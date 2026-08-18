@@ -1,0 +1,25 @@
+
+model UnitKerja {
+  id                 Int                  @id @default(autoincrement())
+  nama               String               @unique
+  kode               String               @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  sasarans           Sasaran[]
+  kegiatans          Kegiatan[]
+  identifikasiRisiko IdentifikasiRisiko[]
+}
+
+model Kegiatan {
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  unitKerjaId        Int?
+  sasaranId          Int?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  unitKerja          UnitKerja?           @relation(fields: [unitKerjaId], references: [id], onDelete: SetNull)
+  sasaran            Sasaran?             @relation(fields: [sasaranId], references: [id], onDelete: SetNull)
+  prosesBisnis       ProsesBisnis[]
+  identifikasiRisiko IdentifikasiRisiko[]
+}

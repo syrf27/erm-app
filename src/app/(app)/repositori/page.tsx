@@ -33,6 +33,7 @@ import {
   IconTrash,
   IconCalendar,
   IconPencil,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 
@@ -45,6 +46,7 @@ interface RepositoryFile {
   uploader: string;
   createdAt: string;
   relatedRisk?: string;
+  summary?: string | null;
 }
 
 export default function RepositoryPage() {
@@ -62,6 +64,55 @@ export default function RepositoryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // Summary State
+  const [summaryOpened, setSummaryOpened] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [selectedSummary, setSelectedSummary] = useState<string | null>(null);
+  const [summaryDocTitle, setSummaryDocTitle] = useState("");
+
+  // Custom Delete Modal State
+  const [deleteConfirmOpened, setDeleteConfirmOpened] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<number | null>(null);
+
+  const handleViewSummary = async (file: RepositoryFile) => {
+    setSummaryDocTitle(file.title);
+    setSummaryOpened(true);
+
+    if (file.summary && file.summary.trim().length > 0) {
+      setSelectedSummary(file.summary);
+      return;
+    }
+
+    setSummaryLoading(true);
+    setSelectedSummary(null);
+
+    try {
+      const res = await fetch("/api/custom-repository/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: file.id }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Gagal meringkas dokumen");
+      }
+
+      const data = await res.json();
+      setSelectedSummary(data.summary);
+      refetch();
+    } catch (e: any) {
+      notifications.show({
+        title: "Gagal Meringkas",
+        message: e?.message ?? "Terjadi kesalahan saat memproses dokumen",
+        color: "red",
+      });
+      setSummaryOpened(false);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   // Queries
   const { data: identity } = useGetIdentity<any>();
@@ -81,7 +132,7 @@ export default function RepositoryPage() {
   const { mutate: deleteMutate } = useDelete();
   const { mutate: updateMutate } = useUpdate();
 
-  const files = (result.result?.data as unknown as RepositoryFile[]) || [];
+  const files = Array.isArray(result.result?.data) ? (result.result?.data as unknown as RepositoryFile[]) : [];
   const isLoading = result.query.isLoading;
   const refetch = result.query.refetch;
 
@@ -220,28 +271,33 @@ export default function RepositoryPage() {
   const handleDeleteFile = (idStr: string) => {
     if (!idStr.startsWith("manual-")) return;
     const realId = parseInt(idStr.replace("manual-", ""), 10);
+    setFileToDelete(realId);
+    setDeleteConfirmOpened(true);
+  };
 
-    if (window.confirm("Apakah Anda yakin ingin menghapus dokumen ini dari repositori?")) {
-      deleteMutate(
-        {
-          resource: "repositori",
-          id: realId,
-          successNotification: {
-            message: "Dokumen berhasil dihapus",
-            type: "success" as const,
-          },
-          errorNotification: {
-            message: "Gagal menghapus dokumen",
-            type: "error" as const,
-          },
+  const confirmDeleteFile = () => {
+    if (fileToDelete === null) return;
+    deleteMutate(
+      {
+        resource: "repositori",
+        id: fileToDelete,
+        successNotification: {
+          message: "Dokumen berhasil dihapus",
+          type: "success" as const,
         },
-        {
-          onSuccess: () => {
-            refetch();
-          },
-        }
-      );
-    }
+        errorNotification: {
+          message: "Gagal menghapus dokumen",
+          type: "error" as const,
+        },
+      },
+      {
+        onSuccess: () => {
+          refetch();
+          setDeleteConfirmOpened(false);
+          setFileToDelete(null);
+        },
+      }
+    );
   };
 
   // Folders layout components
@@ -442,6 +498,14 @@ export default function RepositoryPage() {
                       >
                         <IconExternalLink size={16} />
                       </ActionIcon>
+                      <ActionIcon
+                        color="grape"
+                        variant="subtle"
+                        onClick={() => handleViewSummary(file)}
+                        title="Lihat Ringkasan AI"
+                      >
+                        <IconSparkles size={16} />
+                      </ActionIcon>
                       {(() => {
                         const isCreator = file.id.startsWith("manual-") && (
                           file.uploader === identity?.name ||
@@ -555,8 +619,196 @@ export default function RepositoryPage() {
           </Group>
         </Stack>
       </Modal>
+
+      {/* Document Summary Modal */}
+      <Modal opened={summaryOpened} onClose={() => setSummaryOpened(false)} title="Ringkasan Dokumen AI" size="lg" radius="md">
+        <Stack gap="md">
+          <Text fw={600} size="sm">{summaryDocTitle}</Text>
+          {summaryLoading ? (
+            <Center h={150}>
+              <Stack align="center" gap="sm">
+                <Loader size="md" color="grape" />
+                <Text size="xs" c="dimmed">Sedang membaca dan menganalisis berkas menggunakan AI...</Text>
+              </Stack>
+            </Center>
+          ) : (
+            <Card withBorder padding="md" radius="md" style={{ lineHeight: 1.6, fontSize: 13.5 }}>
+              <div style={{ wordBreak: "break-word" }}>
+                {renderMarkdownToReact(selectedSummary || "")}
+              </div>
+            </Card>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setSummaryOpened(false)}>Tutup</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        opened={deleteConfirmOpened} 
+        onClose={() => setDeleteConfirmOpened(false)} 
+        title={<Text fw={600} size="md">Konfirmasi Hapus</Text>}
+        centered
+        size="sm"
+        radius="md"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Apakah Anda yakin ingin menghapus dokumen ini dari repositori? Tindakan ini tidak dapat dibatalkan.
+          </Text>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={() => setDeleteConfirmOpened(false)}>
+              Batal
+            </Button>
+            <Button color="red" onClick={confirmDeleteFile}>
+              Hapus Dokumen
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
+}
+
+// Custom Markdown formatter to render headers, lists, bold text, and tables cleanly in light/dark themes
+function renderMarkdownToReact(text: string) {
+  if (!text) return "Ringkasan kosong.";
+  
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+  
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    
+    // 1. Table Detection
+    if (line.trim().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      
+      if (tableLines.length >= 2) {
+        // Extract headers
+        const headerCells = tableLines[0]
+          .split("|")
+          .map(c => c.trim())
+          .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+          
+        // Skip separator line (tableLines[1])
+        const bodyLines = tableLines.slice(2);
+        
+        elements.push(
+          <div key={`table-${i}`} style={{ overflowX: "auto", marginTop: 12, marginBottom: 12 }}>
+            <Table withTableBorder withColumnBorders highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  {headerCells.map((cell, idx) => (
+                    <Table.Th key={idx} style={{ padding: "6px 10px" }}>
+                      {parseInlineBold(cell)}
+                    </Table.Th>
+                  ))}
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {bodyLines.map((bLine, rIdx) => {
+                  const cells = bLine
+                    .split("|")
+                    .map(c => c.trim())
+                    .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                  return (
+                    <Table.Tr key={rIdx}>
+                      {cells.map((cell, cIdx) => (
+                        <Table.Td key={cIdx} style={{ padding: "6px 10px" }}>
+                          {parseInlineBold(cell)}
+                        </Table.Td>
+                      ))}
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </div>
+        );
+        continue;
+      }
+    }
+    
+    // 2. Horizontal Rule
+    if (line.trim() === "---") {
+      elements.push(<hr key={i} style={{ border: 0, borderTop: "1px solid var(--mantine-color-default-border)", margin: "12px 0" }} />);
+      i++;
+      continue;
+    }
+    
+    // 3. Headings (### or ## or #)
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = parseInlineBold(headingMatch[2]);
+      const fontSize = level === 1 ? 19 : level === 2 ? 16 : level === 3 ? 14.5 : 13.5;
+      elements.push(
+        <Text key={i} fw={700} style={{ fontSize, marginTop: 14, marginBottom: 8, display: "block" }}>
+          {content}
+        </Text>
+      );
+      i++;
+      continue;
+    }
+    
+    // 4. Unordered list (* or -)
+    const listMatch = line.match(/^(\s*)[*\-]\s+(.*)$/);
+    if (listMatch) {
+      const indentSpace = listMatch[1].length;
+      const indent = indentSpace * 8 + 14;
+      const content = parseInlineBold(listMatch[2]);
+      elements.push(
+        <div key={i} style={{ paddingLeft: indent, textIndent: -10, marginBottom: 4, display: "block" }}>
+          • {content}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // 5. Ordered list (1. or 2.)
+    const orderedListMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if (orderedListMatch) {
+      const indentSpace = orderedListMatch[1].length;
+      const indent = indentSpace * 8 + 18;
+      const num = orderedListMatch[2];
+      const content = parseInlineBold(orderedListMatch[3]);
+      elements.push(
+        <div key={i} style={{ paddingLeft: indent, textIndent: -14, marginBottom: 4, display: "block" }}>
+          {num}. {content}
+        </div>
+      );
+      i++;
+      continue;
+    }
+    
+    // Default Paragraph line
+    elements.push(
+      <div key={i} style={{ minHeight: line.trim() === "" ? 8 : "auto", marginBottom: 6, display: "block" }}>
+        {parseInlineBold(line)}
+      </div>
+    );
+    i++;
+  }
+  
+  return elements;
+}
+
+function parseInlineBold(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} style={{ fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
 }
 
 // Inline helper for layout

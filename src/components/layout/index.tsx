@@ -4,7 +4,7 @@ import { useLogout, useGetIdentity } from "@refinedev/core";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useEffect, useState, type PropsWithChildren } from "react";
+import { useMemo, useEffect, useState, useCallback, type PropsWithChildren } from "react";
 
 import {
   AppShell,
@@ -53,6 +53,7 @@ import {
   IconLibrary,
   IconShieldCheck,
   IconDatabase,
+  IconRoute,
   IconBell,
   IconBellOff,
   IconBellRinging,
@@ -62,12 +63,14 @@ import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
 import { YearFilter } from "@/components/YearFilter";
 import { useFcm } from "@/hooks/useFcm";
+import { WelcomeTour } from "@/components/tour/WelcomeTour";
 
 interface MenuItem {
   label: string;
   icon?: React.ReactNode;
   href?: string;
   children?: MenuItem[];
+  dataTour?: string;
 }
 
 const menuItems: MenuItem[] = [
@@ -75,10 +78,12 @@ const menuItems: MenuItem[] = [
     label: "Dashboard",
     icon: <IconDashboard size={18} />,
     href: "/",
+    dataTour: "nav-dashboard",
   },
   {
     label: "Manajemen Risiko",
     icon: <IconFolders size={18} />,
+    dataTour: "nav-manajemen-risiko",
     children: [
       {
         label: "Penetapan Konteks",
@@ -116,6 +121,7 @@ const menuItems: MenuItem[] = [
     label: "Pemantauan Risiko",
     icon: <IconActivity size={18} />,
     href: "/pemantauan-risiko",
+    dataTour: "nav-pemantauan-risiko",
   },
   // {
   //   label: "KRI",
@@ -131,11 +137,13 @@ const menuItems: MenuItem[] = [
     label: "Bank Risiko",
     icon: <IconDatabase size={18} />,
     href: "/bank-risiko",
+    dataTour: "nav-bank-risiko",
   },
   {
     label: "Repositori Dokumen",
     icon: <IconFolders size={18} />,
     href: "/repositori",
+    dataTour: "nav-repositori",
   },
   {
     label: "Audit Log",
@@ -182,6 +190,7 @@ function renderNavItems(items: MenuItem[], pathname: string, depth = 0) {
           key={item.label}
           label={item.label}
           leftSection={item.icon}
+          data-tour={item.dataTour}
           defaultOpened={
             pathname.startsWith("/manajemen-risiko") ||
             item.children.some((child) =>
@@ -208,6 +217,7 @@ function renderNavItems(items: MenuItem[], pathname: string, depth = 0) {
         href={item.href}
         active={isActive}
         component={Link}
+        data-tour={item.dataTour}
       />
     );
   });
@@ -267,7 +277,7 @@ function renderMiniNavItems(items: MenuItem[], pathname: string) {
 
 function LayoutContent({ children }: PropsWithChildren) {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+  const [desktopOpened, { toggle: toggleDesktop, open: openDesktop }] = useDisclosure(true);
   const [logoutOpened, { open: openLogout, close: closeLogout }] = useDisclosure(false);
   const pathname = usePathname();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
@@ -362,6 +372,10 @@ function LayoutContent({ children }: PropsWithChildren) {
       .filter((item) => !item.children || item.children.length > 0);
   }, [identity]);
 
+  const handleTourBeforeStart = useCallback(() => {
+    if (!desktopOpened) openDesktop();
+  }, [desktopOpened]);
+
   return (
     <AppShell
       header={{ height: 60 }}
@@ -446,7 +460,7 @@ function LayoutContent({ children }: PropsWithChildren) {
                         offset={2}
                         disabled={notificationsList.length === 0}
                       >
-                        <ActionIcon variant="light" size="lg" color="gray" aria-label="Notifikasi">
+                        <ActionIcon variant="light" size="lg" color="gray" aria-label="Notifikasi" data-tour="tour-notifikasi">
                           <IconBell size={18} />
                         </ActionIcon>
                       </Indicator>
@@ -530,6 +544,7 @@ function LayoutContent({ children }: PropsWithChildren) {
                 size="lg"
                 onClick={() => toggleColorScheme()}
                 aria-label="Toggle color scheme"
+                data-tour="tour-theme"
               >
                 {mounted ? (colorScheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />) : null}
               </ActionIcon>
@@ -543,6 +558,7 @@ function LayoutContent({ children }: PropsWithChildren) {
                       radius="xl"
                       size="lg"
                       aria-label="Open profile menu"
+                      data-tour="tour-profile"
                     >
                       <Avatar
                         color="blue"
@@ -569,6 +585,12 @@ function LayoutContent({ children }: PropsWithChildren) {
                       </Stack>
                     </Menu.Label>
                     <Menu.Divider />
+                    <Menu.Item
+                      leftSection={<IconRoute size={16} />}
+                      onClick={() => window.dispatchEvent(new Event("erm:start-tour"))}
+                    >
+                      Lihat Panduan
+                    </Menu.Item>
                     <Menu.Item
                       color="red"
                       leftSection={<IconLogout size={16} />}
@@ -608,7 +630,7 @@ function LayoutContent({ children }: PropsWithChildren) {
               : renderMiniNavItems(filteredMenuItems, pathname)}
             {desktopOpened ? (
               <>
-                <Box p="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+                <Box p="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }} data-tour="tour-year-filter">
                   <YearFilter
                     tahunDari={tahunDari}
                     tahunSampai={tahunSampai}
@@ -642,6 +664,8 @@ function LayoutContent({ children }: PropsWithChildren) {
         <Breadcrumb />
         {children}
       </AppShell.Main>
+
+      <WelcomeTour onBeforeStart={handleTourBeforeStart} />
 
       <Modal
         opened={logoutOpened}

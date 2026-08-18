@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+generator client_default {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model UnitKerja {
+  id                 Int                  @id @default(autoincrement())
+  nama               String               @unique
+  kode               String               @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  sasarans           Sasaran[]
+  kegiatans          Kegiatan[]
+  identifikasiRisiko IdentifikasiRisiko[]
+}
+
+model Kegiatan {
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  unitKerjaId        Int?
+  sasaranId          Int?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  unitKerja          UnitKerja?           @relation(fields: [unitKerjaId], references: [id], onDelete: SetNull)
+  sasaran            Sasaran?             @relation(fields: [sasaranId], references: [id], onDelete: SetNull)
+  prosesBisnis       ProsesBisnis[]
+  identifikasiRisiko IdentifikasiRisiko[]
+}
+
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  timestamp    DateTime @default(now())
+  userId       String
+  userName     String
+  action       String
+  resource     String
+  resourceId   String?
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  status       String?
+  errorMessage String?
+}
+
+model Sasaran {
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  unitKerjaId        Int?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  unitKerja          UnitKerja?           @relation(fields: [unitKerjaId], references: [id], onDelete: SetNull)
+  kegiatans          Kegiatan[]
+  identifikasiRisiko IdentifikasiRisiko[]
+}
+
+model ProsesBisnis {
+  id                 Int                  @id @default(autoincrement())
+  nama               String
+  deskripsi          String?
+  kode               String?
+  kegiatanId         Int?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  kegiatan           Kegiatan?            @relation(fields: [kegiatanId], references: [id], onDelete: SetNull)
+  identifikasiRisiko IdentifikasiRisiko[]
+}

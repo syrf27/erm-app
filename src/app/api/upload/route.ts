@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".xlsx", ".csv", ".docx", ".doc", ".txt"];
 const ALLOWED_MIME_TYPES = [
   "application/pdf",

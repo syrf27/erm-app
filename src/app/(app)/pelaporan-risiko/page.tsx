@@ -453,7 +453,7 @@ export default function PelaporanRisikoPage() {
       const worksheet = workbook.addWorksheet("Pelaporan Risiko");
 
       // Title
-      worksheet.mergeCells("A1:AF1");
+      worksheet.mergeCells("A1:AI1");
       const titleCell = worksheet.getCell("A1");
       titleCell.value = "LAPORAN PELAPORAN RISIKO";
       titleCell.font = {
@@ -466,7 +466,7 @@ export default function PelaporanRisikoPage() {
       worksheet.getRow(1).height = 35;
 
       // Subtitle/Meta Info
-      worksheet.mergeCells("A2:AF2");
+      worksheet.mergeCells("A2:AI2");
       const subtitleCell = worksheet.getCell("A2");
       subtitleCell.value = `Tanggal Unduh: ${new Date().toLocaleDateString(
         "id-ID",
@@ -496,6 +496,9 @@ export default function PelaporanRisikoPage() {
         { header: "", key: "risiko", width: 30 },
         { header: "", key: "penyebab", width: 25 },
         { header: "", key: "dampak", width: 25 },
+        { header: "", key: "kategori", width: 20 },
+        { header: "", key: "areaDampak", width: 20 },
+        { header: "", key: "sumberRisiko", width: 20 },
         { header: "", key: "kemungkinanAktual", width: 18 },
         { header: "", key: "dampakAktual", width: 18 },
         { header: "", key: "besaranAktual", width: 20 },
@@ -531,32 +534,35 @@ export default function PelaporanRisikoPage() {
         "Proses Bisnis", // D
         "Risiko", // E
         "Identifikasi",
-        "", // F, G
+        "",
+        "",
+        "",
+        "", // F, G, H, I, J
         "Analisis Risiko Aktual",
         "",
         "",
-        "", // H, I, J, K
+        "", // K, L, M, N
         "Pengendalian yang Telah Dilaksanakan",
-        "", // L, M
+        "", // O, P
         "Risiko Residual",
         "",
         "",
-        "", // N, O, P, Q
-        "Respons Risiko", // R
+        "", // Q, R, S, T
+        "Respons Risiko", // U
         "Rencana Penanganan Risiko",
         "",
         "",
-        "", // S, T, U, V
+        "", // V, W, X, Y
         "Pemantauan Tindak Lanjut Penanganan Risiko",
         "",
         "",
-        "", // W, X, Y, Z
+        "", // Z, AA, AB, AC
         "Risiko Residual Harapan",
         "",
         "",
-        "", // AA, AB, AC, AD
+        "", // AD, AE, AF, AG
         "Persetujuan (Reporting)",
-        "", // AE, AF
+        "", // AH, AI
       ];
 
       const headerRow2 = [
@@ -567,31 +573,34 @@ export default function PelaporanRisikoPage() {
         "", // E
         "Penyebab", // F
         "Dampak", // G
-        "Lvl Kemungkinan", // H
-        "Lvl Dampak", // I
-        "Besaran Risiko", // J
-        "Level Risiko", // K
-        "Pengendalian", // L
-        "Efektivitas", // M
-        "Level Kemungkinan", // N
-        "Level Dampak", // O
-        "Level Risiko", // P
-        "Besaran Risiko", // Q
-        "", // R
-        "Rencana Penanganan", // S
-        "Target Waktu", // T
-        "Target Output", // U
-        "P. Jawab", // V
-        "Keterjadian Risiko", // W
-        "Waktu Realisasi", // X
-        "Output Realisasi", // Y
-        "Dokumen Pendukung", // Z
-        "Kemungkinan", // AA
-        "Dampak", // AB
-        "Level Risiko", // AC
-        "Besaran Residual", // AD
-        "Persetujuan", // AE
-        "Disetujui Oleh", // AF
+        "Kategori Risiko", // H
+        "Area Dampak", // I
+        "Sumber Risiko", // J
+        "Lvl Kemungkinan", // K
+        "Lvl Dampak", // L
+        "Besaran Risiko", // M
+        "Level Risiko", // N
+        "Pengendalian", // O
+        "Efektivitas", // P
+        "Level Kemungkinan", // Q
+        "Level Dampak", // R
+        "Level Risiko", // S
+        "Besaran Risiko", // T
+        "", // U
+        "Rencana Penanganan", // V
+        "Target Waktu", // W
+        "Target Output", // X
+        "P. Jawab", // Y
+        "Keterjadian Risiko", // Z
+        "Waktu Realisasi", // AA
+        "Output Realisasi", // AB
+        "Dokumen Pendukung", // AC
+        "Kemungkinan", // AD
+        "Dampak", // AE
+        "Level Risiko", // AF
+        "Besaran Residual", // AG
+        "Persetujuan", // AH
+        "Disetujui Oleh", // AI
       ];
 
       // Add headers
@@ -604,15 +613,15 @@ export default function PelaporanRisikoPage() {
       worksheet.mergeCells("C4:C5"); // Kegiatan
       worksheet.mergeCells("D4:D5"); // Proses Bisnis
       worksheet.mergeCells("E4:E5"); // Risiko
-      worksheet.mergeCells("F4:G4"); // Identifikasi
-      worksheet.mergeCells("H4:K4"); // Analisis Risiko Aktual
-      worksheet.mergeCells("L4:M4"); // Pengendalian yang Telah Dilaksanakan
-      worksheet.mergeCells("N4:Q4"); // Risiko Residual
-      worksheet.mergeCells("R4:R5"); // Respons Risiko
-      worksheet.mergeCells("S4:V4"); // Rencana Penanganan Risiko
-      worksheet.mergeCells("W4:Z4"); // Pemantauan Tindak Lanjut Penanganan Risiko
-      worksheet.mergeCells("AA4:AD4"); // Risiko Residual Harapan
-      worksheet.mergeCells("AE4:AF4"); // Persetujuan (Reporting)
+      worksheet.mergeCells("F4:J4"); // Identifikasi
+      worksheet.mergeCells("K4:N4"); // Analisis Risiko Aktual
+      worksheet.mergeCells("O4:P4"); // Pengendalian yang Telah Dilaksanakan
+      worksheet.mergeCells("Q4:T4"); // Risiko Residual
+      worksheet.mergeCells("U4:U5"); // Respons Risiko
+      worksheet.mergeCells("V4:Y4"); // Rencana Penanganan Risiko
+      worksheet.mergeCells("Z4:AC4"); // Pemantauan Tindak Lanjut Penanganan Risiko
+      worksheet.mergeCells("AD4:AG4"); // Risiko Residual Harapan
+      worksheet.mergeCells("AH4:AI4"); // Persetujuan (Reporting)
 
       // Format headers
       const headerFont = {
@@ -658,6 +667,9 @@ export default function PelaporanRisikoPage() {
           risiko: row.risiko,
           penyebab: row.penyebab || "-",
           dampak: row.dampak || "-",
+          kategori: row.kategori || "-",
+          areaDampak: row.areaDampak || "-",
+          sumberRisiko: row.sumberRisiko || "-",
           kemungkinanAktual: row.kemungkinanAktual,
           dampakAktual: row.dampakAktual,
           besaranAktual: row.besaranAktual > 0 ? row.besaranAktual : "-",
@@ -703,8 +715,8 @@ export default function PelaporanRisikoPage() {
             // Alignment adjustments
             if (
               [
-                1, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 24, 27, 28, 29,
-                30, 31,
+                1, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 23, 26, 27, 30, 31,
+                32, 33, 34,
               ].includes(colNumber)
             ) {
               cell.alignment = {
@@ -722,27 +734,10 @@ export default function PelaporanRisikoPage() {
           }
         );
 
-        // Color coding for Besaran Aktual (Col 10 / J)
+        // Color coding for Besaran Aktual (Col 13 / M)
         if (row.besaranAktual > 0) {
-          const cellG = dataRow.getCell(10);
+          const cellM = dataRow.getCell(13);
           const colorObj = getExcelBadgeColor(row.warnaAktual);
-          cellG.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: colorObj.bg },
-          };
-          cellG.font = {
-            name: "Arial",
-            size: 10,
-            bold: true,
-            color: { argb: colorObj.text },
-          };
-        }
-
-        // Color coding for Risiko Residual - Besaran Risiko (Col 17 / Q)
-        if (row.besaranResidual > 0) {
-          const cellM = dataRow.getCell(17);
-          const colorObj = getExcelBadgeColor(row.warnaResidual);
           cellM.fill = {
             type: "pattern",
             pattern: "solid",
@@ -756,16 +751,16 @@ export default function PelaporanRisikoPage() {
           };
         }
 
-        // Color coding for Besaran Residual Harapan (Col 30 / AD)
+        // Color coding for Risiko Residual - Besaran Risiko (Col 20 / T)
         if (row.besaranResidual > 0) {
-          const cellU = dataRow.getCell(30);
+          const cellT = dataRow.getCell(20);
           const colorObj = getExcelBadgeColor(row.warnaResidual);
-          cellU.fill = {
+          cellT.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: colorObj.bg },
           };
-          cellU.font = {
+          cellT.font = {
             name: "Arial",
             size: 10,
             bold: true,
@@ -773,57 +768,74 @@ export default function PelaporanRisikoPage() {
           };
         }
 
-        // Color coding for Evaluasi (Respon) (Col 18 / R)
-        const cellN = dataRow.getCell(18);
+        // Color coding for Besaran Residual Harapan (Col 33 / AG)
+        if (row.besaranResidual > 0) {
+          const cellAG = dataRow.getCell(33);
+          const colorObj = getExcelBadgeColor(row.warnaResidual);
+          cellAG.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: colorObj.bg },
+          };
+          cellAG.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: colorObj.text },
+          };
+        }
+
+        // Color coding for Evaluasi (Respon) (Col 21 / U)
+        const cellU = dataRow.getCell(21);
         if (row.respon === "Mengurangi Risiko") {
-          cellN.fill = {
+          cellU.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "FEF3C7" },
           }; // light yellow
-          cellN.font = { name: "Arial", size: 10, color: { argb: "D97706" } };
+          cellU.font = { name: "Arial", size: 10, color: { argb: "D97706" } };
         } else {
-          cellN.fill = {
+          cellU.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "ECFDF5" },
           }; // light green/teal
-          cellN.font = { name: "Arial", size: 10, color: { argb: "059669" } };
+          cellU.font = { name: "Arial", size: 10, color: { argb: "059669" } };
         }
 
-        // Color coding for Persetujuan (Col 31 / AE)
-        const cellY = dataRow.getCell(31);
+        // Color coding for Persetujuan (Col 34 / AH)
+        const cellAH = dataRow.getCell(34);
         if (row.persetujuan === "Disetujui") {
-          cellY.fill = {
+          cellAH.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "DEF7EC" },
           };
-          cellY.font = {
+          cellAH.font = {
             name: "Arial",
             size: 10,
             bold: true,
             color: { argb: "03543F" },
           };
         } else if (row.persetujuan === "Ditolak") {
-          cellY.fill = {
+          cellAH.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "FDE8E8" },
           };
-          cellY.font = {
+          cellAH.font = {
             name: "Arial",
             size: 10,
             bold: true,
             color: { argb: "9B1C1C" },
           };
         } else {
-          cellY.fill = {
+          cellAH.fill = {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "F3F4F6" },
           };
-          cellY.font = { name: "Arial", size: 10, color: { argb: "4B5563" } };
+          cellAH.font = { name: "Arial", size: 10, color: { argb: "4B5563" } };
         }
       });
 
@@ -892,7 +904,7 @@ export default function PelaporanRisikoPage() {
           highlightOnHover
           withTableBorder
           withColumnBorders
-          style={{ fontSize: 12, minWidth: 4000, borderCollapse: "collapse" }}
+          style={{ fontSize: 12, minWidth: 4480, borderCollapse: "collapse" }}
         >
           <Table.Thead>
             {/* Row 1 Headers */}
@@ -912,7 +924,7 @@ export default function PelaporanRisikoPage() {
               <Table.Th rowSpan={2} style={{ textAlign: "center", width: 220 }}>
                 Risiko
               </Table.Th>
-              <Table.Th colSpan={2} style={{ textAlign: "center" }}>
+              <Table.Th colSpan={5} style={{ textAlign: "center" }}>
                 Identifikasi
               </Table.Th>
               <Table.Th colSpan={4} style={{ textAlign: "center" }}>
@@ -959,6 +971,9 @@ export default function PelaporanRisikoPage() {
             <Table.Tr>
               <Table.Th style={{ width: 180 }}>Penyebab</Table.Th>
               <Table.Th style={{ width: 180 }}>Dampak</Table.Th>
+              <Table.Th style={{ width: 160 }}>Kategori Risiko</Table.Th>
+              <Table.Th style={{ width: 160 }}>Area Dampak</Table.Th>
+              <Table.Th style={{ width: 160 }}>Sumber Risiko</Table.Th>
               <Table.Th style={{ width: 180 }}>Lvl Kemungkinan</Table.Th>
               <Table.Th style={{ width: 180 }}>Lvl Dampak</Table.Th>
               <Table.Th style={{ width: 120, textAlign: "center" }}>
@@ -1000,7 +1015,7 @@ export default function PelaporanRisikoPage() {
             {tableRows.length === 0 ? (
               <Table.Tr>
                 <Table.Td
-                  colSpan={33}
+                  colSpan={36}
                   align="center"
                   style={{
                     color: "var(--mantine-color-gray-5)",
@@ -1022,6 +1037,9 @@ export default function PelaporanRisikoPage() {
                   <Table.Td style={{ fontWeight: 600 }}>{sanitizeHtml(row.risiko)}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.penyebab || "-")}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.dampak || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.kategori || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.areaDampak || "-")}</Table.Td>
+                  <Table.Td>{sanitizeHtml(row.sumberRisiko || "-")}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.kemungkinanAktual)}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.dampakAktual)}</Table.Td>
                   <Table.Td align="center">

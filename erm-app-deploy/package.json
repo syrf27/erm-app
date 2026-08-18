@@ -1,0 +1,81 @@
+{
+  "name": "mr-app",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--max_old_space_size=4096 refine dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "refine": "refine",
+    "prisma:seed": "npx tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.16.0",
+    "@handsontable/react-wrapper": "^17.1.0",
+    "@mantine/core": "^7.17.8",
+    "@mantine/dates": "^7.17.8",
+    "@mantine/form": "^7.17.8",
+    "@mantine/hooks": "^7.17.8",
+    "@mantine/notifications": "^7.17.8",
+    "@mantine/tiptap": "^7.17.8",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@refinedev/cli": "^2.16.48",
+    "@refinedev/core": "^5.0.8",
+    "@refinedev/devtools": "^2.0.1",
+    "@refinedev/kbar": "^2.0.0",
+    "@refinedev/nextjs-router": "^7.0.0",
+    "@refinedev/react-hook-form": "^5.0.0",
+    "@refinedev/react-table": "^6.0.0",
+    "@refinedev/simple-rest": "^6.0.0",
+    "@tabler/icons-react": "^3.44.0",
+    "@tanstack/react-table": "^8.2.6",
+    "@tiptap/extension-link": "^3.27.1",
+    "@tiptap/extension-underline": "^3.27.1",
+    "@tiptap/pm": "^3.27.1",
+    "@tiptap/react": "^3.27.1",
+    "@tiptap/starter-kit": "^3.27.1",
+    "@types/nodemailer": "^8.0.1",
+    "@xenova/transformers": "^2.17.2",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.17.0",
+    "firebase-admin": "^14.2.0",
+    "handsontable": "^17.1.0",
+    "ioredis": "^5.11.1",
+    "isomorphic-dompurify": "^3.21.0",
+    "js-cookie": "^3.0.5",
+    "next": "^16.2.9",
+    "nodemailer": "^9.0.3",
+    "postcss": "^8.5.15",
+    "postcss-preset-mantine": "^1.18.0",
+    "postcss-simple-vars": "^7.0.1",
+    "prisma": "^7.8.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^20",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8",
+    "eslint-config-next": "^16.2.9",
+    "tsx": "^4.22.4",
+    "typescript": "^5.8.3"
+  },
+  "refine": {
+    "projectId": "ODAD4e-EHzpoU-bZP6wK"
+  }
+}

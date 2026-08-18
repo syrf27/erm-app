@@ -6,8 +6,16 @@ import Cookies from "js-cookie";
 const AUTH_COOKIE = "auth";
 const PERMISSIONS_STORAGE_KEY = "rm_permissions";
 const PROFILE_STORAGE_KEY = "rm_profile";
+export const TOUR_STORAGE_KEY = "rm_tour_completed";
 
-function setSession(user: { name: string; email: string; role: string; permissions?: string[]; avatar?: string }) {
+function setSession(user: {
+  name: string;
+  email: string;
+  role: string;
+  permissions?: string[];
+  avatar?: string;
+  tourCompleted?: boolean;
+}) {
   const identity = { name: user.name, email: user.email, role: user.role };
 
   Cookies.set(AUTH_COOKIE, JSON.stringify(identity), {
@@ -17,6 +25,7 @@ function setSession(user: { name: string; email: string; role: string; permissio
 
   try {
     localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(user.permissions || []));
+    localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify(Boolean(user.tourCompleted)));
     if (user.avatar) {
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ avatar: user.avatar }));
     }
@@ -30,6 +39,7 @@ function clearSession() {
   try {
     localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
+    localStorage.removeItem(TOUR_STORAGE_KEY);
   } catch {
     // Ignore localStorage errors
   }

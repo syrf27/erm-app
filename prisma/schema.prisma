@@ -316,6 +316,7 @@ model DokumenPendukung {
   rencanaPenangananId Int
   title               String
   url                 String
+  summary             String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   rencanaPenanganan   RencanaPenanganan @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
@@ -344,13 +345,14 @@ model MatriksAnalisisRisiko {
 }
 
 model User {
-  id          Int              @id @default(autoincrement())
-  email       String           @unique
-  name        String
-  roleId      Int
-  password    String           @default("password")
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  name            String
+  roleId          Int
+  password        String           @default("password")
+  tourCompletedAt DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   role        Role             @relation(fields: [roleId], references: [id])
   permissions UserPermission[]
   fcmTokens   FcmToken[]
@@ -442,6 +444,7 @@ model Repositori {
   category  String   @default("pedoman") // e.g. "pedoman" | "laporan"
   tahun     Int      @default(2026)
   uploader  String   @default("Admin")
+  summary   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

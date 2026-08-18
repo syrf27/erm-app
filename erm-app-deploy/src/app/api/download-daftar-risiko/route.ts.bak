@@ -1,0 +1,145 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { generateDaftarRisikoExcel } from "@/lib/excel-generator";
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const pelaporanId = searchParams.get("pelaporanId");
+
+    if (!pelaporanId) {
+      return NextResponse.json(
+        { error: "pelaporanId is required" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch pelaporan data with all related information
+    const pelaporan = await prisma.pelaporanRisiko.findUnique({
+      where: { id: parseInt(pelaporanId) },
+      include: {
+        sasaran: true,
+        risikoActual: {
+          include: {
+            identifikasiRisiko: {
+              include: {
+                jenisRisiko: true,
+              },
+            },
+            areaDampak: true,
+            sumberRisiko: true,
+            levelKemungkinanAktual: true,
+            levelDampakAktual: true,
+            levelRisikoAktual: true,
+            rencanaPenanganan: {
+              include: {
+                prioritas: true,
+              },
+            },
+            levelKemungkinanResidual: true,
+            levelDampakResidual: true,
+            levelRisikoResidual: true,
+          },
+        },
+      },
+    });
+
+    if (!pelaporan) {
+      return NextResponse.json(
+        { error: "Pelaporan not found" },
+        { status: 404 }
+      );
+    }
+
+    // Transform data to match Excel generator interface
+    const excelData = {
+      sasaran: {
+        kode: pelaporan.sasaran.kode || "",
+        nama: pelaporan.sasaran.sasaran || "",
+      },
+      kegiatan: pelaporan.sasaran.kegiatan || "Sasaran Strategis Organisasi 2024",
+      risikoList: pelaporan.risikoActual.map((risiko) => ({
+        satker: pelaporan.sasaran.kode || "",
+        timBidang: "", // Need to add this field if available
+        prosesBisnis: risiko.identifikasiRisiko.prosesBisnis || "",
+        pernyataanRisiko: risiko.identifikasiRisiko.risiko || "",
+        penyebab: risiko.penyebab
+          ? risiko.penyebab.split("\n").filter((p: string) => p.trim())
+          : [],
+        dampak: risiko.dampak
+          ? risiko.dampak.split("\n").filter((d: string) => d.trim())
+          : [],
+        kategoriRisiko: risiko.identifikasiRisiko.jenisRisiko?.jenisRisiko || "",
+        areaDampak: risiko.areaDampak?.areaDampak || "",
+        sumberRisiko: risiko.sumberRisiko?.sumberRisiko || "",
+        risikoAktual: {
+          levelKemungkinan: risiko.levelKemungkinanAktual?.levelKemungkinan || "",
+          levelDampak: risiko.levelDampakAktual?.levelDampak || "",
+          besaranRisiko: risiko.besaranRisikoAktual || 0,
+          levelRisiko: risiko.levelRisikoAktual?.levelRisiko || "",
+        },
+        rtp: {
+          uraian: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) => rp.rtp || "")
+            : [],
+          targetOutput: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) => rp.targetOutput || "")
+            : [],
+          targetWaktu: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) =>
+                rp.targetWaktu ? new Date(rp.targetWaktu).toLocaleDateString("id-ID") : ""
+              )
+            : [],
+          penanggungJawab: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) => rp.penanggungJawab || "")
+            : [],
+          realisasiOutput: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) => rp.realisasiOutput || "")
+            : [],
+          realisasiWaktu: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) =>
+                rp.realisasiWaktu
+                  ? new Date(rp.realisasiWaktu).toLocaleDateString("id-ID")
+                  : ""
+              )
+            : [],
+          dokumenPendukung: risiko.rencanaPenanganan
+            ? risiko.rencanaPenanganan.map((rp) => rp.dokumenPendukung || "")
+            : [],
+        },
+        risikoResidual: {
+          levelKemungkinan: risiko.levelKemungkinanResidual?.levelKemungkinan || "",
+          levelDampak: risiko.levelDampakResidual?.levelDampak || "",
+          besaranRisiko: risiko.besaranRisikoResidual || 0,
+          levelRisiko: risiko.levelRisikoResidual?.levelRisiko || "",
+        },
+        persetujuan: "", // Add if available
+        disetujuiOleh: "", // Add if available
+      })),
+    };
+
+    // Generate Excel workbook
+    const workbook = await generateDaftarRisikoExcel(excelData);
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Create filename
+    const filename = `Daftar-Risiko-${pelaporan.sasaran.kode}-${new Date().toISOString().split("T")[0]}.xlsx`;
+
+    // Return file
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating Excel:", error);
+    return NextResponse.json(
+      { error: "Failed to generate Excel file" },
+      { status: 500 }
+    );
+  }
+}

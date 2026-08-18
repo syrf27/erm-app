@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       role: user.role.name,
       permissions: permissions,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`,
+      tourCompleted: user.tourCompletedAt !== null,
     });
   } catch (error) {
     console.error("Login API error:", error);

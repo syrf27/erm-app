@@ -93,7 +93,7 @@ export default function DashboardPage() {
       </Group>
 
       {/* KPI Row */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" data-tour="tour-kpi">
         <KpiCard icon={<IconAlertTriangle size={26} />} color="red"
           label="Total Risiko" value={k.totalRisiko}
           sub={k.sasaran + " sasaran • " + k.prosesBisnis + " proses bisnis"} />
@@ -107,7 +107,7 @@ export default function DashboardPage() {
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         {/* Risk Heatmap */}
-        <Paper withBorder radius="md" p="lg" shadow="xs">
+        <Paper withBorder radius="md" p="lg" shadow="xs" data-tour="tour-heatmap">
           <Group justify="space-between" mb="md">
             <Box>
               <Text fw={700}>Matrix Risiko (Inheren)</Text>
