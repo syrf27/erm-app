@@ -183,6 +183,15 @@ export default async function RootLayout({
                       },
                     },
                     {
+                      name: "selera-risiko",
+                      list: "/manajemen-risiko/penetapan-konteks",
+                      meta: {
+                        label: "Selera Risiko",
+                        parent: "manajemen-risiko",
+                        canDelete: true,
+                      },
+                    },
+                    {
                       name: "opsi-penanganan",
                       list: "/manajemen-risiko/penetapan-konteks",
                       meta: {
@@ -261,6 +270,34 @@ export default async function RootLayout({
                       meta: { label: "Repositori Dokumen" },
                     },
                     {
+                      name: "manajemen-akses",
+                      meta: { label: "Manajemen Akses" },
+                    },
+                    {
+                      name: "notification-center",
+                      list: "/notification-center",
+                      meta: {
+                        label: "Pusat Notifikasi",
+                        parent: "manajemen-akses",
+                      },
+                    },
+                    {
+                      name: "users",
+                      list: "/users",
+                      meta: {
+                        label: "Pengguna",
+                        parent: "manajemen-akses",
+                      },
+                    },
+                    {
+                      name: "roles",
+                      list: "/roles",
+                      meta: {
+                        label: "Role Permissions",
+                        parent: "manajemen-akses",
+                      },
+                    },
+                    {
                       name: "faq",
                       list: "/faq",
                       meta: { label: "FAQ" },
@@ -269,6 +306,18 @@ export default async function RootLayout({
                   options={{
                     syncWithLocation: true,
                     warnWhenUnsavedChanges: true,
+                    reactQuery: {
+                      clientConfig: {
+                        defaultOptions: {
+                          queries: {
+                            staleTime: 2 * 60 * 1000,
+                            gcTime: 10 * 60 * 1000,
+                            refetchOnWindowFocus: false,
+                            retry: 1,
+                          },
+                        },
+                      },
+                    },
                   }}
                 >
                   {children}

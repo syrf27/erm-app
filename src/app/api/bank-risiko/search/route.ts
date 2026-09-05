@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { generateEmbedding } from "@/lib/embedding";
 import { checkPermission } from "@/lib/access-control";
 
+type SemanticUnavailableReason =
+  | "pgvector_unavailable"
+  | "no_embeddings"
+  | "embedding_auth_failed"
+  | "embedding_failed";
+
 const SELECT_FIELDS = `
   SELECT
     ir.id,
@@ -37,6 +43,33 @@ const FROM_JOINS = `
   LEFT JOIN "Kegiatan" k ON k.id = ir."kegiatanId"
   LEFT JOIN "ProsesBisnis" pb ON pb.id = ir."prosesBisnisId"
   LEFT JOIN "UnitKerja" uk ON uk.id = ir."unitKerjaId"`;
+
+async function getInitialRisks(tahun: number | undefined, limit: number) {
+  const safeLimit = Number(limit);
+
+  if (tahun) {
+    const query = `
+      ${SELECT_FIELDS},
+      0::float AS similarity
+      ${FROM_JOINS}
+      WHERE ir.tahun = $1
+      ORDER BY ir."updatedAt" DESC, ir.id DESC
+      LIMIT $2
+    `;
+    const results = await prisma.$queryRawUnsafe(query, Number(tahun), safeLimit);
+    return { results, method: "browse" };
+  }
+
+  const query = `
+    ${SELECT_FIELDS},
+    0::float AS similarity
+    ${FROM_JOINS}
+    ORDER BY ir."updatedAt" DESC, ir.id DESC
+    LIMIT $1
+  `;
+  const results = await prisma.$queryRawUnsafe(query, safeLimit);
+  return { results, method: "browse" };
+}
 
 async function doTextSearch(
   searchText: string,
@@ -155,19 +188,35 @@ async function doTextSearch(
   }
 }
 
+export async function GET(request: NextRequest) {
+  try {
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+    const isAllowed = await checkPermission("identifikasi-risiko", "read", { ipAddress, userAgent });
+    if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const limit = Number(searchParams.get("limit") || 20);
+    const tahunParam = searchParams.get("tahun");
+    const tahun = tahunParam ? Number(tahunParam) : undefined;
+
+    const initialRisks = await getInitialRisks(tahun, limit);
+    return NextResponse.json(initialRisks);
+  } catch (e: any) {
+    console.error("Initial bank risiko load error:", e);
+    return NextResponse.json(
+      { error: "Failed to load bank risiko" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { query, limit = 20, tahun } = body;
-
-    if (!query || typeof query !== "string" || query.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Query is required" },
-        { status: 400 }
-      );
-    }
-
-    const searchText = query.trim();
 
     const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
@@ -176,9 +225,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
+    if (!query || typeof query !== "string" || query.trim().length === 0) {
+      const initialRisks = await getInitialRisks(tahun, limit);
+      return NextResponse.json(initialRisks);
+    }
+
+    const searchText = query.trim();
+
     const hasPgvector = await prisma.$queryRaw<
       Array<{ exists: boolean }>
     >`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') as exists`;
+
+    let semanticUnavailableReason: SemanticUnavailableReason | undefined;
 
     if (hasPgvector?.[0]?.exists) {
       try {
@@ -217,13 +275,20 @@ export async function POST(request: NextRequest) {
 
           return NextResponse.json({ results, method: "semantic" });
         }
+        semanticUnavailableReason = "no_embeddings";
       } catch (e: any) {
         console.error("Semantic search failed, falling back:", e.message);
+        semanticUnavailableReason =
+          e?.status === 401 || String(e?.message ?? "").includes("UNAUTHENTICATED")
+            ? "embedding_auth_failed"
+            : "embedding_failed";
       }
+    } else {
+      semanticUnavailableReason = "pgvector_unavailable";
     }
 
     const textResult = await doTextSearch(searchText, tahun, limit);
-    return NextResponse.json(textResult);
+    return NextResponse.json({ ...textResult, semanticUnavailableReason });
   } catch (e: any) {
     console.error("Search error:", e);
     return NextResponse.json(

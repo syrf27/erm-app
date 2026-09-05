@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Title,
   TextInput,
@@ -52,6 +52,7 @@ export default function BankRisikoPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RiskResult[]>([]);
   const [searchMethod, setSearchMethod] = useState<string>("");
+  const [semanticUnavailableReason, setSemanticUnavailableReason] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [importing, setImporting] = useState<number | null>(null);
@@ -59,8 +60,44 @@ export default function BankRisikoPage() {
   const [limit, setLimit] = useState(20);
   const { tahunDari, tahunSampai } = useYear();
 
+  const fetchInitialRisks = useCallback(async () => {
+    setLoading(true);
+    setSearched(true);
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (tahunDari === tahunSampai) {
+        params.set("tahun", String(tahunDari));
+      }
+
+      const res = await fetch(`/api/bank-risiko/search?${params.toString()}`);
+      const data = await res.json();
+      if (data.error) {
+        notifications.show({
+          title: "Error",
+          message: data.error,
+          color: "red",
+        });
+        return;
+      }
+      setResults(data.results || []);
+      setSearchMethod(data.method || "browse");
+      setSemanticUnavailableReason("");
+    } catch (e: any) {
+      notifications.show({
+        title: "Error",
+        message: "Gagal memuat data bank risiko",
+        color: "red",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [limit, tahunDari, tahunSampai]);
+
   const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      await fetchInitialRisks();
+      return;
+    }
     setLoading(true);
     setSearched(true);
     try {
@@ -84,6 +121,7 @@ export default function BankRisikoPage() {
       }
       setResults(data.results || []);
       setSearchMethod(data.method || "text");
+      setSemanticUnavailableReason(data.semanticUnavailableReason || "");
     } catch (e: any) {
       notifications.show({
         title: "Error",
@@ -93,7 +131,13 @@ export default function BankRisikoPage() {
     } finally {
       setLoading(false);
     }
-  }, [query, limit, tahunDari, tahunSampai]);
+  }, [query, limit, tahunDari, tahunSampai, fetchInitialRisks]);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      fetchInitialRisks();
+    }
+  }, [query, fetchInitialRisks]);
 
   const handleImport = useCallback(
     async (risk: RiskResult) => {
@@ -151,6 +195,21 @@ export default function BankRisikoPage() {
     return "gray";
   };
 
+  const getSearchFallbackMessage = () => {
+    switch (semanticUnavailableReason) {
+      case "embedding_auth_failed":
+        return " - GEMINI_API_KEY tidak valid, pencarian semantik dinonaktifkan sementara";
+      case "embedding_failed":
+        return " - layanan embedding gagal, fallback ke pencarian teks";
+      case "no_embeddings":
+        return " - data embedding belum tersedia";
+      case "pgvector_unavailable":
+        return " - pgvector belum tersedia, install untuk pencarian semantik";
+      default:
+        return "";
+    }
+  };
+
   return (
     <Stack>
       <Title order={3}>Bank Risiko</Title>
@@ -194,10 +253,14 @@ export default function BankRisikoPage() {
             color={searchMethod === "semantic" ? "green" : "gray"}
             variant="light"
           >
-            {searchMethod === "semantic" ? "Semantik (AI)" : "Teks (ILIKE)"}
+            {searchMethod === "semantic"
+              ? "Semantik (AI)"
+              : searchMethod === "browse"
+                ? "Data awal"
+                : "Teks (ILIKE)"}
           </Badge>
           {searchMethod === "text" &&
-            " - pgvector belum tersedia, install untuk pencarian semantik"}
+            getSearchFallbackMessage()}
         </Text>
       )}
 

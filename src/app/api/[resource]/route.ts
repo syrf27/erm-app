@@ -20,10 +20,13 @@ import {
   createProsesBisnisSchema,
   createUnitKerjaSchema,
   createReferenceSchema,
+  createFaqSchema,
   createLevelKemungkinanSchema,
   createLevelDampakSchema,
   createLevelRisikoSchema,
   createMatriksAnalisisRisikoSchema,
+  createSeleraRisikoSchema,
+  createSeleraRisikoGlobalSchema,
   createKRISchema,
   createUserSchema,
   createRoleSchema,
@@ -42,6 +45,18 @@ function getDelegate(resource: string) {
   const delegate = (prisma as any)[model];
   if (!delegate) throw new Error(`Prisma model not found: ${model}`);
   return delegate;
+}
+
+function getCacheHeaders(resource: string) {
+  if (isReferenceResource(resource)) {
+    return {
+      "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+    };
+  }
+
+  return {
+    "Cache-Control": "private, max-age=15, stale-while-revalidate=60",
+  };
 }
 
 export async function GET(
@@ -181,7 +196,10 @@ export async function GET(
         3600
       );
       return NextResponse.json(cached.data.slice(_start, _end), {
-        headers: { "x-total-count": String(cached.total) },
+        headers: {
+          "x-total-count": String(cached.total),
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
       });
     }
 
@@ -222,7 +240,10 @@ export async function GET(
     ]);
 
     return NextResponse.json(data, {
-      headers: { "x-total-count": String(total) },
+      headers: {
+        "x-total-count": String(total),
+        ...getCacheHeaders(resource),
+      },
     });
   } catch (e: any) {
     console.error("API error:", e);
@@ -287,11 +308,15 @@ export async function POST(
         case "level-risiko":
         case "opsi-penanganan":
         case "kriteria-dampak":
-        case "matriks-risiko":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
-        case "faq":
           validatedData = createReferenceSchema.parse(body);
+          break;
+        case "matriks-risiko":
+          validatedData = createSeleraRisikoSchema.parse(body);
+          break;
+        case "faq":
+          validatedData = createFaqSchema.parse(body);
           break;
         case "level-kemungkinan":
           validatedData = createLevelKemungkinanSchema.parse(body);
@@ -304,6 +329,9 @@ export async function POST(
           break;
         case "matriks-analisis-risiko":
           validatedData = createMatriksAnalisisRisikoSchema.parse(body);
+          break;
+        case "selera-risiko":
+          validatedData = createSeleraRisikoGlobalSchema.parse(body);
           break;
         case "kri":
           validatedData = createKRISchema.parse(body);

@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@xenova/transformers", "onnxruntime-node", "pdfjs-dist", "pdf-parse"],
+  serverExternalPackages: [
+    "@xenova/transformers",
+    "onnxruntime-node",
+    "pdfjs-dist",
+    "pdf-parse",
+    "tesseract.js",
+    "tesseract.js-core",
+  ],
   async headers() {
     return [
       {

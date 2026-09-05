@@ -224,6 +224,13 @@ model SeleraRisiko {
   kategoriRisiko       KategoriRisiko @relation(fields: [kategoriRisikoId], references: [id])
 }
 
+model SeleraRisikoGlobal {
+  id        Int      @id @default(autoincrement())
+  nilai     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model IdentifikasiRisiko {
   id                Int                @id @default(autoincrement())
   risiko            String
@@ -254,6 +261,17 @@ model IdentifikasiRisiko {
   team              Team?              @relation(fields: [teamId], references: [id])
   kris              Kri[]
   rencanaPenanganan RencanaPenanganan?
+
+  @@index([tahun])
+  @@index([tahun, updatedAt])
+  @@index([sasaranId])
+  @@index([kegiatanId])
+  @@index([prosesBisnisId])
+  @@index([teamId])
+  @@index([jenisRisikoId])
+  @@index([sumberRisikoId])
+  @@index([kategoriRisikoId])
+  @@index([areaDampakId])
 }
 
 model AnalisisRisiko {
@@ -270,12 +288,17 @@ model AnalisisRisiko {
   levelDampak             LevelDampak?       @relation(fields: [levelDampakId], references: [id])
   levelKemungkinan        LevelKemungkinan?  @relation(fields: [levelKemungkinanId], references: [id])
   levelRisiko             LevelRisiko?       @relation(fields: [levelRisikoId], references: [id])
+
+  @@index([levelKemungkinanId])
+  @@index([levelDampakId])
+  @@index([levelRisikoId])
 }
 
 model EvaluasiRisiko {
   id                         Int                @id @default(autoincrement())
   identifikasiRisikoId       Int                @unique
   responRisiko               String?
+  prioritasRisiko            Int?
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   residualLevelDampakId      Int?
@@ -285,6 +308,11 @@ model EvaluasiRisiko {
   residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
   residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
   residualLevelRisiko        LevelRisiko?       @relation(fields: [residualLevelRisikoId], references: [id])
+
+  @@index([responRisiko])
+  @@index([residualLevelKemungkinanId])
+  @@index([residualLevelDampakId])
+  @@index([residualLevelRisikoId])
 }
 
 model RencanaPenanganan {
@@ -309,6 +337,11 @@ model RencanaPenanganan {
   residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
   residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
   dokumenPendukungs          DokumenPendukung[]
+
+  @@index([targetWaktu])
+  @@index([penanggungJawab])
+  @@index([residualLevelKemungkinanId])
+  @@index([residualLevelDampakId])
 }
 
 model DokumenPendukung {
@@ -317,9 +350,12 @@ model DokumenPendukung {
   title               String
   url                 String
   summary             String?
+  extractedText       String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   rencanaPenanganan   RencanaPenanganan @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
+
+  @@index([rencanaPenangananId])
 }
 
 model Faq {
@@ -404,9 +440,20 @@ model UserPermission {
 model risk_embeddings {
   id                     Int                    @id @default(autoincrement())
   identifikasi_risiko_id Int                    @unique
-  embedding              Unsupported("vector")?
+  embedding              Unsupported("vector(1024)")?
   created_at             DateTime?              @default(now()) @db.Timestamp(6)
   updated_at             DateTime?              @default(now()) @db.Timestamp(6)
+}
+
+model document_embeddings {
+  id            Int                       @id @default(autoincrement())
+  document_type String
+  document_id   Int
+  embedding     Unsupported("vector(1024)")?
+  created_at    DateTime?                 @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?                 @default(now()) @db.Timestamp(6)
+
+  @@unique([document_type, document_id])
 }
 
 model FcmToken {
@@ -445,6 +492,7 @@ model Repositori {
   tahun     Int      @default(2026)
   uploader  String   @default("Admin")
   summary   String?
+  extractedText String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -458,4 +506,6 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
 }

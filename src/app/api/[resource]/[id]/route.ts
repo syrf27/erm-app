@@ -4,7 +4,7 @@ import { resourceMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
 import { checkPermission, checkRecordPermission, getUserPermissions, canGrantPermissions } from "@/lib/access-control";
-import { generateAndStoreEmbedding } from "@/lib/embedding";
+import { deleteDocumentEmbedding, generateAndStoreEmbedding } from "@/lib/embedding";
 import { deleteFile } from "@/lib/storage";
 import {
   delCache,
@@ -20,12 +20,15 @@ import {
   updateProsesBisnisSchema,
   updateUnitKerjaSchema,
   updateReferenceSchema,
+  updateFaqSchema,
   updateUserSchema,
   updateRoleSchema,
   updateAnalisisRisikoSchema,
   updateEvaluasiRisikoSchema,
   updateRencanaPenangananSchema,
   updateKRISchema,
+  updateSeleraRisikoSchema,
+  updateSeleraRisikoGlobalSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
 
@@ -120,11 +123,15 @@ export async function PATCH(
         case "area-dampak":
         case "opsi-penanganan":
         case "kriteria-dampak":
-        case "matriks-risiko":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
-        case "faq":
           validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "matriks-risiko":
+          validatedData = updateSeleraRisikoSchema.parse(body);
+          break;
+        case "faq":
+          validatedData = updateFaqSchema.parse(body);
           break;
         case "level-kemungkinan":
           validatedData = updateReferenceSchema.parse(body);
@@ -137,6 +144,9 @@ export async function PATCH(
           break;
         case "matriks-analisis-risiko":
           validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "selera-risiko":
+          validatedData = updateSeleraRisikoGlobalSchema.parse(body);
           break;
         case "kri":
           validatedData = updateKRISchema.parse(body);
@@ -245,7 +255,7 @@ export async function PATCH(
       const validatedRtp = updateRencanaPenangananSchema.parse(rest);
       const existingDocs = await prisma.dokumenPendukung.findMany({
         where: { rencanaPenangananId: Number(id) },
-        select: { url: true },
+        select: { id: true, url: true },
       });
       const nextDocUrls = new Set(
         Array.isArray(dokumenPendukungs)
@@ -267,7 +277,19 @@ export async function PATCH(
         data: updateData,
       });
       await cleanupStoredFiles(existingDocs.map((doc) => doc.url).filter((url) => !nextDocUrls.has(url)));
+      if (dokumenPendukungs !== undefined && Array.isArray(dokumenPendukungs)) {
+        await Promise.all(existingDocs.map((doc) => deleteDocumentEmbedding("bukti", doc.id)));
+      }
     } else {
+      if (resource === "repositori" && ("title" in validatedData || "url" in validatedData)) {
+        validatedData = {
+          ...validatedData,
+          summary: null,
+          extractedText: null,
+        };
+        await deleteDocumentEmbedding("manual", Number(id));
+      }
+
       item = await delegate.update({
         where: { id: Number(id) },
         data: validatedData,
@@ -354,6 +376,7 @@ export async function DELETE(
     }
     const delegate = getDelegate(resource);
     const filesToDelete: string[] = [];
+    const buktiEmbeddingIdsToDelete: number[] = [];
 
     if (resource === "repositori") {
       const existing = await prisma.repositori.findUnique({
@@ -367,20 +390,28 @@ export async function DELETE(
         select: { url: true },
       });
       if (existing?.url) filesToDelete.push(existing.url);
+      buktiEmbeddingIdsToDelete.push(Number(id));
     } else if (resource === "rencana-penanganan" || resource === "pelaporan-risiko") {
       const existing = await prisma.rencanaPenanganan.findUnique({
         where: { id: Number(id) },
         select: {
           dokumenPendukung: true,
-          dokumenPendukungs: { select: { url: true } },
+          dokumenPendukungs: { select: { id: true, url: true } },
         },
       });
       if (existing?.dokumenPendukung) filesToDelete.push(existing.dokumenPendukung);
       filesToDelete.push(...(existing?.dokumenPendukungs.map((doc) => doc.url) || []));
+      buktiEmbeddingIdsToDelete.push(...(existing?.dokumenPendukungs.map((doc) => doc.id) || []));
     }
 
     const item = await delegate.delete({ where: { id: Number(id) } });
     await cleanupStoredFiles(filesToDelete);
+    if (resource === "repositori") {
+      await deleteDocumentEmbedding("manual", Number(id));
+    }
+    if (buktiEmbeddingIdsToDelete.length > 0) {
+      await Promise.all(buktiEmbeddingIdsToDelete.map((docId) => deleteDocumentEmbedding("bukti", docId)));
+    }
 
     // Log audit
     await logAudit({

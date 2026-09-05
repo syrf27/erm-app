@@ -11,10 +11,29 @@ import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
+import {
+  applyProgressiveCascade,
+  handleProgressiveBeforeChange,
+  getSafeRowData,
+  isColumnUnlockedForRow,
+  isProgressiveColumn,
+  openUnlockedDropdownOnMouseDown,
+  preventLockedCellMouseDown,
+  PROGRESSIVE_LOCKED_CELL_CLASS,
+  progressiveLockedCellStyles,
+} from "@/lib/handsontable-progressive-lock";
 
 if (typeof window !== "undefined") {
   registerAllModules();
 }
+
+const ANALISIS_INPUT_COLUMNS = [3, 4, 7, 8];
+const ANALISIS_RESET_COLUMNS: Record<number, number[]> = {
+  3: [4, 5, 6, 7, 8],
+  4: [5, 6, 7, 8],
+  7: [8],
+  8: [],
+};
 
 export default function AnalisisRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
@@ -151,17 +170,23 @@ export default function AnalisisRisikoPage() {
       const identId = parseInt(row[0] as string, 10);
       const analisisId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const canUseColumn = (col: number) =>
+        isColumnUnlockedForRow(row, ANALISIS_INPUT_COLUMNS, col);
 
       const levelKemungkinanId = findId(kemungkinanData, (row[3] as string) ?? "");
-      const levelDampakId = findId(dampakData, (row[4] as string) ?? "");
-      const levelRisikoId = findId(risikoData, (row[5] as string) ?? "");
+      const levelDampakId = canUseColumn(4)
+        ? findId(dampakData, (row[4] as string) ?? "")
+        : NaN;
+      const levelRisikoId = canUseColumn(4)
+        ? findId(risikoData, (row[5] as string) ?? "")
+        : NaN;
 
       const payload: Record<string, any> = {};
       if (!isNaN(levelKemungkinanId)) payload.levelKemungkinanId = levelKemungkinanId;
       if (!isNaN(levelDampakId)) payload.levelDampakId = levelDampakId;
       if (!isNaN(levelRisikoId)) payload.levelRisikoId = levelRisikoId;
-      payload.pengendalianUraian = (row[7] as string) || null;
-      payload.pengendalianEfektivitas = (row[8] as string) || null;
+      payload.pengendalianUraian = canUseColumn(7) ? (row[7] as string) || null : null;
+      payload.pengendalianEfektivitas = canUseColumn(8) ? (row[8] as string) || null : null;
 
       if (isNaN(analisisId) || analisisId === 0) {
         newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
@@ -265,6 +290,30 @@ export default function AnalisisRisikoPage() {
     },
   ];
 
+  const getCellMeta = useCallback((row: number, col: number) => {
+    const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
+    const identId = rowData[0];
+    const isEmptySourceRow = identId == null;
+    const isLocked =
+      !isEmptySourceRow &&
+      isProgressiveColumn(ANALISIS_INPUT_COLUMNS, col) &&
+      !isColumnUnlockedForRow(rowData, ANALISIS_INPUT_COLUMNS, col);
+
+    return {
+      readOnly: isEmptySourceRow || col === 0 || col === 1 || col === 2 || col === 5 || col === 6 || isLocked,
+      className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
+    };
+  }, [localData]);
+
+  const handleBeforeChange = useCallback(
+    (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
+      const hot = hotRef.current?.hotInstance;
+      if (!hot) return;
+      handleProgressiveBeforeChange(hot, changes, ANALISIS_INPUT_COLUMNS, source);
+    },
+    []
+  );
+
   if (loading || !isMounted) {
     return (
       <Center h={300}>
@@ -314,16 +363,13 @@ export default function AnalisisRisikoPage() {
         }}
         nestedHeaders={[
           [
-            { label: "Ident ID", colspan: 1 },
-            { label: "Analisis ID", colspan: 1 },
-            { label: "Risiko", colspan: 1 },
+            { label: "Ident ID", colspan: 1, rowspan: 2 },
+            { label: "Analisis ID", colspan: 1, rowspan: 2 },
+            { label: "Risiko", colspan: 1, rowspan: 2 },
             { label: "Risiko Aktual", colspan: 4 },
             { label: "Pengendalian yang Pernah Dilakukan", colspan: 2 },
           ],
           [
-            "Ident ID",
-            "Analisis ID",
-            "",
             "Level Kemungkinan",
             "Level Dampak",
             "Level Risiko",
@@ -346,26 +392,26 @@ export default function AnalisisRisikoPage() {
         manualColumnResize={true}
         manualColumnMove={true}
         search={true}
-        cells={function (row, col) {
-          const cellProperties: any = {};
-          const hot = this.instance;
-          const identId = hot.getDataAtCell(row, 0);
-          if (identId == null) {
-            cellProperties.readOnly = true;
-          }
-          return cellProperties;
+        cells={getCellMeta}
+        beforeChange={handleBeforeChange}
+        beforeOnCellMouseDown={(event, coords) => {
+          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, ANALISIS_INPUT_COLUMNS);
+          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, ANALISIS_INPUT_COLUMNS);
         }}
-        afterChange={(changes) => {
+        afterChange={(changes, source) => {
           if (!changes) return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
+          applyProgressiveCascade(hot, changes, ANALISIS_INPUT_COLUMNS, ANALISIS_RESET_COLUMNS, source);
           for (const [row, col] of changes) {
             if (col === 3 || col === 4) {
               recalcAnalisisRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
             }
           }
+          hot.render();
         }}
       />
+      <style jsx global>{progressiveLockedCellStyles}</style>
     </Stack>
   );
 }
@@ -402,4 +448,3 @@ function recalcAnalisisRow(
     hot.setDataAtCell(row, 5, lrNama, "recalc");
   }
 }
-

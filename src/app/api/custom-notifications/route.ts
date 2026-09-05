@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { getOrSet } from "@/lib/cache";
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -12,7 +13,15 @@ async function getAuthenticatedUser() {
     const email = parsed.email;
     if (!email) return null;
 
-    return prisma.user.findUnique({ where: { email } });
+    return getOrSet(
+      `notification:user:${email}`,
+      () =>
+        prisma.user.findUnique({
+          where: { email },
+          select: { id: true },
+        }),
+      900
+    );
   } catch {
     return null;
   }
@@ -30,12 +39,24 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         isRead: false,
       },
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        url: true,
+        createdAt: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
+      take: 20,
     });
 
-    return NextResponse.json(notifications);
+    return NextResponse.json(notifications, {
+      headers: {
+        "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
+      },
+    });
   } catch (error: any) {
     console.error("custom-notifications GET error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

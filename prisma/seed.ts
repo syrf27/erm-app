@@ -487,6 +487,7 @@ async function main() {
       "kriteria-kemungkinan",
       "kriteria-dampak",
       "matriks-risiko",
+      "selera-risiko",
       "identifikasi-risiko",
       "analisis-risiko",
       "evaluasi-risiko",
@@ -495,6 +496,8 @@ async function main() {
       "unit-kerja",
       "kri",
       "matriks-analisis-risiko",
+      "repositori",
+      "upload",
       "faq",
       "users",
       "roles",
@@ -529,6 +532,7 @@ async function main() {
     const ketuaTimPermissions = createdPermissions.filter(
       (perm) => !["users", "roles", "audit-logs"].includes(perm.resource)
         && !(perm.resource === "faq" && perm.action !== "read")
+        && !(["repositori", "upload"].includes(perm.resource) && perm.action !== "read")
     );
     await prisma.rolePermission.createMany({
       data: [
@@ -582,6 +586,7 @@ async function main() {
     "kriteria-kemungkinan",
     "kriteria-dampak",
     "matriks-risiko",
+    "selera-risiko",
     "identifikasi-risiko",
     "analisis-risiko",
     "evaluasi-risiko",
@@ -590,6 +595,8 @@ async function main() {
     "unit-kerja",
     "kri",
     "matriks-analisis-risiko",
+    "repositori",
+    "upload",
     "faq",
     "users",
     "roles",

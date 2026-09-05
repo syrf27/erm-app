@@ -19,16 +19,17 @@ import {
   Avatar,
   Menu,
   Tooltip,
-  Box,
   useMantineColorScheme,
   Popover,
   Indicator,
   ScrollArea,
   Divider,
-  UnstyledButton,
   Card,
+  NumberInput,
+  Badge,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
   IconDashboard,
   IconLogout,
@@ -55,15 +56,13 @@ import {
   IconDatabase,
   IconRoute,
   IconBell,
-  IconBellOff,
-  IconBellRinging,
   IconCheck,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
-import { YearFilter } from "@/components/YearFilter";
 import { useFcm } from "@/hooks/useFcm";
 import { WelcomeTour } from "@/components/tour/WelcomeTour";
+import { HelpChatWidget } from "@/components/help-chat-widget";
 
 interface MenuItem {
   label: string;
@@ -285,8 +284,22 @@ function LayoutContent({ children }: PropsWithChildren) {
   const { permissionStatus, enableNotifications } = useFcm(identity);
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const { tahunDari, tahunSampai, setTahunDari, setTahunSampai } = useYear();
+  const currentYear = new Date().getFullYear();
+  const [periodOpened, setPeriodOpened] = useState(false);
+  const [draftTahunDari, setDraftTahunDari] = useState(tahunDari);
+  const [draftTahunSampai, setDraftTahunSampai] = useState(tahunSampai);
   const [mounted, setMounted] = useState(false);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const shouldShowBreadcrumb =
+    pathname.startsWith("/manajemen-risiko/penetapan-konteks") ||
+    pathname.startsWith("/manajemen-risiko/identifikasi") ||
+    pathname.startsWith("/manajemen-risiko/analisis") ||
+    pathname.startsWith("/manajemen-risiko/evaluasi") ||
+    pathname.startsWith("/manajemen-risiko/rencana") ||
+    pathname.startsWith("/manajemen-risiko/matriks-risiko") ||
+    pathname.startsWith("/notification-center") ||
+    pathname.startsWith("/users") ||
+    pathname.startsWith("/roles");
 
   const fetchNotifications = async () => {
     try {
@@ -333,7 +346,11 @@ function LayoutContent({ children }: PropsWithChildren) {
   useEffect(() => {
     if (identity) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 10000);
+      const interval = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          fetchNotifications();
+        }
+      }, 60000);
       return () => clearInterval(interval);
     }
   }, [identity]);
@@ -341,6 +358,31 @@ function LayoutContent({ children }: PropsWithChildren) {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setDraftTahunDari(tahunDari);
+    setDraftTahunSampai(tahunSampai);
+  }, [tahunDari, tahunSampai]);
+
+  const applyPeriodFilter = useCallback(() => {
+    if (draftTahunDari > draftTahunSampai) {
+      notifications.show({
+        title: "Periode Tidak Valid",
+        message: "Dari Tahun tidak boleh lebih besar dari Sampai Tahun.",
+        color: "orange",
+      });
+      return;
+    }
+
+    setTahunDari(draftTahunDari);
+    setTahunSampai(draftTahunSampai);
+    setPeriodOpened(false);
+  }, [draftTahunDari, draftTahunSampai, setTahunDari, setTahunSampai]);
+
+  const resetDraftPeriodFilter = useCallback(() => {
+    setDraftTahunDari(tahunDari);
+    setDraftTahunSampai(tahunSampai);
+  }, [tahunDari, tahunSampai]);
 
   const filteredMenuItems = useMemo(() => {
     const permissions = identity?.permissions || [];
@@ -434,37 +476,105 @@ function LayoutContent({ children }: PropsWithChildren) {
           <Group gap="sm">
             {mounted && (
               <Group gap="xs">
-                {/* 1. Push Notifikasi Browser Toggle */}
-                <Tooltip
-                  label={permissionStatus === "granted" ? "Push Notifikasi Browser: Aktif" : "Aktifkan Push Notifikasi Browser"}
+                <Popover
+                  width={300}
+                  position="bottom-end"
+                  withArrow
+                  shadow="md"
+                  opened={periodOpened}
+                  onChange={setPeriodOpened}
                 >
-                  <ActionIcon
-                    variant="light"
-                    size="lg"
-                    color={permissionStatus === "granted" ? "blue" : "gray"}
-                    onClick={() => enableNotifications()}
-                    aria-label="Toggle browser push notifications"
-                  >
-                    {permissionStatus === "granted" ? <IconBellRinging size={18} /> : <IconBellOff size={18} />}
-                  </ActionIcon>
-                </Tooltip>
-
-                {/* 2. In-App Notification Center Dropdown */}
-                <Popover width={350} position="bottom-end" withArrow shadow="md">
                   <Popover.Target>
-                    <UnstyledButton style={{ display: "inline-flex" }}>
+                    <Button
+                      variant="light"
+                      color="blue"
+                      size="xs"
+                      onClick={() => setPeriodOpened((opened) => !opened)}
+                      data-tour="tour-year-filter"
+                      aria-label="Ubah periode data"
+                    >
+                      Periode Data: {tahunDari === tahunSampai ? tahunDari : `${tahunDari}-${tahunSampai}`}
+                    </Button>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Stack gap="sm">
+                      <Stack gap={2}>
+                        <Text size="sm" fw={700}>Periode Data</Text>
+                        <Text size="xs" c="dimmed">
+                          Filter ini memengaruhi dashboard dan data risiko. Perubahan baru diterapkan setelah menekan tombol Terapkan.
+                        </Text>
+                      </Stack>
+                      <Group grow align="flex-start">
+                        <NumberInput
+                          label="Dari Tahun"
+                          value={draftTahunDari}
+                          min={2020}
+                          max={currentYear + 10}
+                          step={1}
+                          allowDecimal={false}
+                          onChange={(value) => setDraftTahunDari(Number(value) || currentYear)}
+                        />
+                        <NumberInput
+                          label="Sampai Tahun"
+                          value={draftTahunSampai}
+                          min={2020}
+                          max={currentYear + 10}
+                          step={1}
+                          allowDecimal={false}
+                          onChange={(value) => setDraftTahunSampai(Number(value) || currentYear)}
+                        />
+                      </Group>
+                      {draftTahunDari > draftTahunSampai && (
+                        <Text size="xs" c="orange">
+                          Dari Tahun tidak boleh lebih besar dari Sampai Tahun.
+                        </Text>
+                      )}
+                      <Group justify="space-between">
+                        <Button
+                          variant="subtle"
+                          size="xs"
+                          onClick={resetDraftPeriodFilter}
+                        >
+                          Reset
+                        </Button>
+                        <Group gap="xs">
+                          <Button
+                            variant="default"
+                            size="xs"
+                            onClick={() => {
+                              resetDraftPeriodFilter();
+                              setPeriodOpened(false);
+                            }}
+                          >
+                            Batal
+                          </Button>
+                          <Button
+                            size="xs"
+                            onClick={applyPeriodFilter}
+                            disabled={draftTahunDari > draftTahunSampai}
+                          >
+                            Terapkan
+                          </Button>
+                        </Group>
+                      </Group>
+                    </Stack>
+                  </Popover.Dropdown>
+                </Popover>
+
+                <Popover width={380} position="bottom-end" withArrow shadow="md">
+                  <Popover.Target>
+                    <ActionIcon variant="light" size="lg" color="gray" aria-label="Notifikasi" data-tour="tour-notifikasi">
                       <Indicator
                         label={notificationsList.length}
                         size={16}
                         color="red"
                         offset={2}
                         disabled={notificationsList.length === 0}
+                        inline
                       >
-                        <ActionIcon variant="light" size="lg" color="gray" aria-label="Notifikasi" data-tour="tour-notifikasi">
-                          <IconBell size={18} />
-                        </ActionIcon>
+                        <IconBell size={18} />
                       </Indicator>
-                    </UnstyledButton>
+                    </ActionIcon>
                   </Popover.Target>
                   <Popover.Dropdown p="xs">
                     <Stack gap="xs">
@@ -476,6 +586,38 @@ function LayoutContent({ children }: PropsWithChildren) {
                           </Button>
                         )}
                       </Group>
+                      <Card withBorder padding="xs" radius="sm">
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Stack gap={1}>
+                            <Text size="xs" fw={600}>Notifikasi perangkat</Text>
+                            <Text size="11px" c="dimmed">
+                              Izinkan aplikasi mengirim pengingat meskipun halaman tidak sedang dibuka.
+                            </Text>
+                          </Stack>
+                          {permissionStatus === "granted" ? (
+                            <Badge color="green" variant="light">
+                              Aktif
+                            </Badge>
+                          ) : permissionStatus === "denied" ? (
+                            <Badge color="red" variant="light">
+                              Diblokir
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="compact-xs"
+                              variant="light"
+                              onClick={() => enableNotifications()}
+                            >
+                              Aktifkan
+                            </Button>
+                          )}
+                        </Group>
+                        {permissionStatus === "denied" && (
+                          <Text size="11px" c="dimmed" mt={6}>
+                            Izin notifikasi diblokir di browser. Buka pengaturan situs browser untuk mengaktifkannya kembali.
+                          </Text>
+                        )}
+                      </Card>
                       <Divider />
                       {notificationsList.length === 0 ? (
                         <Text size="xs" c="dimmed" ta="center" py="md">Tidak ada notifikasi baru</Text>
@@ -630,13 +772,6 @@ function LayoutContent({ children }: PropsWithChildren) {
               : renderMiniNavItems(filteredMenuItems, pathname)}
             {desktopOpened ? (
               <>
-                <Box p="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }} data-tour="tour-year-filter">
-                  <YearFilter
-                    tahunDari={tahunDari}
-                    tahunSampai={tahunSampai}
-                    onChange={(d, s) => { setTahunDari(d); setTahunSampai(s); }}
-                  />
-                </Box>
                 <NavLink
                   label="Logout"
                   leftSection={<IconLogout color="red" size={18} />}
@@ -661,10 +796,11 @@ function LayoutContent({ children }: PropsWithChildren) {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Breadcrumb />
+        {shouldShowBreadcrumb && <Breadcrumb />}
         {children}
       </AppShell.Main>
 
+      <HelpChatWidget />
       <WelcomeTour onBeforeStart={handleTourBeforeStart} />
 
       <Modal

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getOrSet } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
 
+const AUTHENTICATED_READ_RESOURCES = new Set(["repositori", "upload"]);
+
 export interface UserContext {
   email: string;
   name: string;
@@ -71,6 +73,11 @@ function hasBasePermission(
     (up) => up.resource === resource && up.action === action && up.value === "grant"
   );
   if (hasGrantOverride) return true;
+
+  // Dokumen repository should be readable by every authenticated role.
+  if (action === "read" && AUTHENTICATED_READ_RESOURCES.has(resource)) {
+    return true;
+  }
 
   // Check role permissions
   const hasPerm = context.permissions.rolePermissions.some(

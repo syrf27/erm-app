@@ -50,7 +50,7 @@ export default function DashboardPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/dashboard-stats", { cache: "no-store" });
+      const res = await fetch("/api/dashboard-stats");
       if (!res.ok) throw new Error("Gagal memuat statistik (" + res.status + ")");
       setStats(await res.json());
       setError(null);

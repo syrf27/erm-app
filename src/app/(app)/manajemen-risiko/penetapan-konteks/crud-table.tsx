@@ -60,6 +60,7 @@ const resourceLabels: Record<string, string> = {
   "kriteria-dampak": "Kriteria Dampak",
   "level-risiko": "Level Risiko",
   "matriks-risiko": "Matriks Risiko",
+  "selera-risiko": "Selera Risiko",
   "opsi-penanganan": "Opsi Penanganan",
   kri: "Key Risk Indicator",
 };
@@ -139,6 +140,9 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
     { key: "kategoriRisikoId", label: "Kategori Risiko", type: "select", required: true, relationResource: "kategori-risiko", relationField: "kategoriRisiko" },
     { key: "besaranRisikoMinimum", label: "Besaran Risiko Minimum", type: "number", required: true },
     { key: "deskripsi", label: "Deskripsi", type: "text" },
+  ],
+  "selera-risiko": [
+    { key: "nilai", label: "Nilai Selera Risiko", type: "number", required: true },
   ],
   kri: [
     { key: "namaIndikator", label: "Nama Indikator", type: "text", required: true },

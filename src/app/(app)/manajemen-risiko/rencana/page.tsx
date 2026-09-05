@@ -21,10 +21,32 @@ import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
+import {
+  applyProgressiveCascade,
+  handleProgressiveBeforeChange,
+  getSafeRowData,
+  isColumnUnlockedForRow,
+  isProgressiveColumn,
+  openUnlockedDropdownOnMouseDown,
+  preventLockedCellMouseDown,
+  PROGRESSIVE_LOCKED_CELL_CLASS,
+  progressiveLockedCellStyles,
+} from "@/lib/handsontable-progressive-lock";
 
 if (typeof window !== "undefined") {
   registerAllModules();
 }
+
+const RENCANA_INPUT_COLUMNS = [6, 7, 8, 9, 10, 11, 12];
+const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
+  6: [5, 7, 8, 9, 10, 11, 12, 13, 14],
+  7: [5, 8, 9, 10, 11, 12, 13, 14],
+  8: [5, 9, 10, 11, 12, 13, 14],
+  9: [5, 10, 11, 12, 13, 14],
+  10: [5, 11, 12, 13, 14],
+  11: [5, 12, 13, 14],
+  12: [5, 13, 14],
+};
 
 function computeBesaran(kemungkinanSkala?: number, dampakSkala?: number) {
   if (kemungkinanSkala == null || dampakSkala == null) return "";
@@ -291,15 +313,21 @@ export default function RencanaPenangananPage() {
       const identId = parseInt(row[0] as string, 10);
       const rencanaId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const canUseColumn = (col: number) =>
+        isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
 
-      const residualLKId = findId(kemungkinanData, (row[11] as string) ?? "");
-      const residualLDId = findId(dampakData, (row[12] as string) ?? "");
+      const residualLKId = canUseColumn(11)
+        ? findId(kemungkinanData, (row[11] as string) ?? "")
+        : NaN;
+      const residualLDId = canUseColumn(12)
+        ? findId(dampakData, (row[12] as string) ?? "")
+        : NaN;
 
       const rtp = (row[6] as string) || "";
-      const jenis = (row[7] as string) || "";
-      const out = (row[8] as string) || "";
-      const waktu = (row[9] as string) || "";
-      const pic = (row[10] as string) || "";
+      const jenis = canUseColumn(7) ? (row[7] as string) || "" : "";
+      const out = canUseColumn(8) ? (row[8] as string) || "" : "";
+      const waktu = canUseColumn(9) ? (row[9] as string) || "" : "";
+      const pic = canUseColumn(10) ? (row[10] as string) || "" : "";
 
       // Skip new rows that have no inputs entered
       if ((isNaN(rencanaId) || rencanaId === 0) &&
@@ -309,16 +337,16 @@ export default function RencanaPenangananPage() {
       }
 
       const payload: Record<string, any> = {};
-      const jenisPen = (row[7] as string) ?? "";
-      payload.rencanaTidakPenanganan = (row[6] as string) || null;
+      const jenisPen = jenis;
+      payload.rencanaTidakPenanganan = rtp || null;
       payload.jenisPenanganan = jenisPen === "Mengurangi Risiko" ? "mengurangi" :
                                 jenisPen === "Mengalihkan Risiko" ? "mentransfer" :
                                 jenisPen === "Menghindari Risiko" ? "menghindari" :
                                 jenisPen === "Menerima Risiko" ? "menerima" :
                                 (jenisPen || null);
-      payload.targetOutput = (row[8] as string) || null;
-      payload.targetWaktu = (row[9] as string) || null;
-      payload.penanggungJawab = (row[10] as string) || null;
+      payload.targetOutput = out || null;
+      payload.targetWaktu = waktu || null;
+      payload.penanggungJawab = pic || null;
       if (!isNaN(residualLKId))
         payload.residualLevelKemungkinanId = residualLKId;
       else payload.residualLevelKemungkinanId = null;
@@ -486,6 +514,40 @@ export default function RencanaPenangananPage() {
     },
   ];
 
+  const getCellMeta = useCallback((row: number, col: number) => {
+    const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
+    const identId = rowData[0];
+    const isEmptySourceRow = identId == null;
+    const isLocked =
+      !isEmptySourceRow &&
+      isProgressiveColumn(RENCANA_INPUT_COLUMNS, col) &&
+      !isColumnUnlockedForRow(rowData, RENCANA_INPUT_COLUMNS, col);
+
+    return {
+      readOnly:
+        isEmptySourceRow ||
+        col === 0 ||
+        col === 1 ||
+        col === 2 ||
+        col === 3 ||
+        col === 4 ||
+        col === 5 ||
+        col === 13 ||
+        col === 14 ||
+        isLocked,
+      className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
+    };
+  }, [localData]);
+
+  const handleBeforeChange = useCallback(
+    (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
+      const hot = hotRef.current?.hotInstance;
+      if (!hot) return;
+      handleProgressiveBeforeChange(hot, changes, RENCANA_INPUT_COLUMNS, source);
+    },
+    []
+  );
+
   if (loading || !isMounted) {
     return (
       <Center h={300}>
@@ -543,19 +605,15 @@ export default function RencanaPenangananPage() {
         }}
         nestedHeaders={[
           [
-            { label: "Ident ID", colspan: 1 },
-            { label: "Rencana ID", colspan: 1 },
-            { label: "Prioritas", colspan: 1 },
-            { label: "Risiko", colspan: 1 },
+            { label: "Ident ID", colspan: 1, rowspan: 2 },
+            { label: "Rencana ID", colspan: 1, rowspan: 2 },
+            { label: "Prioritas", colspan: 1, rowspan: 2 },
+            { label: "Risiko", colspan: 1, rowspan: 2 },
             { label: "Besaran Risiko", colspan: 2 },
             { label: "Rencana Penanganan Risiko", colspan: 5 },
             { label: "Risiko Residual Harapan", colspan: 4 },
           ],
           [
-            "Ident ID",
-            "Rencana ID",
-            "",
-            "",
             "Aktual",
             "Residual Harapan",
             "Rencana Tindak Penanganan",
@@ -569,15 +627,17 @@ export default function RencanaPenangananPage() {
             "Besaran Risiko",
           ],
         ]}
-        afterChange={(changes) => {
+        afterChange={(changes, source) => {
           if (!changes) return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
+          applyProgressiveCascade(hot, changes, RENCANA_INPUT_COLUMNS, RENCANA_RESET_COLUMNS, source);
           for (const [row, col] of changes) {
             if (col === 11 || col === 12) {
               recalcRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
             }
           }
+          hot.render();
         }}
         rowHeaders={true}
         height="auto"
@@ -593,16 +653,14 @@ export default function RencanaPenangananPage() {
         manualColumnResize={true}
         manualColumnMove={true}
         search={true}
-        cells={function (row, col) {
-          const cellProperties: any = {};
-          const hot = this.instance;
-          const identId = hot.getDataAtCell(row, 0);
-          if (identId == null) {
-            cellProperties.readOnly = true;
-          }
-          return cellProperties;
+        cells={getCellMeta}
+        beforeChange={handleBeforeChange}
+        beforeOnCellMouseDown={(event, coords) => {
+          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, RENCANA_INPUT_COLUMNS);
+          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, RENCANA_INPUT_COLUMNS);
         }}
       />
+      <style jsx global>{progressiveLockedCellStyles}</style>
     </Stack>
   );
 }

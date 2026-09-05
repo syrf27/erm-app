@@ -29,10 +29,47 @@ import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
 import { sanitizeHtml } from "@/lib/sanitize";
+import {
+  getSafeRowData,
+  openUnlockedDropdownOnMouseDown,
+  preventLockedCellMouseDown,
+} from "@/lib/handsontable-progressive-lock";
 
 if (typeof window !== "undefined") {
   registerAllModules();
 }
+
+const PROGRESSIVE_INPUT_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const FIRST_PROGRESSIVE_COLUMN = PROGRESSIVE_INPUT_COLUMNS[0];
+const SYSTEM_CHANGE_SOURCES = new Set(["loadData", "auto", "saveAll", "progressive-reset"]);
+
+const isFilledCellValue = (value: unknown) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const isProgressiveColumn = (col: number) => PROGRESSIVE_INPUT_COLUMNS.includes(col);
+const isCellChange = (
+  change: Handsontable.CellChange | null
+): change is Handsontable.CellChange => Array.isArray(change);
+
+const isColumnUnlockedForRow = (rowData: unknown[], col: number) => {
+  if (!isProgressiveColumn(col)) return true;
+  if (col === FIRST_PROGRESSIVE_COLUMN) return true;
+
+  for (const previousCol of PROGRESSIVE_INPUT_COLUMNS) {
+    if (previousCol >= col) break;
+    if (!isFilledCellValue(rowData[previousCol])) return false;
+  }
+
+  return true;
+};
+
+const getColumnsAfter = (col: number) =>
+  PROGRESSIVE_INPUT_COLUMNS.filter((inputCol) => inputCol > col);
+
+const getFirstUnlockedEmptyColumn = (rowData: unknown[]) =>
+  PROGRESSIVE_INPUT_COLUMNS.find(
+    (col) => isColumnUnlockedForRow(rowData, col) && !isFilledCellValue(rowData[col])
+  );
 
 interface BankModalProps {
   opened: boolean;
@@ -52,6 +89,7 @@ const BankRisikoModal = memo(function BankRisikoModal({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [searchMethod, setSearchMethod] = useState("");
+  const [semanticUnavailableReason, setSemanticUnavailableReason] = useState("");
   const [importing, setImporting] = useState<number | null>(null);
 
   const handleSearch = useCallback(async () => {
@@ -71,12 +109,28 @@ const BankRisikoModal = memo(function BankRisikoModal({
       }
       setResults(data.results || []);
       setSearchMethod(data.method || "text");
+      setSemanticUnavailableReason(data.semanticUnavailableReason || "");
     } catch {
       notifications.show({ title: "Error", message: "Gagal mencari risiko", color: "red" });
     } finally {
       setLoading(false);
     }
   }, [query, tahun]);
+
+  const getSearchFallbackMessage = () => {
+    switch (semanticUnavailableReason) {
+      case "embedding_auth_failed":
+        return " - GEMINI_API_KEY tidak valid";
+      case "embedding_failed":
+        return " - layanan embedding gagal";
+      case "no_embeddings":
+        return " - data embedding belum tersedia";
+      case "pgvector_unavailable":
+        return " - pgvector belum tersedia";
+      default:
+        return "";
+    }
+  };
 
   const handleImport = useCallback(
     async (risk: any) => {
@@ -153,6 +207,7 @@ const BankRisikoModal = memo(function BankRisikoModal({
             >
               {searchMethod === "semantic" ? "Semantik" : "Teks"}
             </Badge>
+            {searchMethod === "text" && getSearchFallbackMessage()}
           </Text>
         )}
 
@@ -793,6 +848,115 @@ export default function IdentifikasiRisikoPage() {
     ]
   );
 
+  const applyProgressiveCascade = useCallback(
+    (
+      hot: Handsontable.Core,
+      changes: Handsontable.CellChange[],
+      source?: Handsontable.ChangeSource
+    ) => {
+      if (!changes || SYSTEM_CHANGE_SOURCES.has(String(source))) return;
+
+      const changedRowsToFocus = new Set<number>();
+      const changedColsByRow = new Map<number, Set<number>>();
+
+      for (const change of changes) {
+        if (!isCellChange(change)) continue;
+        const [row, col] = change;
+        if (typeof row !== "number" || typeof col !== "number") continue;
+        const changedCols = changedColsByRow.get(row) ?? new Set<number>();
+        changedCols.add(col);
+        changedColsByRow.set(row, changedCols);
+      }
+
+      for (const change of changes) {
+        if (!isCellChange(change)) continue;
+        const [row, col, oldValue, newValue] = change;
+        if (typeof row !== "number" || typeof col !== "number") continue;
+        if (!isProgressiveColumn(col)) continue;
+        if (oldValue === newValue) continue;
+
+        const changedCols = changedColsByRow.get(row);
+        for (const downstreamCol of getColumnsAfter(col)) {
+          if (changedCols?.has(downstreamCol)) continue;
+          if (isFilledCellValue(hot.getDataAtCell(row, downstreamCol))) {
+            hot.setDataAtCell(row, downstreamCol, "", "progressive-reset");
+          }
+        }
+
+        if (isFilledCellValue(newValue)) {
+          changedRowsToFocus.add(row);
+        }
+      }
+
+      if (changes.length !== 1 || changedRowsToFocus.size === 0) return;
+
+      window.setTimeout(() => {
+        const targetRow = changedRowsToFocus.values().next().value;
+        if (typeof targetRow !== "number") return;
+        const rowData = hot.getDataAtRow(targetRow) as unknown[];
+        const nextCol = getFirstUnlockedEmptyColumn(rowData);
+        if (typeof nextCol === "number") {
+          hot.selectCell(targetRow, nextCol);
+        }
+      }, 0);
+    },
+    []
+  );
+
+  const handleBeforeChange = useCallback(
+    (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
+      const hot = hotRef.current?.hotInstance;
+      if (!changes || !hot || SYSTEM_CHANGE_SOURCES.has(String(source))) return;
+
+      const shadowRows = new Map<number, unknown[]>();
+
+      const getShadowRow = (row: number) => {
+        if (!shadowRows.has(row)) {
+          shadowRows.set(row, [...(hot.getDataAtRow(row) as unknown[])]);
+        }
+        return shadowRows.get(row)!;
+      };
+
+      changes
+        .filter(isCellChange)
+        .map((change, index) => ({ change, index }))
+        .sort((a, b) => {
+          const rowDiff = Number(a.change[0]) - Number(b.change[0]);
+          if (rowDiff !== 0) return rowDiff;
+          return Number(a.change[1]) - Number(b.change[1]);
+        })
+        .forEach(({ change }) => {
+          const [row, col, , newValue] = change;
+          if (typeof row !== "number" || typeof col !== "number") return;
+
+          const shadowRow = getShadowRow(row);
+          const isAllowed = isColumnUnlockedForRow(shadowRow, col);
+
+          if (!isAllowed) {
+            change[3] = hot.getDataAtCell(row, col);
+            return;
+          }
+
+          shadowRow[col] = newValue;
+        });
+    },
+    []
+  );
+
+  const getCellMeta = useCallback(
+    (row: number, col: number) => {
+      const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
+      const isLocked = isProgressiveColumn(col) && !isColumnUnlockedForRow(rowData, col);
+      const isSystemColumn = col === 0 || col === 11;
+
+      return {
+        readOnly: isSystemColumn || isLocked,
+        className: isLocked ? "rm-progressive-locked-cell" : undefined,
+      };
+    },
+    [localData]
+  );
+
   if (loading || !isMounted) {
     return (
       <Center h={300}>
@@ -855,6 +1019,7 @@ export default function IdentifikasiRisikoPage() {
         ref={hotRef}
         data={localData}
         columns={columns}
+        cells={getCellMeta}
         colHeaders={[
           "ID",
           "Sasaran",
@@ -876,6 +1041,8 @@ export default function IdentifikasiRisikoPage() {
           if (!changes || source === "loadData" || source === "auto") return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
+
+          applyProgressiveCascade(hot, changes, source);
 
           for (const [row, col, , newValue] of changes) {
             if (col === 2 && newValue) {
@@ -927,6 +1094,12 @@ export default function IdentifikasiRisikoPage() {
                 hot.setDataAtCell(row, 1, sasaran.nama, "auto");
             }
           }
+          hot.render();
+        }}
+        beforeChange={handleBeforeChange}
+        beforeOnCellMouseDown={(event, coords) => {
+          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, PROGRESSIVE_INPUT_COLUMNS);
+          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, PROGRESSIVE_INPUT_COLUMNS);
         }}
         rowHeaders={true}
         height="auto"
@@ -944,6 +1117,29 @@ export default function IdentifikasiRisikoPage() {
         manualColumnMove={true}
         search={true}
 />
+
+      <style jsx global>{`
+        .handsontable td.rm-progressive-locked-cell {
+          color: var(--ht-locked-text, #667085) !important;
+          cursor: not-allowed;
+          background:
+            repeating-linear-gradient(
+              -45deg,
+              var(--ht-locked-stripe-a, rgba(148, 163, 184, 0.08)),
+              var(--ht-locked-stripe-a, rgba(148, 163, 184, 0.08)) 6px,
+              var(--ht-locked-stripe-b, rgba(148, 163, 184, 0.16)) 6px,
+              var(--ht-locked-stripe-b, rgba(148, 163, 184, 0.16)) 12px
+            ),
+            linear-gradient(
+              var(--ht-locked-bg, #f6f8fb),
+              var(--ht-locked-bg, #f6f8fb)
+            ) !important;
+        }
+
+        .handsontable td.rm-progressive-locked-cell .htAutocompleteArrow {
+          opacity: 0.45;
+        }
+      `}</style>
 
       <BankRisikoModal
         opened={bankOpened}

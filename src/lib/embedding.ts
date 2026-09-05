@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { GoogleGenAI } from "@google/genai";
 
 const MODEL_NAME = "gemini-embedding-001";
+const DOCUMENT_EMBEDDING_CHAR_LIMIT = 12000;
 
 let _ai: GoogleGenAI | null = null;
 let _modelFailed = false;
@@ -103,5 +104,85 @@ export async function generateAndStoreEmbedding(
       e.message
     );
     return false;
+  }
+}
+
+export type RepositoryDocumentType = "manual" | "bukti";
+
+export async function generateAndStoreDocumentEmbedding(
+  documentType: RepositoryDocumentType,
+  documentId: number,
+  text: string
+): Promise<boolean> {
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+  if (!normalizedText) return false;
+
+  if (!isEmbeddingAvailable()) {
+    console.log("[document-embedding] Skipping - model or GEMINI_API_KEY not available");
+    return false;
+  }
+
+  try {
+    const hasPgvector = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') as exists`;
+
+    if (!hasPgvector?.[0]?.exists) {
+      console.log("[document-embedding] pgvector not available");
+      return false;
+    }
+
+    const hasTable = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'document_embeddings'
+      ) as exists`;
+
+    if (!hasTable?.[0]?.exists) {
+      console.log("[document-embedding] document_embeddings table not available");
+      return false;
+    }
+
+    console.log(`[document-embedding] Generating for ${documentType}-${documentId}`);
+    const embedding = await generateEmbedding(
+      normalizedText.slice(0, DOCUMENT_EMBEDDING_CHAR_LIMIT),
+      "passage"
+    );
+    const embeddingStr = `[${embedding.join(",")}]`;
+
+    await prisma.$executeRaw`
+      INSERT INTO document_embeddings (document_type, document_id, embedding, updated_at)
+      VALUES (${documentType}, ${documentId}, ${embeddingStr}::vector, NOW())
+      ON CONFLICT (document_type, document_id)
+      DO UPDATE SET embedding = ${embeddingStr}::vector, updated_at = NOW()
+    `;
+
+    console.log(`[document-embedding] Stored for ${documentType}-${documentId}`);
+    return true;
+  } catch (e: any) {
+    console.error(
+      `[document-embedding] Failed for ${documentType}-${documentId}:`,
+      e.message
+    );
+    return false;
+  }
+}
+
+export async function deleteDocumentEmbedding(
+  documentType: RepositoryDocumentType,
+  documentId: number
+): Promise<void> {
+  try {
+    await prisma.$executeRaw`
+      DELETE FROM document_embeddings
+      WHERE document_type = ${documentType} AND document_id = ${documentId}
+    `;
+  } catch (e: any) {
+    console.error(
+      `[document-embedding] Failed to delete ${documentType}-${documentId}:`,
+      e.message
+    );
   }
 }

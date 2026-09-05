@@ -21,6 +21,20 @@
   z-index: 1 !important; /* Keep under Mantine's header/navbars */
 }
 
+.repository-search-layout {
+  display: grid;
+}
+
+@media (max-width: 1100px) {
+  .repository-search-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .repository-search-insight-pane {
+    position: static !important;
+  }
+}
+
 /* Handsontable Sticky Header/Clones z-index overrides */
 .handsontable .ht_clone_top,
 .handsontable .ht_clone_left,
@@ -33,18 +47,22 @@
 :root,
 [data-mantine-color-scheme="light"] {
   --ht-bg-main: #ffffff;
-  --ht-bg-dimmed: #eef0f4;
+  --ht-bg-dimmed: #f2f4f7;
   --ht-bg-header: #f1f3f5;
   --ht-bg-header-active: #e9ecef;
   --ht-border-color: #d1d5db;
   --ht-text-color: #1f2937;
-  --ht-text-dimmed: #9ca3af;
+  --ht-text-dimmed: #667085;
   --ht-text-header: #4b5563;
   --ht-bg-selected: rgba(34, 139, 230, 0.08);
   --ht-bg-hover: #f3f4f6;
   --ht-border-active: #228be6;
   --ht-dropdown-arrow: #9ca3af;
   --ht-invalid-bg: #fee2e2;
+  --ht-locked-bg: #f6f8fb;
+  --ht-locked-text: #475467;
+  --ht-locked-stripe-a: rgba(148, 163, 184, 0.08);
+  --ht-locked-stripe-b: rgba(148, 163, 184, 0.16);
 }
 
 /* Dark Theme Styling */
@@ -62,6 +80,10 @@
   --ht-border-active: #3b92e3;
   --ht-dropdown-arrow: #4b5563;
   --ht-invalid-bg: rgba(239, 68, 68, 0.2);
+  --ht-locked-bg: #191b1f;
+  --ht-locked-text: #9ca3af;
+  --ht-locked-stripe-a: rgba(148, 163, 184, 0.06);
+  --ht-locked-stripe-b: rgba(148, 163, 184, 0.12);
 }
 
 /* Base Overrides */
@@ -85,6 +107,12 @@
 .handsontable td.htDimmed {
   background-color: var(--ht-bg-dimmed) !important;
   color: var(--ht-text-dimmed) !important;
+}
+
+/* Locked progressive cells are disabled, but their content must remain readable. */
+.handsontable td.htDimmed.rm-progressive-locked-cell,
+.handsontable td.rm-progressive-locked-cell {
+  color: var(--ht-locked-text) !important;
 }
 
 /* Headers styling - spreadsheet styling with text wrapping */

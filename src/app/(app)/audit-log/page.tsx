@@ -306,6 +306,7 @@ export default function AuditLogPage() {
                   },
                   { value: "kriteriaDampak", label: "Kriteria Dampak" },
                   { value: "seleraRisiko", label: "Selera Risiko" },
+                  { value: "selera-risiko", label: "Selera Risiko Global" },
                   { value: "identifikasiRisiko", label: "Identifikasi Risiko" },
                   { value: "analisisRisiko", label: "Analisis Risiko" },
                   { value: "evaluasiRisiko", label: "Evaluasi Risiko" },

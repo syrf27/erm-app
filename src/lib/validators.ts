@@ -45,6 +45,7 @@ export const updateAnalisisRisikoSchema = createAnalisisRisikoSchema.partial().o
 export const createEvaluasiRisikoSchema = z.object({
   identifikasiRisikoId: positiveInt,
   responRisiko: z.enum(["menerima", "menghindari", "mengurangi", "mentransfer"]).optional().nullable(),
+  prioritasRisiko: z.number().int().positive().optional().nullable(),
   residualLevelKemungkinanId: optionalPositiveInt,
   residualLevelDampakId: optionalPositiveInt,
   residualLevelRisikoId: optionalPositiveInt,
@@ -116,6 +117,14 @@ export const createReferenceSchema = z.object({
 
 export const updateReferenceSchema = createReferenceSchema.partial();
 
+export const createFaqSchema = z.object({
+  question: z.string().min(1, "Pertanyaan harus diisi").max(5000),
+  answer: z.string().min(1, "Jawaban harus diisi").max(10000),
+  order: z.number().int().nonnegative().optional(),
+});
+
+export const updateFaqSchema = createFaqSchema.partial();
+
 // Level schemas
 export const createLevelKemungkinanSchema = z.object({
   nama: z.string().min(1).max(500),
@@ -143,6 +152,20 @@ export const createMatriksAnalisisRisikoSchema = z.object({
   besaran: z.number().int().min(1).max(25),
   levelRisikoId: positiveInt,
 });
+
+export const createSeleraRisikoSchema = z.object({
+  kategoriRisikoId: positiveInt,
+  besaranRisikoMinimum: z.number().int().min(0).max(25),
+  deskripsi: z.string().max(5000).optional().nullable(),
+});
+
+export const updateSeleraRisikoSchema = createSeleraRisikoSchema.partial();
+
+export const createSeleraRisikoGlobalSchema = z.object({
+  nilai: z.number().int().min(0, "Nilai selera risiko tidak boleh negatif").max(25, "Nilai selera risiko maksimal 25"),
+});
+
+export const updateSeleraRisikoGlobalSchema = createSeleraRisikoGlobalSchema.partial();
 
 // KRI schemas
 export const createKRISchema = z.object({
@@ -247,6 +270,8 @@ export type CreateUnitKerja = z.infer<typeof createUnitKerjaSchema>;
 export type UpdateUnitKerja = z.infer<typeof updateUnitKerjaSchema>;
 export type CreateReference = z.infer<typeof createReferenceSchema>;
 export type UpdateReference = z.infer<typeof updateReferenceSchema>;
+export type CreateFaq = z.infer<typeof createFaqSchema>;
+export type UpdateFaq = z.infer<typeof updateFaqSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type CreateRole = z.infer<typeof createRoleSchema>;
@@ -254,5 +279,9 @@ export type UpdateRole = z.infer<typeof updateRoleSchema>;
 export type CreatePermission = z.infer<typeof createPermissionSchema>;
 export type CreateKRI = z.infer<typeof createKRISchema>;
 export type UpdateKRI = z.infer<typeof updateKRISchema>;
+export type CreateSeleraRisiko = z.infer<typeof createSeleraRisikoSchema>;
+export type UpdateSeleraRisiko = z.infer<typeof updateSeleraRisikoSchema>;
+export type CreateSeleraRisikoGlobal = z.infer<typeof createSeleraRisikoGlobalSchema>;
+export type UpdateSeleraRisikoGlobal = z.infer<typeof updateSeleraRisikoGlobalSchema>;
 export type CreateAuditLog = z.infer<typeof createAuditLogSchema>;
 export type SearchParams = z.infer<typeof searchSchema>;

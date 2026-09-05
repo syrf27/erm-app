@@ -18,18 +18,17 @@ import {
   Badge,
   ActionIcon,
   SegmentedControl,
-  FileButton,
   Select,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
   IconPencil,
-  IconUpload,
-  IconLink,
   IconExternalLink,
   IconFileText,
+  IconSearch,
 } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { FileDropUpload } from "@/components/file-drop-upload";
 import { useYear } from "@/lib/year-context";
 
 interface RiskRow {
@@ -48,6 +47,20 @@ interface RiskRow {
   dokumenPendukungs: Array<{ id: number; title: string; url: string }>;
 }
 
+interface OfficeMeeting {
+  id: number;
+  uuid: string;
+  agenda: string;
+  tanggal: string;
+  waktuMulai: string;
+  waktuSelesai: string;
+  pemimpin: string;
+  notulis: string;
+  status: string;
+  ruangan: string;
+  pesertaCount: number;
+}
+
 export default function PemantauanRisikoPage() {
   const [modalOpened, setModalOpened] = useState(false);
   const [selectedRow, setSelectedRow] = useState<RiskRow | null>(null);
@@ -60,6 +73,11 @@ export default function PemantauanRisikoPage() {
   const [modalOutput, setModalOutput] = useState("");
   const [modalKeterjadian, setModalKeterjadian] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [meetingKeyword, setMeetingKeyword] = useState("");
+  const [meetingSearching, setMeetingSearching] = useState(false);
+  const [meetingResults, setMeetingResults] = useState<OfficeMeeting[]>([]);
+  const [meetingError, setMeetingError] = useState("");
+  const [importingMeetingId, setImportingMeetingId] = useState<number | null>(null);
   const [modalDocs, setModalDocs] = useState<Array<{
     id?: number;
     title: string;
@@ -189,6 +207,10 @@ export default function PemantauanRisikoPage() {
     });
 
     setModalDocs(docs);
+    setMeetingKeyword("");
+    setMeetingResults([]);
+    setMeetingError("");
+    setImportingMeetingId(null);
     setModalOpened(true);
   };
 
@@ -212,6 +234,7 @@ export default function PemantauanRisikoPage() {
         const next = [...prev];
         next[index] = {
           ...next[index],
+          title: next[index].title.trim() || data.filename,
           url: data.url,
           uploadedName: data.filename,
         };
@@ -234,15 +257,102 @@ export default function PemantauanRisikoPage() {
     }
   };
 
+  const formatMeetingDateTime = (meeting: OfficeMeeting) => {
+    const date = convertToDisplayDate(meeting.tanggal);
+    const start = meeting.waktuMulai?.slice(0, 5);
+    const end = meeting.waktuSelesai?.slice(0, 5);
+
+    if (date && start && end) return `${date}, ${start}-${end}`;
+    if (date && start) return `${date}, ${start}`;
+    return date || "-";
+  };
+
+  const searchOfficeMeetings = async () => {
+    const keyword = meetingKeyword.trim();
+    if (keyword.length < 2) {
+      setMeetingError("Masukkan minimal 2 karakter keyword rapat.");
+      setMeetingResults([]);
+      return;
+    }
+
+    setMeetingSearching(true);
+    setMeetingError("");
+
+    try {
+      const response = await fetch(`/api/gojags-office/rapat?keyword=${encodeURIComponent(keyword)}`, {
+        method: "GET",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Gagal mencari rapat dari GOJAGS Office");
+      }
+
+      setMeetingResults(Array.isArray(payload?.data) ? payload.data : []);
+      if (!payload?.data?.length) {
+        setMeetingError("Tidak ada rapat yang cocok dengan keyword tersebut.");
+      }
+    } catch (error: any) {
+      setMeetingResults([]);
+      setMeetingError(error?.message || "Gagal mencari rapat dari GOJAGS Office");
+    } finally {
+      setMeetingSearching(false);
+    }
+  };
+
+  const importMeetingAttendance = async (meeting: OfficeMeeting) => {
+    setImportingMeetingId(meeting.id);
+
+    try {
+      const title = `Daftar Hadir - ${meeting.agenda}`;
+      const response = await fetch(`/api/gojags-office/rapat/${meeting.id}/presensi`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Gagal mengimpor daftar hadir rapat");
+      }
+
+      setModalDocs((prev) => [
+        ...prev,
+        {
+          title: payload.title || title,
+          url: payload.url,
+          docType: "upload",
+          uploadedName: payload.filename || `${title}.pdf`,
+        },
+      ]);
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Daftar hadir rapat berhasil ditambahkan sebagai dokumen pendukung",
+        color: "green",
+      });
+    } catch (error: any) {
+      notifications.show({
+        title: "Gagal",
+        message: error?.message || "Gagal mengimpor daftar hadir rapat",
+        color: "red",
+      });
+    } finally {
+      setImportingMeetingId(null);
+    }
+  };
+
   // Submit Modal Save
   const handleSaveModal = () => {
     if (!selectedRow) return;
 
-    // Filter out invalid items
+    // Keep uploaded evidence even when users skip the optional title field.
     const docList = modalDocs
-      .filter((d) => d.title.trim() !== "" && d.url.trim() !== "")
+      .filter((d) => d.url.trim() !== "")
       .map((d) => ({
-        title: d.title.trim(),
+        title: d.title.trim() || d.uploadedName.trim() || "Bukti Dukung Mitigasi",
         url: d.url.trim(),
       }));
 
@@ -603,6 +713,84 @@ export default function PemantauanRisikoPage() {
               </Button>
             </Group>
 
+            <Card withBorder padding="xs" radius="sm">
+              <Stack gap="xs">
+                <Text size="xs" fw={700}>
+                  Ambil Daftar Hadir dari GOJAGS Office
+                </Text>
+                <Group gap="xs" align="flex-end">
+                  <TextInput
+                    label="Cari Rapat"
+                    placeholder="Ketik agenda rapat, contoh: mitigasi risiko"
+                    value={meetingKeyword}
+                    onChange={(e) => setMeetingKeyword(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchOfficeMeetings();
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="light"
+                    leftSection={<IconSearch size={14} />}
+                    loading={meetingSearching}
+                    onClick={searchOfficeMeetings}
+                  >
+                    Cari
+                  </Button>
+                </Group>
+
+                {meetingError && (
+                  <Text size="xs" c="red">
+                    {meetingError}
+                  </Text>
+                )}
+
+                {meetingResults.length > 0 && (
+                  <Stack gap="xs">
+                    {meetingResults.map((meeting) => (
+                      <Card key={meeting.id} withBorder padding="xs" radius="sm">
+                        <Stack gap={4}>
+                          <Group justify="space-between" align="flex-start" gap="xs">
+                            <div style={{ flex: 1 }}>
+                              <Text size="xs" fw={700}>
+                                {meeting.agenda}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {formatMeetingDateTime(meeting)}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Pemimpin: {meeting.pemimpin} | Ruangan: {meeting.ruangan}
+                              </Text>
+                              <Group gap={6} mt={4}>
+                                <Badge size="xs" variant="light">
+                                  {meeting.status}
+                                </Badge>
+                                <Badge size="xs" color="gray" variant="light">
+                                  {meeting.pesertaCount} peserta
+                                </Badge>
+                              </Group>
+                            </div>
+                            <Button
+                              size="xs"
+                              variant="filled"
+                              loading={importingMeetingId === meeting.id}
+                              onClick={() => importMeetingAttendance(meeting)}
+                            >
+                              Tambahkan Presensi
+                            </Button>
+                          </Group>
+                        </Stack>
+                      </Card>
+                    ))}
+                  </Stack>
+                )}
+              </Stack>
+            </Card>
+
             {modalDocs.length === 0 ? (
               <Text size="xs" c="dimmed" fs="italic" ta="center" py="md">
                 Belum ada dokumen pendukung ditambahkan.
@@ -680,23 +868,14 @@ export default function PemantauanRisikoPage() {
                           }}
                         />
                       ) : (
-                        <Group gap="xs" align="flex-end">
-                          <FileButton
-                            onChange={(file) => handleFileUploadForIndex(file, idx)}
-                            accept="*"
-                          >
-                            {(props) => (
-                              <Button
-                                {...props}
-                                size="xs"
-                                variant="light"
-                                leftSection={<IconUpload size={14} />}
-                                loading={uploading}
-                              >
-                                Unggah Berkas
-                              </Button>
-                            )}
-                          </FileButton>
+                        <Stack gap="xs">
+                          <FileDropUpload
+                            size="sm"
+                            loading={uploading}
+                            currentFileName={doc.uploadedName || (doc.url ? "File Terunggah" : undefined)}
+                            helperText="Klik atau tarik berkas bukti dukung ke area ini"
+                            onFileSelect={(file) => handleFileUploadForIndex(file, idx)}
+                          />
                           {doc.url ? (
                             <Text
                               size="xs"
@@ -716,7 +895,7 @@ export default function PemantauanRisikoPage() {
                               Belum ada berkas diunggah
                             </Text>
                           )}
-                        </Group>
+                        </Stack>
                       )}
                     </Stack>
                   </Card>

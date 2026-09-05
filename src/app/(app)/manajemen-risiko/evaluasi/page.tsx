@@ -11,10 +11,29 @@ import type { HotTableRef } from "@handsontable/react-wrapper";
 import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
+import {
+  applyProgressiveCascade,
+  handleProgressiveBeforeChange,
+  getSafeRowData,
+  isColumnUnlockedForRow,
+  isProgressiveColumn,
+  openUnlockedDropdownOnMouseDown,
+  preventLockedCellMouseDown,
+  PROGRESSIVE_LOCKED_CELL_CLASS,
+  progressiveLockedCellStyles,
+} from "@/lib/handsontable-progressive-lock";
 
 if (typeof window !== "undefined") {
   registerAllModules();
 }
+
+const EVALUASI_INPUT_COLUMNS = [3, 4, 7, 8];
+const EVALUASI_RESET_COLUMNS: Record<number, number[]> = {
+  3: [4, 5, 6, 7, 8],
+  4: [5, 6, 7, 8],
+  7: [8],
+  8: [],
+};
 
 const RESPON_OPTIONS = [
   "Mengurangi Risiko",
@@ -23,8 +42,20 @@ const RESPON_OPTIONS = [
   "Menerima Risiko",
 ];
 
+const isReducingResponse = (value: unknown) => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized === "mengurangi risiko" || normalized === "mengurangi";
+};
+
+const toPositiveInteger = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null;
+};
+
 export default function EvaluasiRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
+  const autoPriorityByIdentIdRef = useRef<Map<number, number>>(new Map());
+  const savedPriorityByIdentIdRef = useRef<Map<number, number | null>>(new Map());
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -65,17 +96,15 @@ export default function EvaluasiRisikoPage() {
     ],
   });
   const evaluasiResult = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 1000 } });
-  const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 1000 } });
   const kemungkinanResult = useList({ resource: "level-kemungkinan", pagination: { pageSize: 10000 } });
   const dampakResult = useList({ resource: "level-dampak", pagination: { pageSize: 10000 } });
   const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 10000 } });
   const risikoResult = useList({ resource: "level-risiko", pagination: { pageSize: 10000 } });
-  const seleraResult = useList({ resource: "matriks-risiko", pagination: { pageSize: 10000 } });
+  const seleraResult = useList({ resource: "selera-risiko", pagination: { pageSize: 10000 } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
     (evaluasiResult.query?.isPending ?? false) ||
-    (analisisResult.query?.isPending ?? false) ||
     (kemungkinanResult.query?.isPending ?? false) ||
     (dampakResult.query?.isPending ?? false) ||
     (matriksResult.query?.isPending ?? false) ||
@@ -88,7 +117,6 @@ export default function EvaluasiRisikoPage() {
     return identifikasiData;
   }, [identifikasiData]);
   const evaluasiData = useMemo(() => evaluasiResult.result?.data ?? [], [evaluasiResult.result?.data]);
-  const analisisData = useMemo(() => analisisResult.result?.data ?? [], [analisisResult.result?.data]);
   const kemungkinanData = useMemo(() => kemungkinanResult.result?.data ?? [], [kemungkinanResult.result?.data]);
   const dampakData = useMemo(() => dampakResult.result?.data ?? [], [dampakResult.result?.data]);
   const matriksData = useMemo(() => matriksResult.result?.data ?? [], [matriksResult.result?.data]);
@@ -96,27 +124,84 @@ export default function EvaluasiRisikoPage() {
   const dampakNamaList = useMemo(() => (dampakData || []).map((o: any) => o.nama), [dampakData]);
   const risikoData = useMemo(() => risikoResult.result?.data ?? [], [risikoResult.result?.data]);
   const seleraData = useMemo(() => seleraResult.result?.data ?? [], [seleraResult.result?.data]);
+  const seleraRisikoNilai = useMemo(() => {
+    const sorted = [...seleraData].sort((a: any, b: any) => Number(b.id) - Number(a.id));
+    const latestValue = Number(sorted[0]?.nilai);
+    return Number.isFinite(latestValue) ? latestValue : null;
+  }, [seleraData]);
   const refetchQuery = evaluasiResult.query?.refetch;
+
+  const recomputeVisiblePriorities = useCallback(
+    (hot: Handsontable.Core) => {
+      const rows = hot.getData() as any[][];
+      const candidates = rows
+        .map((row, index) => {
+          const identId = Number(row[0]);
+          const residualBesaran = Number(row[6]);
+          const response = row[7];
+          const needsPriority =
+            Number.isFinite(identId) &&
+            Number.isFinite(residualBesaran) &&
+            seleraRisikoNilai !== null &&
+            residualBesaran > seleraRisikoNilai &&
+            isReducingResponse(response);
+
+          return { index, identId, residualBesaran, needsPriority };
+        })
+        .filter((item) => item.needsPriority)
+        .sort((a, b) => {
+          if (b.residualBesaran !== a.residualBesaran) return b.residualBesaran - a.residualBesaran;
+          return b.identId - a.identId;
+        });
+
+      const autoPriorityByIdentId = new Map<number, number>();
+      candidates.forEach((item, index) => {
+        autoPriorityByIdentId.set(item.identId, index + 1);
+      });
+      autoPriorityByIdentIdRef.current = autoPriorityByIdentId;
+
+      rows.forEach((row, index) => {
+        const identId = Number(row[0]);
+        if (!Number.isFinite(identId)) return;
+
+        const autoPriority = autoPriorityByIdentId.get(identId);
+        const currentPriority = toPositiveInteger(row[8]);
+
+        if (!autoPriority) {
+          if (row[8] !== "") hot.setDataAtCell(index, 8, "", "priority-auto");
+          return;
+        }
+
+        if (currentPriority === null) {
+          hot.setDataAtCell(index, 8, autoPriority, "priority-auto");
+        }
+      });
+    },
+    [seleraRisikoNilai]
+  );
 
   useEffect(() => {
     if (loading) return;
     const evaluasiById = new Map(evaluasiData.map((e: any) => [e.identifikasiRisikoId, e]));
-    const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    const seleraByKategori = new Map(seleraData.map((s: any) => [s.kategoriRisikoId, s]));
     const withSort = filteredIdentifikasiData.map((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
-      const an = analisisById.get(r.id);
-      const lkInheren = an?.levelKemungkinan;
-      const ldInheren = an?.levelDampak;
-      const besaranInheren = lkInheren?.skala != null && ldInheren?.skala != null
-        ? lkInheren.skala * ldInheren.skala
-        : 0;
       const areaDampakId = r.areaDampak?.id ?? 0;
       const kategoriRisikoId = r.kategoriRisiko?.id ?? 0;
       const resLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
       const resLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
       const resLR = ev?.residualLevelRisiko?.nama ?? "";
       const resBesaran = resLK?.skala != null && resLD?.skala != null ? resLK.skala * resLD.skala : "";
+      const residualBesaran = typeof resBesaran === "number" ? resBesaran : 0;
+      const responseLabel =
+        ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
+        ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
+        ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
+        ev?.responRisiko === "menerima" ? "Menerima Risiko" :
+        (ev?.responRisiko ?? "");
+      const needsPriority =
+        seleraRisikoNilai !== null &&
+        residualBesaran > seleraRisikoNilai &&
+        isReducingResponse(responseLabel);
       return {
         id: r.id,
         row: [
@@ -127,34 +212,55 @@ export default function EvaluasiRisikoPage() {
           resLD?.nama ?? "",
           resLR,
           resBesaran,
-          ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
-          ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
-          ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
-          ev?.responRisiko === "menerima" ? "Menerima Risiko" :
-          (ev?.responRisiko ?? ""),
-          0,
+          responseLabel,
+          "",
         ],
-        besaranInheren,
+        residualBesaran,
+        savedPriority: toPositiveInteger(ev?.prioritasRisiko),
+        needsPriority,
         areaDampakId,
         kategoriRisikoId,
       };
     });
+
+    const autoPriorityByIdentId = new Map<number, number>();
+    withSort
+      .filter((item) => item.needsPriority)
+      .sort((a, b) => {
+        if (b.residualBesaran !== a.residualBesaran) return b.residualBesaran - a.residualBesaran;
+        if (b.areaDampakId !== a.areaDampakId) return b.areaDampakId - a.areaDampakId;
+        if (b.kategoriRisikoId !== a.kategoriRisikoId) return b.kategoriRisikoId - a.kategoriRisikoId;
+        return b.id - a.id;
+      })
+      .forEach((item, index) => {
+        autoPriorityByIdentId.set(item.id, index + 1);
+      });
+    autoPriorityByIdentIdRef.current = autoPriorityByIdentId;
+    savedPriorityByIdentIdRef.current = new Map(
+      withSort.map((item) => [item.id, item.savedPriority])
+    );
+
+    for (const item of withSort) {
+      const autoPriority = autoPriorityByIdentId.get(item.id);
+      item.row[8] = item.needsPriority ? item.savedPriority ?? autoPriority ?? "" : "";
+    }
+
     withSort.sort((a, b) => {
-      if (b.besaranInheren !== a.besaranInheren) return b.besaranInheren - a.besaranInheren;
-      if (b.areaDampakId !== a.areaDampakId) return b.areaDampakId - a.areaDampakId;
-      if (b.kategoriRisikoId !== a.kategoriRisikoId) return b.kategoriRisikoId - a.kategoriRisikoId;
+      if (a.needsPriority !== b.needsPriority) return a.needsPriority ? -1 : 1;
+      const aPriority = toPositiveInteger(a.row[8]) ?? Number.MAX_SAFE_INTEGER;
+      const bPriority = toPositiveInteger(b.row[8]) ?? Number.MAX_SAFE_INTEGER;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      if (b.residualBesaran !== a.residualBesaran) return b.residualBesaran - a.residualBesaran;
       return b.id - a.id;
     });
-    for (let i = 0; i < withSort.length; i++) {
-      withSort[i].row[8] = i + 1;
-    }
+
     const mapped = withSort.map(m => m.row);
     const padded = [...mapped];
     while (padded.length < 30) {
       padded.push([null, null, "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, seleraData, kemungkinanData, dampakData]);
+  }, [loading, filteredIdentifikasiData, evaluasiData, kemungkinanData, dampakData, seleraRisikoNilai]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -174,10 +280,25 @@ export default function EvaluasiRisikoPage() {
       const identId = parseInt(row[0] as string, 10);
       const evaluasiId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
-      const respon = (row[7] as string) ?? "";
+      const canUseColumn = (col: number) =>
+        isColumnUnlockedForRow(row, EVALUASI_INPUT_COLUMNS, col);
+      const respon = canUseColumn(7) ? (row[7] as string) ?? "" : "";
+      const residualBesaran = Number(row[6]);
+      const autoPriority = autoPriorityByIdentIdRef.current.get(identId);
+      const savedPriority = savedPriorityByIdentIdRef.current.get(identId);
+      const currentPriority = toPositiveInteger(row[8]);
+      const needsPriority =
+        seleraRisikoNilai !== null &&
+        Number.isFinite(residualBesaran) &&
+        residualBesaran > seleraRisikoNilai &&
+        isReducingResponse(respon);
       const resLKId = findId(kemungkinanData, (row[3] as string) ?? "");
-      const resLDId = findId(dampakData, (row[4] as string) ?? "");
-      const resLRId = findId(risikoData, (row[5] as string) ?? "");
+      const resLDId = canUseColumn(4)
+        ? findId(dampakData, (row[4] as string) ?? "")
+        : null;
+      const resLRId = canUseColumn(4)
+        ? findId(risikoData, (row[5] as string) ?? "")
+        : null;
       if (!respon && resLKId == null && resLDId == null) return;
 
       const payload: Record<string, any> = {
@@ -190,6 +311,11 @@ export default function EvaluasiRisikoPage() {
         residualLevelDampakId: resLDId,
         residualLevelRisikoId: resLRId,
       };
+      if (needsPriority && currentPriority !== null && currentPriority !== autoPriority) {
+        payload.prioritasRisiko = currentPriority;
+      } else if (savedPriority !== undefined && savedPriority !== null) {
+        payload.prioritasRisiko = null;
+      }
 
       if (isNaN(evaluasiId) || evaluasiId === 0) {
         newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
@@ -250,7 +376,7 @@ export default function EvaluasiRisikoPage() {
     } finally {
       setSaving(false);
     }
-  }, [refetchQuery, kemungkinanData, dampakData, risikoData]);
+  }, [refetchQuery, kemungkinanData, dampakData, risikoData, seleraRisikoNilai]);
 
   const columns: Handsontable.ColumnSettings[] = [
     { title: "Ident ID", data: 0, type: "numeric", width: 1 },
@@ -282,8 +408,67 @@ export default function EvaluasiRisikoPage() {
       width: 250,
       strict: true,
     },
-    { title: "Prioritas Risiko", data: 8, type: "text", width: 200, readOnly: true },
+    { title: "Prioritas Risiko", data: 8, type: "numeric", width: 200, allowInvalid: false },
   ];
+
+  const getCellMeta = useCallback((row: number, col: number) => {
+    const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
+    const identId = rowData[0];
+    const isEmptySourceRow = identId == null;
+    const residualBesaran = Number(rowData[6]);
+    const isPriorityColumn = col === 8;
+    const isPriorityEditable =
+      isPriorityColumn &&
+      seleraRisikoNilai !== null &&
+      Number.isFinite(residualBesaran) &&
+      residualBesaran > seleraRisikoNilai &&
+      isReducingResponse(rowData[7]);
+    const isLocked =
+      !isEmptySourceRow &&
+      isProgressiveColumn(EVALUASI_INPUT_COLUMNS, col) &&
+      !isColumnUnlockedForRow(rowData, EVALUASI_INPUT_COLUMNS, col);
+
+    return {
+      readOnly:
+        isEmptySourceRow ||
+        col === 0 ||
+        col === 1 ||
+        col === 2 ||
+        col === 5 ||
+        col === 6 ||
+        (isPriorityColumn && !isPriorityEditable) ||
+        isLocked,
+      className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
+    };
+  }, [localData, seleraRisikoNilai]);
+
+  const handleBeforeChange = useCallback(
+    (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
+      const hot = hotRef.current?.hotInstance;
+      if (!hot) return;
+      handleProgressiveBeforeChange(hot, changes, EVALUASI_INPUT_COLUMNS, source);
+      if (!changes) return;
+
+      for (const change of changes) {
+        if (!change) continue;
+        const [row, col] = change;
+        if (typeof row !== "number" || col !== 8) continue;
+
+        const rowData = hot.getDataAtRow(row) as unknown[];
+        const residualBesaran = Number(rowData[6]);
+        const canEditPriority =
+          seleraRisikoNilai !== null &&
+          Number.isFinite(residualBesaran) &&
+          residualBesaran > seleraRisikoNilai &&
+          isReducingResponse(rowData[7]);
+
+        if (!canEditPriority) {
+          change[3] = hot.getDataAtCell(row, 8);
+        }
+      }
+    },
+    [seleraRisikoNilai]
+  );
 
   if (loading || !isMounted) {
     return (
@@ -330,23 +515,18 @@ export default function EvaluasiRisikoPage() {
         ]}
         nestedHeaders={[
           [
-            { label: "Ident ID", colspan: 1 },
-            { label: "Evaluasi ID", colspan: 1 },
-            { label: "Risiko", colspan: 1 },
+            { label: "Ident ID", colspan: 1, rowspan: 2 },
+            { label: "Evaluasi ID", colspan: 1, rowspan: 2 },
+            { label: "Risiko", colspan: 1, rowspan: 2 },
             { label: "Risiko Residual", colspan: 4 },
-            { label: "Respon Risiko", colspan: 1 },
-            { label: "Prioritas Risiko", colspan: 1 },
+            { label: "Respon Risiko", colspan: 1, rowspan: 2 },
+            { label: "Prioritas Risiko", colspan: 1, rowspan: 2 },
           ],
           [
-            "Ident ID",
-            "Evaluasi ID",
-            "",
             "Level Kemungkinan",
             "Level Dampak",
             "Level Risiko",
             "Besaran Risiko",
-            "",
-            "",
           ],
         ]}
         hiddenColumns={{
@@ -367,26 +547,30 @@ export default function EvaluasiRisikoPage() {
         manualColumnResize={true}
         manualColumnMove={true}
         search={true}
-        cells={function (row, col) {
-          const cellProperties: any = {};
-          const hot = this.instance;
-          const identId = hot.getDataAtCell(row, 0);
-          if (identId == null) {
-            cellProperties.readOnly = true;
-          }
-          return cellProperties;
+        cells={getCellMeta}
+        beforeChange={handleBeforeChange}
+        beforeOnCellMouseDown={(event, coords) => {
+          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, EVALUASI_INPUT_COLUMNS);
+          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, EVALUASI_INPUT_COLUMNS);
         }}
-        afterChange={(changes) => {
+        afterChange={(changes, source) => {
           if (!changes) return;
+          if (String(source) === "priority-auto") return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
+          applyProgressiveCascade(hot, changes, EVALUASI_INPUT_COLUMNS, EVALUASI_RESET_COLUMNS, source);
           for (const [row, col] of changes) {
             if (col === 3 || col === 4) {
               recalcResidualRow(hot, row, kemungkinanData, dampakData, matriksData);
             }
           }
+          if (changes.some(([, col]) => col === 3 || col === 4 || col === 7)) {
+            window.setTimeout(() => recomputeVisiblePriorities(hot), 0);
+          }
+          hot.render();
         }}
       />
+      <style jsx global>{progressiveLockedCellStyles}</style>
     </Stack>
   );
 }

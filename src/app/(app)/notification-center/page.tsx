@@ -102,7 +102,7 @@ export default function NotificationCenterPage() {
   }
 
   return (
-    <Stack gap="lg" style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <Stack gap="lg">
       <Group justify="space-between" align="center">
         <div>
           <Title order={3}>Pusat Notifikasi &amp; Urgensi Risiko</Title>

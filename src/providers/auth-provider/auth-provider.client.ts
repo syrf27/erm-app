@@ -40,6 +40,12 @@ function clearSession() {
     localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
     localStorage.removeItem(TOUR_STORAGE_KEY);
+    localStorage.removeItem("gojags_access_token");
+    localStorage.removeItem("gojags_refresh_token");
+    localStorage.removeItem("user_email");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("user_unit");
+    localStorage.removeItem("user_nip");
   } catch {
     // Ignore localStorage errors
   }

@@ -9,8 +9,7 @@ export const dynamic = "force-dynamic";
 // Cached in Redis for 300s (5 min) to reduce DB load.
 export async function GET() {
   try {
-    return NextResponse.json(
-      await getOrSet(
+    const stats = await getOrSet(
         "dashboard:stats",
         async () => {
           const [
@@ -269,8 +268,13 @@ export async function GET() {
           };
         },
         300
-      )
-    );
+      );
+
+    return NextResponse.json(stats, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+      },
+    });
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Unknown error" },

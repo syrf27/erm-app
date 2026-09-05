@@ -14,6 +14,7 @@ export const resourceMap: Record<string, string> = {
   "kriteria-kemungkinan": "kriteriaKemungkinan",
   "kriteria-dampak": "kriteriaDampak",
   "matriks-risiko": "seleraRisiko",
+  "selera-risiko": "seleraRisikoGlobal",
   "identifikasi-risiko": "identifikasiRisiko",
   "unit-kerja": "unitKerja",
   kegiatan: "kegiatan",
