@@ -228,16 +228,20 @@ export async function GET(
     }
 
     const take = _end - _start;
-    const [total, data] = await Promise.all([
-      delegate.count({ where }),
-      delegate.findMany({
-        where,
-        skip: _start,
-        take,
-        orderBy: { [_sort]: _order },
-        include,
-      }),
-    ]);
+    const shouldSkipExactCount =
+      searchParams.get("_skipCount") === "true" || take >= 1000;
+
+    const data = await delegate.findMany({
+      where,
+      skip: _start,
+      take,
+      orderBy: { [_sort]: _order },
+      include,
+    });
+
+    const total = shouldSkipExactCount
+      ? _start + data.length
+      : await delegate.count({ where });
 
     return NextResponse.json(data, {
       headers: {

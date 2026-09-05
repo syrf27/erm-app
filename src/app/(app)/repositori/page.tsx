@@ -467,7 +467,7 @@ export default function RepositoryPage() {
                   <Table.Th style={{ width: 40, textAlign: "center" }}>No</Table.Th>
                   <Table.Th>Nama Dokumen / Berkas</Table.Th>
                   <Table.Th style={{ width: 150 }}>Kategori</Table.Th>
-                  <Table.Th>Tautan Risiko Terkait</Table.Th>
+                  <Table.Th>Risiko Terkait</Table.Th>
                   <Table.Th style={{ width: 140 }}>Tanggal Upload</Table.Th>
                   <Table.Th style={{ width: 130 }}>Uploader</Table.Th>
                   <Table.Th style={{ width: 90, textAlign: "center" }}>Aksi</Table.Th>
@@ -530,7 +530,7 @@ export default function RepositoryPage() {
                         </Text>
                       ) : (
                         <Text size="xs" c="gray.4" fs="italic">
-                          Umum (Kebijakan/Pedoman)
+                          Dokumen umum, tidak terkait risiko spesifik
                         </Text>
                       )}
                     </Table.Td>

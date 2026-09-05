@@ -200,7 +200,11 @@ export async function checkRecordPermission(
 
     if (!email) return false;
 
-    const userContext = await getUserContext(email);
+    const userContext = await getOrSet(
+      `user:context:${email}`,
+      async () => getUserContext(email),
+      900
+    );
     if (!userContext) return false;
 
     // First check base permission
