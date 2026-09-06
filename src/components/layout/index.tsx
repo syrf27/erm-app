@@ -9,13 +9,13 @@ import { useMemo, useEffect, useState, useCallback, type PropsWithChildren } fro
 import {
   AppShell,
   Group,
-  NavLink,
   Title,
   Modal,
   Button,
   Text,
   Stack,
   ActionIcon,
+  UnstyledButton,
   Avatar,
   Menu,
   Tooltip,
@@ -27,6 +27,8 @@ import {
   Card,
   NumberInput,
   Badge,
+  Collapse,
+  Box,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -36,7 +38,6 @@ import {
   IconActivity,
   IconTargetArrow,
   IconQuestionMark,
-  IconChartBar,
   IconFolders,
   IconSettings,
   IconListSearch,
@@ -57,6 +58,8 @@ import {
   IconRoute,
   IconBell,
   IconCheck,
+  IconChevronDown,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
@@ -71,6 +74,18 @@ interface MenuItem {
   children?: MenuItem[];
   dataTour?: string;
 }
+
+const sidebarTheme = {
+  itemPaddingY: 4,
+  itemPaddingX: 0,
+  iconSize: 36,
+  iconSizeChild: 32,
+  iconRadius: 10,
+  activeIconBg: "var(--mantine-color-blue-filled)",
+  activeIconColor: "var(--mantine-color-white)",
+  idleIconBg: "var(--mantine-color-blue-light)",
+  idleIconColor: "var(--mantine-color-blue-filled)",
+};
 
 const menuItems: MenuItem[] = [
   {
@@ -122,11 +137,6 @@ const menuItems: MenuItem[] = [
     href: "/pemantauan-risiko",
     dataTour: "nav-pemantauan-risiko",
   },
-  // {
-  //   label: "KRI",
-  //   icon: <IconChartBar size={18} />,
-  //   href: "/kri",
-  // },
   {
     label: "Pelaporan Risiko",
     icon: <IconTargetArrow size={18} />,
@@ -177,49 +187,293 @@ const menuItems: MenuItem[] = [
   },
 ];
 
-function renderNavItems(items: MenuItem[], pathname: string, depth = 0) {
-  return items.map((item) => {
-    const isActive = item.href
-      ? pathname === item.href || pathname.startsWith(item.href + "/")
-      : false;
+function matchesPath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
-    if (item.children) {
-      return (
-        <NavLink
-          key={item.label}
-          label={item.label}
-          leftSection={item.icon}
-          data-tour={item.dataTour}
-          defaultOpened={
-            pathname.startsWith("/manajemen-risiko") ||
-            item.children.some((child) =>
-              child.href
-                ? pathname === child.href ||
-                  pathname.startsWith(child.href + "/")
-                : false
-            )
-          }
-          childrenOffset={depth === 0 ? 16 : 8}
-        >
-          {renderNavItems(item.children, pathname, depth + 1)}
-        </NavLink>
-      );
-    }
+function hasActiveDescendant(item: MenuItem, pathname: string): boolean {
+  if (!item.children?.length) {
+    return false;
+  }
 
-    if (!item.href) return null;
-
-    return (
-      <NavLink
-        key={item.label}
-        label={item.label}
-        leftSection={item.icon}
-        href={item.href}
-        active={isActive}
-        component={Link}
-        data-tour={item.dataTour}
-      />
-    );
+  return item.children.some((child) => {
+    const childActive = child.href ? matchesPath(pathname, child.href) : false;
+    return childActive || hasActiveDescendant(child, pathname);
   });
+}
+
+function getSidebarKey(item: MenuItem, parentPath: string[] = []) {
+  return [...parentPath, item.label].join(" > ");
+}
+
+function collectAutoOpenedKeys(
+  items: MenuItem[],
+  pathname: string,
+  parentPath: string[] = []
+) {
+  const opened = new Set<string>();
+
+  items.forEach((item) => {
+    const key = getSidebarKey(item, parentPath);
+    const childShouldOpen = hasActiveDescendant(item, pathname);
+    const selfActive = item.href ? matchesPath(pathname, item.href) : false;
+
+    if (item.children?.length && (selfActive || childShouldOpen)) {
+      opened.add(key);
+      const childOpened = collectAutoOpenedKeys(
+        item.children,
+        pathname,
+        [...parentPath, item.label]
+      );
+      childOpened.forEach((childKey) => opened.add(childKey));
+    }
+  });
+
+  return opened;
+}
+
+function SidebarIcon({
+  icon,
+  active,
+  compact,
+}: {
+  icon?: React.ReactNode;
+  active: boolean;
+  compact?: boolean;
+}) {
+  const size = compact ? sidebarTheme.iconSizeChild : sidebarTheme.iconSize;
+
+  return (
+    <Box
+      style={{
+        width: size,
+        height: size,
+        borderRadius: sidebarTheme.iconRadius,
+        backgroundColor: active ? sidebarTheme.activeIconBg : sidebarTheme.idleIconBg,
+        color: active ? sidebarTheme.activeIconColor : sidebarTheme.idleIconColor,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </Box>
+  );
+}
+
+function SidebarItem({
+  item,
+  pathname,
+  depth = 0,
+  parentPath = [],
+  openedKeys,
+  toggleOpen,
+}: {
+  item: MenuItem;
+  pathname: string;
+  depth?: number;
+  parentPath?: string[];
+  openedKeys: string[];
+  toggleOpen: (key: string) => void;
+}) {
+  const key = getSidebarKey(item, parentPath);
+  const selfActive = item.href ? matchesPath(pathname, item.href) : false;
+  const childActive = hasActiveDescendant(item, pathname);
+  const isActive = selfActive || childActive;
+  const isOpen = item.children?.length
+    ? isActive || openedKeys.includes(key)
+    : false;
+  const isCompact = depth > 0;
+  const hasChildren = Boolean(item.children?.length);
+  const itemStyles = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: `${sidebarTheme.itemPaddingY}px ${sidebarTheme.itemPaddingX}px`,
+    color: isActive ? "var(--mantine-color-text)" : "var(--mantine-color-dimmed)",
+    transition: "color 150ms ease",
+    cursor: hasChildren && !selfActive ? "pointer" : item.href ? "pointer" : "default",
+    textAlign: "left" as const,
+  };
+
+  return (
+    <Box
+      style={{
+        position: "relative",
+      }}
+    >
+      {item.href ? (
+        <UnstyledButton
+          component={Link}
+          href={item.href}
+          data-tour={item.dataTour}
+          style={itemStyles}
+        >
+          <SidebarIcon icon={item.icon} active={isActive} compact={isCompact} />
+
+          <Box
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <Text
+              size="sm"
+              fw={isActive ? 700 : 500}
+              c={isActive ? "var(--mantine-color-text)" : "var(--mantine-color-dimmed)"}
+              style={{ lineHeight: 1.2 }}
+            >
+              {item.label}
+            </Text>
+
+            {hasChildren && (
+              <Box c="gray.5" style={{ display: "flex", alignItems: "center" }}>
+                {isOpen ? (
+                  <IconChevronDown size={16} stroke={1.8} />
+                ) : (
+                  <IconChevronRight size={16} stroke={1.8} />
+                )}
+              </Box>
+            )}
+          </Box>
+        </UnstyledButton>
+      ) : (
+        <UnstyledButton
+          data-tour={item.dataTour}
+          onClick={hasChildren && !selfActive ? () => toggleOpen(key) : undefined}
+          style={itemStyles}
+        >
+          <SidebarIcon icon={item.icon} active={isActive} compact={isCompact} />
+
+          <Box
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <Text
+              size="sm"
+              fw={isActive ? 700 : 500}
+              c={isActive ? "var(--mantine-color-text)" : "var(--mantine-color-dimmed)"}
+              style={{ lineHeight: 1.2 }}
+            >
+              {item.label}
+            </Text>
+
+            {hasChildren && (
+              <Box c="gray.5" style={{ display: "flex", alignItems: "center" }}>
+                {isOpen ? (
+                  <IconChevronDown size={16} stroke={1.8} />
+                ) : (
+                  <IconChevronRight size={16} stroke={1.8} />
+                )}
+              </Box>
+            )}
+          </Box>
+        </UnstyledButton>
+      )}
+
+      {hasChildren && (
+        <Collapse in={isOpen}>
+          <Box
+            style={{
+              marginTop: 4,
+              marginLeft: depth === 0 ? 16 : 10,
+              paddingLeft: 14,
+              borderLeft: "1px solid var(--mantine-color-gray-3)",
+            }}
+          >
+            <Stack gap={4}>
+              {item.children!.map((child) => {
+                const childIsActive = child.href
+                  ? matchesPath(pathname, child.href)
+                  : hasActiveDescendant(child, pathname);
+
+                return (
+                  <Box key={getSidebarKey(child, [...parentPath, item.label])} style={{ position: "relative" }}>
+                    {childIsActive && (
+                      <Box
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          left: -16,
+                          top: 0,
+                          bottom: 0,
+                          width: 3,
+                          borderRadius: 2,
+                          backgroundColor: "var(--mantine-color-blue-filled)",
+                        }}
+                      />
+                    )}
+                    <SidebarItem
+                      item={child}
+                      pathname={pathname}
+                      depth={depth + 1}
+                      parentPath={[...parentPath, item.label]}
+                      openedKeys={openedKeys}
+                      toggleOpen={toggleOpen}
+                    />
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Box>
+        </Collapse>
+      )}
+    </Box>
+  );
+}
+
+function SidebarNavList({
+  items,
+  pathname,
+  depth = 0,
+}: {
+  items: MenuItem[];
+  pathname: string;
+  depth?: number;
+}) {
+  const [openedKeys, setOpenedKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    const autoOpened = collectAutoOpenedKeys(items, pathname);
+    setOpenedKeys((current) =>
+      Array.from(new Set([...current, ...Array.from(autoOpened)]))
+    );
+  }, [items, pathname]);
+
+  const toggleOpen = useCallback((key: string) => {
+    setOpenedKeys((current) =>
+      current.includes(key)
+        ? current.filter((existing) => existing !== key)
+        : [...current, key]
+    );
+  }, []);
+
+  return (
+    <Stack gap={8}>
+      {items.map((item) => (
+        <SidebarItem
+          key={getSidebarKey(item)}
+          item={item}
+          pathname={pathname}
+          depth={depth}
+          openedKeys={openedKeys}
+          toggleOpen={toggleOpen}
+        />
+      ))}
+    </Stack>
+  );
 }
 
 function renderMiniNavItems(items: MenuItem[], pathname: string) {
@@ -768,16 +1022,20 @@ function LayoutContent({ children }: PropsWithChildren) {
         >
           <Stack gap={4} align={desktopOpened ? "stretch" : "center"}>
             {desktopOpened
-              ? renderNavItems(filteredMenuItems, pathname)
+              ? <SidebarNavList items={filteredMenuItems} pathname={pathname} />
               : renderMiniNavItems(filteredMenuItems, pathname)}
             {desktopOpened ? (
-              <>
-                <NavLink
-                  label="Logout"
-                  leftSection={<IconLogout color="red" size={18} />}
-                  onClick={openLogout}
-                />
-              </>
+              <Button
+                variant="subtle"
+                color="red"
+                leftSection={<IconLogout size={18} />}
+                onClick={openLogout}
+                fullWidth
+                justify="flex-start"
+                style={{ fontWeight: 500 }}
+              >
+                Logout
+              </Button>
             ) : (
               <Tooltip label="Logout" position="right">
                 <ActionIcon
