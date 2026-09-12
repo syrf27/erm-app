@@ -477,187 +477,189 @@ export default function RepositoryPage() {
         }}
       >
         {/* Documents Explorer Table */}
-        <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
-          {isLoading ? (
-            <Center h={200}>
-              <Loader />
-            </Center>
-          ) : files.length === 0 ? (
-            <Center h={200}>
-              <Stack gap="xs" align="center">
-                <IconFileText size={40} color="var(--mantine-color-gray-4)" />
-                <Text size="sm" c="dimmed">
-                  Tidak ada berkas ditemukan di repositori untuk tahun/kategori ini.
-                </Text>
-              </Stack>
-            </Center>
-          ) : (
-            <ScrollArea type="auto">
-              <Table striped highlightOnHover withTableBorder withColumnBorders miw={920} style={{ fontSize: 13 }}>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th style={{ width: 40, textAlign: "center" }}>No</Table.Th>
-                    <Table.Th>Nama Dokumen / Berkas</Table.Th>
-                    <Table.Th style={{ width: 150 }}>Kategori</Table.Th>
-                    <Table.Th>Risiko Terkait</Table.Th>
-                    <Table.Th style={{ width: 140 }}>Tanggal Upload</Table.Th>
-                    <Table.Th style={{ width: 130 }}>Uploader</Table.Th>
-                    <Table.Th style={{ width: 90, textAlign: "center" }}>Aksi</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {files.map((file: RepositoryFile, idx: number) => (
-                    <Table.Tr
-                      key={file.id}
-                      onClick={() => {
-                        if (isSearching) setSelectedSearchFileId(file.id);
-                      }}
-                      style={{
-                        cursor: isSearching ? "pointer" : undefined,
-                        outline:
-                          isSearching && selectedSearchFile?.id === file.id
-                            ? "2px solid color-mix(in srgb, var(--mantine-color-blue-filled), transparent 35%)"
-                            : undefined,
-                        outlineOffset: -2,
-                      }}
-                    >
-                      <Table.Td align="center">{(currentPage - 1) * pageSize + idx + 1}</Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" wrap="nowrap">
-                          <IconFileText size={18} color="var(--mantine-color-blue-5)" style={{ flexShrink: 0 }} />
-                          <div>
-                            <Text size="sm" fw={600}>
-                              {file.title}
-                            </Text>
-                            {isSearching && (
-                              <Text size="xs" c="dimmed" mt={4}>
-                                Klik baris untuk melihat alasan rekomendasi
-                              </Text>
-                            )}
-                          </div>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={
-                            file.category === "pedoman"
-                              ? "grape"
-                              : file.category === "bukti_dukung"
-                              ? "teal"
-                              : "orange"
-                          }
-                          variant="light"
-                        >
-                          {file.category === "pedoman"
-                            ? "Pedoman"
-                            : file.category === "bukti_dukung"
-                            ? "Mitigasi"
-                            : "Laporan"}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        {file.relatedRisk ? (
-                          <Text size="xs" c="dimmed">
-                            {file.relatedRisk}
-                          </Text>
-                        ) : (
-                          <Text size="xs" c="gray.4" fs="italic">
-                            Dokumen umum, tidak terkait risiko spesifik
-                          </Text>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" wrap="nowrap">
-                          <IconCalendar size={14} color="var(--mantine-color-dimmed)" />
-                          <Text size="xs">
-                            {new Date(file.createdAt).toLocaleDateString("id-ID", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </Text>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs" fw={500}>
-                          {file.uploader}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" justify="center" wrap="nowrap">
-                          <ActionIcon
-                            component="a"
-                            href={file.url.startsWith("/uploads/") ? file.url.replace("/uploads/", "/api/uploads/") : file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            color="blue"
-                            variant="subtle"
-                            title="Buka Dokumen"
-                          >
-                            <IconExternalLink size={16} />
-                          </ActionIcon>
-                          <ActionIcon
-                            color="grape"
-                            variant="subtle"
-                            onClick={() => handleViewSummary(file)}
-                            title="Lihat Ringkasan AI"
-                          >
-                            <IconSparkles size={16} />
-                          </ActionIcon>
-                          {(() => {
-                            const isCreator = file.id.startsWith("manual-") && (
-                              file.uploader === identity?.name ||
-                              file.uploader === identity?.email ||
-                              identity?.role?.name?.toLowerCase() === "admin" ||
-                              identity?.roleName?.toLowerCase() === "admin"
-                            );
-                            if (!isCreator) return null;
-
-                            return (
-                              <>
-                                <ActionIcon
-                                  color="yellow"
-                                  variant="subtle"
-                                  onClick={() => handleEditFile(file)}
-                                  title="Edit Dokumen"
-                                >
-                                  <IconPencil size={16} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  color="red"
-                                  variant="subtle"
-                                  onClick={() => handleDeleteFile(file.id)}
-                                  title="Hapus Dokumen"
-                                >
-                                  <IconTrash size={16} />
-                                </ActionIcon>
-                              </>
-                            );
-                          })()}
-                        </Group>
-                      </Table.Td>
+        <Stack gap="sm">
+          <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
+            {isLoading ? (
+              <Center h={200}>
+                <Loader />
+              </Center>
+            ) : files.length === 0 ? (
+              <Center h={200}>
+                <Stack gap="xs" align="center">
+                  <IconFileText size={40} color="var(--mantine-color-gray-4)" />
+                  <Text size="sm" c="dimmed">
+                    Tidak ada berkas ditemukan di repositori untuk tahun/kategori ini.
+                  </Text>
+                </Stack>
+              </Center>
+            ) : (
+              <ScrollArea type="auto">
+                <Table striped highlightOnHover withTableBorder withColumnBorders miw={920} style={{ fontSize: 13 }}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ width: 40, textAlign: "center" }}>No</Table.Th>
+                      <Table.Th>Nama Dokumen / Berkas</Table.Th>
+                      <Table.Th style={{ width: 150 }}>Kategori</Table.Th>
+                      <Table.Th>Risiko Terkait</Table.Th>
+                      <Table.Th style={{ width: 140 }}>Tanggal Upload</Table.Th>
+                      <Table.Th style={{ width: 130 }}>Uploader</Table.Th>
+                      <Table.Th style={{ width: 90, textAlign: "center" }}>Aksi</Table.Th>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea>
-          )}
-        </Card>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {files.map((file: RepositoryFile, idx: number) => (
+                      <Table.Tr
+                        key={file.id}
+                        onClick={() => {
+                          if (isSearching) setSelectedSearchFileId(file.id);
+                        }}
+                        style={{
+                          cursor: isSearching ? "pointer" : undefined,
+                          outline:
+                            isSearching && selectedSearchFile?.id === file.id
+                              ? "2px solid color-mix(in srgb, var(--mantine-color-blue-filled), transparent 35%)"
+                              : undefined,
+                          outlineOffset: -2,
+                        }}
+                      >
+                        <Table.Td align="center">{(currentPage - 1) * pageSize + idx + 1}</Table.Td>
+                        <Table.Td>
+                          <Group gap="xs" wrap="nowrap">
+                            <IconFileText size={18} color="var(--mantine-color-blue-5)" style={{ flexShrink: 0 }} />
+                            <div>
+                              <Text size="sm" fw={600}>
+                                {file.title}
+                              </Text>
+                              {isSearching && (
+                                <Text size="xs" c="dimmed" mt={4}>
+                                  Klik baris untuk melihat alasan rekomendasi
+                                </Text>
+                              )}
+                            </div>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            color={
+                              file.category === "pedoman"
+                                ? "grape"
+                                : file.category === "bukti_dukung"
+                                ? "teal"
+                                : "orange"
+                            }
+                            variant="light"
+                          >
+                            {file.category === "pedoman"
+                              ? "Pedoman"
+                              : file.category === "bukti_dukung"
+                              ? "Mitigasi"
+                              : "Laporan"}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          {file.relatedRisk ? (
+                            <Text size="xs" c="dimmed">
+                              {file.relatedRisk}
+                            </Text>
+                          ) : (
+                            <Text size="xs" c="gray.4" fs="italic">
+                              Dokumen umum, tidak terkait risiko spesifik
+                            </Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap="xs" wrap="nowrap">
+                            <IconCalendar size={14} color="var(--mantine-color-dimmed)" />
+                            <Text size="xs">
+                              {new Date(file.createdAt).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </Text>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="xs" fw={500}>
+                            {file.uploader}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap="xs" justify="center" wrap="nowrap">
+                            <ActionIcon
+                              component="a"
+                              href={file.url.startsWith("/uploads/") ? file.url.replace("/uploads/", "/api/uploads/") : file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              color="blue"
+                              variant="subtle"
+                              title="Buka Dokumen"
+                            >
+                              <IconExternalLink size={16} />
+                            </ActionIcon>
+                            <ActionIcon
+                              color="grape"
+                              variant="subtle"
+                              onClick={() => handleViewSummary(file)}
+                              title="Lihat Ringkasan AI"
+                            >
+                              <IconSparkles size={16} />
+                            </ActionIcon>
+                            {(() => {
+                              const isCreator = file.id.startsWith("manual-") && (
+                                file.uploader === identity?.name ||
+                                file.uploader === identity?.email ||
+                                identity?.role?.name?.toLowerCase() === "admin" ||
+                                identity?.roleName?.toLowerCase() === "admin"
+                              );
+                              if (!isCreator) return null;
 
-        {totalFiles > 0 && (
-          <Pagination
-            current={currentPage}
-            total={totalFiles}
-            pageSize={pageSize}
-            onChange={setCurrentPage}
-            onPageSizeChange={handlePageSizeChange}
-            showSizeChanger
-            showTotal
-            totalText={(total, range) =>
-              `Menampilkan ${range[0]}-${range[1]} dari ${total} dokumen`
-            }
-          />
-        )}
+                              return (
+                                <>
+                                  <ActionIcon
+                                    color="yellow"
+                                    variant="subtle"
+                                    onClick={() => handleEditFile(file)}
+                                    title="Edit Dokumen"
+                                  >
+                                    <IconPencil size={16} />
+                                  </ActionIcon>
+                                  <ActionIcon
+                                    color="red"
+                                    variant="subtle"
+                                    onClick={() => handleDeleteFile(file.id)}
+                                    title="Hapus Dokumen"
+                                  >
+                                    <IconTrash size={16} />
+                                  </ActionIcon>
+                                </>
+                              );
+                            })()}
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            )}
+          </Card>
+
+          {totalFiles > 0 && (
+            <Pagination
+              current={currentPage}
+              total={totalFiles}
+              pageSize={pageSize}
+              onChange={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+              showSizeChanger
+              showTotal
+              totalText={(total, range) =>
+                `Menampilkan ${range[0]}-${range[1]} dari ${total} dokumen`
+              }
+            />
+          )}
+        </Stack>
 
         {isSearching && selectedSearchFile && (
           <Card
