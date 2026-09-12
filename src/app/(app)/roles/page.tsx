@@ -5,6 +5,7 @@ import { useGetIdentity } from "@refinedev/core";
 import { Pagination } from "@/components/pagination";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
+import { hasClientPermission } from "@/lib/client-permissions";
 import {
   Stack,
   Title,
@@ -46,10 +47,11 @@ interface Role {
 export default function RolesManagementPage() {
   const { data: identity, isPending: isIdentityLoading } = useGetIdentity<any>();
   const router = useRouter();
+  const canReadRoles = hasClientPermission(identity, "roles:read");
 
   // Role Guard
   useEffect(() => {
-    if (!isIdentityLoading && identity && (!identity.permissions || !identity.permissions.includes("roles:read"))) {
+    if (!isIdentityLoading && identity && !canReadRoles) {
       notifications.show({
         title: "Akses Ditolak",
         message: "Anda tidak memiliki hak akses untuk membuka halaman ini.",
@@ -57,7 +59,7 @@ export default function RolesManagementPage() {
       });
       router.push("/");
     }
-  }, [identity, isIdentityLoading, router]);
+  }, [canReadRoles, identity, isIdentityLoading, router]);
 
   // Data states
   const [roles, setRoles] = useState<Role[]>([]);
@@ -108,11 +110,11 @@ export default function RolesManagementPage() {
   };
 
   useEffect(() => {
-    if (identity && identity.permissions && identity.permissions.includes("roles:read")) {
+    if (identity && canReadRoles) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity]);
+  }, [canReadRoles, identity]);
 
   // Unique resources (scopes)
   const resources = Array.from(new Set(permissions.map((p) => p.resource)));
@@ -253,7 +255,7 @@ export default function RolesManagementPage() {
     }
   };
 
-  if (isIdentityLoading || (identity && (!identity.permissions || !identity.permissions.includes("roles:read")))) {
+  if (isIdentityLoading || (identity && !canReadRoles)) {
     return (
       <Center h={300}>
         <Loader />

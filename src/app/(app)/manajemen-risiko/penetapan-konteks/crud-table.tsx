@@ -22,6 +22,7 @@ import {
   Loader,
   Text,
   Select,
+  ScrollArea,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -305,87 +306,89 @@ export function CrudTable({ resource }: CrudTableProps) {
         </Button>
       </Group>
 
-      <Table striped highlightOnHover withTableBorder>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>ID</Table.Th>
-            {fields.map((f) => (
-              <Table.Th key={f.key}>{f.label}</Table.Th>
-            ))}
-            <Table.Th w={120}>Aksi</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {isLoading ? (
+      <ScrollArea type="auto">
+        <Table striped highlightOnHover withTableBorder miw={Math.max(520, fields.length * 180 + 180)}>
+          <Table.Thead>
             <Table.Tr>
-              <Table.Td colSpan={fields.length + 2} ta="center">
-                <Loader size="sm" />
-              </Table.Td>
+              <Table.Th>ID</Table.Th>
+              {fields.map((f) => (
+                <Table.Th key={f.key}>{f.label}</Table.Th>
+              ))}
+              <Table.Th w={120}>Aksi</Table.Th>
             </Table.Tr>
-          ) : data.length === 0 ? (
-            <Table.Tr>
-              <Table.Td colSpan={fields.length + 2}>
-                <Group justify="center" c="dimmed" py="md">
-                  Belum ada data
-                </Group>
-              </Table.Td>
-            </Table.Tr>
-          ) : (
-            data.map((item: any) => (
-              <Table.Tr key={item.id}>
-                <Table.Td>{item.id}</Table.Td>
-                {fields.map((f) => (
-                  <Table.Td key={f.key}>
-                    {f.key === "warna" ? (
-                      <Group gap="xs">
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: 14,
-                            height: 14,
-                            borderRadius: "50%",
-                            backgroundColor:
-                              item[f.key] === "Biru" || item[f.key] === "blue" ? "#228be6" :
-                              item[f.key] === "Hijau" || item[f.key] === "green" ? "#40c057" :
-                              item[f.key] === "Kuning" || item[f.key] === "yellow" ? "#fab005" :
-                              item[f.key] === "Jingga" || item[f.key] === "orange" ? "#fd7e14" :
-                              item[f.key] === "Merah" || item[f.key] === "red" ? "#fa5252" :
-                              item[f.key] || "#ccc",
-                            border: "1px solid rgba(0, 0, 0, 0.15)",
-                          }}
-                        />
-                        <span>{item[f.key]}</span>
-                      </Group>
-                    ) : f.type === "select" ? (
-                      getRelationLabel(item, f)
-                    ) : (
-                      String(item[f.key] ?? "")
-                    )}
-                  </Table.Td>
-                ))}
-                <Table.Td>
-                  <Group gap="xs">
-                    <ActionIcon
-                      variant="light"
-                      color="blue"
-                      onClick={() => openEdit(item)}
-                    >
-                      <IconEdit size={16} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="light"
-                      color="red"
-                      onClick={() => setDeleteTarget(item)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
+          </Table.Thead>
+          <Table.Tbody>
+            {isLoading ? (
+              <Table.Tr>
+                <Table.Td colSpan={fields.length + 2} ta="center">
+                  <Loader size="sm" />
+                </Table.Td>
+              </Table.Tr>
+            ) : data.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={fields.length + 2}>
+                  <Group justify="center" c="dimmed" py="md">
+                    Belum ada data
                   </Group>
                 </Table.Td>
               </Table.Tr>
-            ))
-          )}
-        </Table.Tbody>
-      </Table>
+            ) : (
+              data.map((item: any) => (
+                <Table.Tr key={item.id}>
+                  <Table.Td>{item.id}</Table.Td>
+                  {fields.map((f) => (
+                    <Table.Td key={f.key}>
+                      {f.key === "warna" ? (
+                        <Group gap="xs">
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 14,
+                              height: 14,
+                              borderRadius: "50%",
+                              backgroundColor:
+                                item[f.key] === "Biru" || item[f.key] === "blue" ? "#228be6" :
+                                item[f.key] === "Hijau" || item[f.key] === "green" ? "#40c057" :
+                                item[f.key] === "Kuning" || item[f.key] === "yellow" ? "#fab005" :
+                                item[f.key] === "Jingga" || item[f.key] === "orange" ? "#fd7e14" :
+                                item[f.key] === "Merah" || item[f.key] === "red" ? "#fa5252" :
+                                item[f.key] || "#ccc",
+                              border: "1px solid rgba(0, 0, 0, 0.15)",
+                            }}
+                          />
+                          <span>{item[f.key]}</span>
+                        </Group>
+                      ) : f.type === "select" ? (
+                        getRelationLabel(item, f)
+                      ) : (
+                        String(item[f.key] ?? "")
+                      )}
+                    </Table.Td>
+                  ))}
+                  <Table.Td>
+                    <Group gap="xs">
+                      <ActionIcon
+                        variant="light"
+                        color="blue"
+                        onClick={() => openEdit(item)}
+                      >
+                        <IconEdit size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        onClick={() => setDeleteTarget(item)}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </ScrollArea>
 
       {total > 0 && (
         <Pagination

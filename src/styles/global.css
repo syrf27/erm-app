@@ -25,6 +25,14 @@
   display: grid;
 }
 
+.mantine-AppShell-main {
+  min-width: 0;
+}
+
+.mantine-Table-table {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1100px) {
   .repository-search-layout {
     grid-template-columns: 1fr !important;
@@ -32,6 +40,12 @@
 
   .repository-search-insight-pane {
     position: static !important;
+  }
+}
+
+@media (max-width: 48em) {
+  .mantine-Modal-content {
+    max-height: calc(100dvh - 24px);
   }
 }
 

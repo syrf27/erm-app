@@ -45,7 +45,7 @@ export function Pagination({
   return (
     <Stack gap="xs">
       {showTotal && (
-        <Group justify="space-between" wrap="nowrap">
+        <Group justify="space-between" wrap="wrap" gap="xs">
           <Text size="sm" c="dimmed">
             {defaultTotalText}
           </Text>
@@ -66,7 +66,7 @@ export function Pagination({
           )}
         </Group>
       )}
-      <Group justify="center">
+      <Group justify="center" style={{ overflowX: "auto" }}>
         <MantinePagination
           total={totalPages}
           value={current}

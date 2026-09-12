@@ -817,9 +817,14 @@ export default function PelaporanRisikoPage() {
       >
         <Stack gap="md">
           {selectedRow && (
-            <Card withBorder padding="xs" bg="var(--mantine-color-gray-0)">
+            <Card
+              withBorder
+              padding="xs"
+              bg="var(--mantine-color-body)"
+              style={{ borderColor: "var(--mantine-color-default-border)" }}
+            >
               <Text size="xs" fw={700} c="dimmed">RISIKO:</Text>
-              <Text size="xs" fw={600} mt={2}>{selectedRow.risiko}</Text>
+              <Text size="xs" fw={600} mt={2} c="var(--mantine-color-text)">{selectedRow.risiko}</Text>
             </Card>
           )}
 

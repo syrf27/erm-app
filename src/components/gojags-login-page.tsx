@@ -19,7 +19,7 @@ interface GojagsLoginPageProps {
   clientId?: string;
 }
 
-const appName = "Sistem Informasi Manajemen Risiko";
+const appName = "Sistem Informasi Manajemen Risiko Pusdiklat BPS";
 
 function buildSsoUrl(authBaseUrl: string, realm: "sso" | "google", clientId?: string) {
   const normalizedBaseUrl = authBaseUrl.replace(/\/+$/, "");

@@ -137,6 +137,36 @@ function doTextSearch(docs: UnifiedRepositoryDocument[], search: string) {
   }, []);
 }
 
+function parsePositiveInteger(value: string | null, fallback: number, max?: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  const normalized = Math.floor(parsed);
+  return max ? Math.min(normalized, max) : normalized;
+}
+
+function createPaginatedResponse(
+  docs: UnifiedRepositoryDocument[],
+  page: number,
+  pageSize: number,
+  searchMethod: RepositorySearchMethod
+) {
+  const total = docs.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const normalizedPage = Math.min(page, totalPages);
+  const start = (normalizedPage - 1) * pageSize;
+  const data = docs
+    .slice(start, start + pageSize)
+    .map((doc) => stripSearchOnlyFields(doc, searchMethod));
+
+  return {
+    data,
+    total,
+    page: normalizedPage,
+    pageSize,
+    totalPages,
+  };
+}
+
 async function canUseDocumentSemanticSearch() {
   const [hasPgvector, hasTable] = await Promise.all([
     prisma.$queryRaw<Array<{ exists: boolean }>>`
@@ -248,6 +278,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.toLowerCase() || "";
     const tahunVal = searchParams.get("tahun");
     const category = searchParams.get("category") || "";
+    const page = parsePositiveInteger(searchParams.get("page"), 1);
+    const pageSize = parsePositiveInteger(searchParams.get("pageSize"), 10, 100);
 
     let searchMethod: RepositorySearchMethod = "browse";
 
@@ -257,9 +289,10 @@ export async function GET(request: NextRequest) {
           const semanticDocs = await findDocumentsBySemanticSearch(search, tahunVal, category);
           if (semanticDocs.length > 0) {
             searchMethod = "semantic";
-            return NextResponse.json(withSemanticReasons(semanticDocs).map((doc) => stripSearchOnlyFields(doc, searchMethod)), {
-              headers: { "x-repository-search-method": searchMethod },
-            });
+            return NextResponse.json(
+              createPaginatedResponse(withSemanticReasons(semanticDocs), page, pageSize, searchMethod),
+              { headers: { "x-repository-search-method": searchMethod } }
+            );
           }
         }
       } catch (semanticError: any) {
@@ -330,7 +363,7 @@ export async function GET(request: NextRequest) {
     // Sort by creation date descending
     combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return NextResponse.json(combined.map((doc) => stripSearchOnlyFields(doc, searchMethod)), {
+    return NextResponse.json(createPaginatedResponse(combined, page, pageSize, searchMethod), {
       headers: { "x-repository-search-method": searchMethod },
     });
   } catch (error: any) {

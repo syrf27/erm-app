@@ -32,6 +32,7 @@ import {
   IconEye,
 } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { hasClientPermission } from "@/lib/client-permissions";
 
 interface AuditLog {
   id: number;
@@ -79,13 +80,13 @@ export default function AuditLogPage() {
   const { data: identity, isPending: isIdentityLoading } =
     useGetIdentity<any>();
   const router = useRouter();
+  const canReadAuditLogs = hasClientPermission(identity, "audit-logs:read");
 
   useEffect(() => {
     if (
       !isIdentityLoading &&
       identity &&
-      (!identity.permissions ||
-        !identity.permissions.includes("audit-logs:read"))
+      !canReadAuditLogs
     ) {
       notifications.show({
         title: "Akses Ditolak",
@@ -94,7 +95,7 @@ export default function AuditLogPage() {
       });
       router.push("/");
     }
-  }, [identity, isIdentityLoading, router]);
+  }, [canReadAuditLogs, identity, isIdentityLoading, router]);
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,7 +204,7 @@ export default function AuditLogPage() {
     );
   });
 
-  if (isIdentityLoading || (identity && identity.role !== "admin")) {
+  if (isIdentityLoading || (identity && !canReadAuditLogs)) {
     return (
       <Center h={300}>
         <Loader />
@@ -213,7 +214,7 @@ export default function AuditLogPage() {
 
   return (
     <Stack gap="sm">
-      <Group justify="space-between">
+      <Group justify="space-between" align="flex-start" gap="sm">
         <Title order={2}>Audit Log</Title>
         <Button
           leftSection={<IconDownload size={16} />}
@@ -226,7 +227,7 @@ export default function AuditLogPage() {
 
       <Card shadow="sm" padding="sm" radius="md" withBorder>
         <Stack gap="xs">
-          <Group justify="space-between">
+          <Group justify="space-between" gap="xs">
             <Group gap="xs">
               <IconFilter size={16} />
               <Text size="sm" fw={500}>
@@ -360,73 +361,75 @@ export default function AuditLogPage() {
             </Center>
           ) : (
             <>
-              <Table striped highlightOnHover withTableBorder>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Timestamp</Table.Th>
-                    <Table.Th>User</Table.Th>
-                    <Table.Th>Action</Table.Th>
-                    <Table.Th>Resource</Table.Th>
-                    <Table.Th>IP Address</Table.Th>
-                    <Table.Th>Details</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {filteredLogs.map((log) => (
-                    <Table.Tr key={log.id}>
-                      <Table.Td>
-                        <Text size="sm">
-                          {dayjs(log.timestamp).format("YYYY-MM-DD HH:mm:ss")}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Stack gap={2}>
-                          <Text size="sm" fw={500}>
-                            {log.userName}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {log.userId}
-                          </Text>
-                        </Stack>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={actionColors[log.action] || "gray"}
-                          style={{ minWidth: "fit-content" }}
-                        >
-                          {log.action}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{log.resource}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{cleanIP(log.ipAddress)}</Text>
-                      </Table.Td>
-                      <Table.Td align="center">
-                        {log.details ? (
-                          <ActionIcon
-                            size="sm"
-                            variant="subtle"
-                            color="blue"
-                            onClick={() => {
-                              setSelectedLog(log);
-                              setDetailsModalOpened(true);
-                            }}
-                            title="View Details"
-                          >
-                            <IconEye size={16} />
-                          </ActionIcon>
-                        ) : (
-                          <Text size="xs" c="dimmed">
-                            -
-                          </Text>
-                        )}
-                      </Table.Td>
+              <ScrollArea type="auto">
+                <Table striped highlightOnHover withTableBorder miw={820}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Timestamp</Table.Th>
+                      <Table.Th>User</Table.Th>
+                      <Table.Th>Action</Table.Th>
+                      <Table.Th>Resource</Table.Th>
+                      <Table.Th>IP Address</Table.Th>
+                      <Table.Th>Details</Table.Th>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {filteredLogs.map((log) => (
+                      <Table.Tr key={log.id}>
+                        <Table.Td>
+                          <Text size="sm">
+                            {dayjs(log.timestamp).format("YYYY-MM-DD HH:mm:ss")}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Stack gap={2}>
+                            <Text size="sm" fw={500}>
+                              {log.userName}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {log.userId}
+                            </Text>
+                          </Stack>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            color={actionColors[log.action] || "gray"}
+                            style={{ minWidth: "fit-content" }}
+                          >
+                            {log.action}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{log.resource}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{cleanIP(log.ipAddress)}</Text>
+                        </Table.Td>
+                        <Table.Td align="center">
+                          {log.details ? (
+                            <ActionIcon
+                              size="sm"
+                              variant="subtle"
+                              color="blue"
+                              onClick={() => {
+                                setSelectedLog(log);
+                                setDetailsModalOpened(true);
+                              }}
+                              title="View Details"
+                            >
+                              <IconEye size={16} />
+                            </ActionIcon>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              -
+                            </Text>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
 
               <Pagination
                 current={page}

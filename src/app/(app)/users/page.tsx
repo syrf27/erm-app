@@ -5,6 +5,7 @@ import { useGetIdentity } from "@refinedev/core";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 import dayjs from "dayjs";
+import { hasClientPermission } from "@/lib/client-permissions";
 import {
   Stack,
   Title,
@@ -77,10 +78,11 @@ interface DBUser {
 export default function UserManagementPage() {
   const { data: identity, isPending: isIdentityLoading } = useGetIdentity<any>();
   const router = useRouter();
+  const canReadUsers = hasClientPermission(identity, "users:read");
 
   // Role Guard
   useEffect(() => {
-    if (!isIdentityLoading && identity && (!identity.permissions || !identity.permissions.includes("users:read"))) {
+    if (!isIdentityLoading && identity && !canReadUsers) {
       notifications.show({
         title: "Akses Ditolak",
         message: "Anda tidak memiliki hak akses untuk membuka halaman ini.",
@@ -88,7 +90,7 @@ export default function UserManagementPage() {
       });
       router.push("/");
     }
-  }, [identity, isIdentityLoading, router]);
+  }, [canReadUsers, identity, isIdentityLoading, router]);
 
   // States
   const [users, setUsers] = useState<DBUser[]>([]);
@@ -184,7 +186,7 @@ export default function UserManagementPage() {
   };
 
   useEffect(() => {
-    if (identity && identity.permissions && identity.permissions.includes("users:read")) {
+    if (identity && canReadUsers) {
       fetchUsers();
       fetchRoles();
       fetchTeams();
@@ -397,7 +399,7 @@ export default function UserManagementPage() {
     res.toLowerCase().includes(resourceSearch.toLowerCase())
   );
 
-  if (isIdentityLoading || (identity && (!identity.permissions || !identity.permissions.includes("users:read")))) {
+  if (isIdentityLoading || (identity && !canReadUsers)) {
     return (
       <Center h={300}>
         <Loader />
@@ -407,7 +409,7 @@ export default function UserManagementPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
+      <Group justify="space-between" align="flex-start" gap="sm">
         <Title order={2}>User Management</Title>
         <Button leftSection={<IconPlus size={16} />} onClick={handleOpenAdd}>
           Tambah User
@@ -429,68 +431,70 @@ export default function UserManagementPage() {
             </Center>
           ) : (
             <>
-              <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13 }}>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th style={{ width: 60, textAlign: "center" }}>ID</Table.Th>
-                    <Table.Th>Nama</Table.Th>
-                    <Table.Th>Email</Table.Th>
-                    <Table.Th style={{ width: 120, textAlign: "center" }}>Role</Table.Th>
-                    <Table.Th>Unit Kerja / Tim</Table.Th>
-                    <Table.Th style={{ width: 180 }}>Dibuat Pada</Table.Th>
-                    <Table.Th style={{ width: 140, textAlign: "center" }}>Aksi</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {filteredUsers.length === 0 ? (
+              <ScrollArea type="auto">
+                <Table striped highlightOnHover withTableBorder withColumnBorders miw={900} style={{ fontSize: 13 }}>
+                  <Table.Thead>
                     <Table.Tr>
-                      <Table.Td colSpan={7} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
-                        Tidak ada data user.
-                      </Table.Td>
+                      <Table.Th style={{ width: 60, textAlign: "center" }}>ID</Table.Th>
+                      <Table.Th>Nama</Table.Th>
+                      <Table.Th>Email</Table.Th>
+                      <Table.Th style={{ width: 120, textAlign: "center" }}>Role</Table.Th>
+                      <Table.Th>Unit Kerja / Tim</Table.Th>
+                      <Table.Th style={{ width: 180 }}>Dibuat Pada</Table.Th>
+                      <Table.Th style={{ width: 140, textAlign: "center" }}>Aksi</Table.Th>
                     </Table.Tr>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <Table.Tr key={user.id}>
-                        <Table.Td align="center">{user.id}</Table.Td>
-                        <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
-                        <Table.Td>{user.email}</Table.Td>
-                        <Table.Td align="center">
-                          <Badge color={user.role?.name === "admin" ? "blue" : "teal"} variant="filled">
-                            {user.role?.name || "No Role"}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Group gap="xs">
-                            {user.teams && user.teams.length > 0 ? (
-                              user.teams.map((ut) => (
-                                <Badge key={ut.team.id} color="cyan" variant="outline" size="sm">
-                                  {ut.team.nama}
-                                </Badge>
-                              ))
-                            ) : (
-                              <Text size="xs" c="dimmed">-</Text>
-                            )}
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>{dayjs(user.createdAt).format("YYYY-MM-DD HH:mm:ss")}</Table.Td>
-                        <Table.Td align="center">
-                          <Group gap="xs" justify="center">
-                            <ActionIcon variant="subtle" color="blue" title="Edit User" onClick={() => handleOpenEdit(user)}>
-                              <IconPencil size={16} />
-                            </ActionIcon>
-                            <ActionIcon variant="subtle" color="violet" title="Manage Permissions Override" onClick={() => handleOpenOverrides(user)}>
-                              <IconShield size={16} />
-                            </ActionIcon>
-                            <ActionIcon variant="subtle" color="red" title="Hapus User" onClick={() => handleOpenDelete(user)} disabled={user.email === identity.email}>
-                              <IconTrash size={16} />
-                            </ActionIcon>
-                          </Group>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {filteredUsers.length === 0 ? (
+                      <Table.Tr>
+                        <Table.Td colSpan={7} align="center" style={{ color: "var(--mantine-color-gray-5)", padding: "20px 0" }}>
+                          Tidak ada data user.
                         </Table.Td>
                       </Table.Tr>
-                    ))
-                  )}
-                </Table.Tbody>
-              </Table>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <Table.Tr key={user.id}>
+                          <Table.Td align="center">{user.id}</Table.Td>
+                          <Table.Td style={{ fontWeight: 600 }}>{user.name}</Table.Td>
+                          <Table.Td>{user.email}</Table.Td>
+                          <Table.Td align="center">
+                            <Badge color={user.role?.name === "admin" ? "blue" : "teal"} variant="filled">
+                              {user.role?.name || "No Role"}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs">
+                              {user.teams && user.teams.length > 0 ? (
+                                user.teams.map((ut) => (
+                                  <Badge key={ut.team.id} color="cyan" variant="outline" size="sm">
+                                    {ut.team.nama}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <Text size="xs" c="dimmed">-</Text>
+                              )}
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>{dayjs(user.createdAt).format("YYYY-MM-DD HH:mm:ss")}</Table.Td>
+                          <Table.Td align="center">
+                            <Group gap="xs" justify="center">
+                              <ActionIcon variant="subtle" color="blue" title="Edit User" onClick={() => handleOpenEdit(user)}>
+                                <IconPencil size={16} />
+                              </ActionIcon>
+                              <ActionIcon variant="subtle" color="violet" title="Manage Permissions Override" onClick={() => handleOpenOverrides(user)}>
+                                <IconShield size={16} />
+                              </ActionIcon>
+                              <ActionIcon variant="subtle" color="red" title="Hapus User" onClick={() => handleOpenDelete(user)} disabled={user.email === identity.email}>
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))
+                    )}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
 
               <Pagination
                 current={page}

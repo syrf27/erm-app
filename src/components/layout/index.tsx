@@ -66,6 +66,7 @@ import { YearProvider, useYear } from "@/lib/year-context";
 import { useFcm } from "@/hooks/useFcm";
 import { WelcomeTour } from "@/components/tour/WelcomeTour";
 import { HelpChatWidget } from "@/components/help-chat-widget";
+import { hasClientPermission } from "@/lib/client-permissions";
 
 interface MenuItem {
   label: string;
@@ -639,11 +640,10 @@ function LayoutContent({ children }: PropsWithChildren) {
   }, [tahunDari, tahunSampai]);
 
   const filteredMenuItems = useMemo(() => {
-    const permissions = identity?.permissions || [];
     return menuItems
       .filter((item) => {
         if (item.href === "/audit-log") {
-          return permissions.includes("audit-logs:read");
+          return hasClientPermission(identity, "audit-logs:read");
         }
         return true;
       })
@@ -651,13 +651,13 @@ function LayoutContent({ children }: PropsWithChildren) {
         if (item.children) {
           const filteredChildren = item.children.filter((child) => {
             if (child.href === "/users") {
-              return permissions.includes("users:read");
+              return hasClientPermission(identity, "users:read");
             }
             if (child.href === "/roles") {
-              return permissions.includes("roles:read");
+              return hasClientPermission(identity, "roles:read");
             }
             if (child.href === "/notification-center") {
-              return permissions.includes("users:update");
+              return hasClientPermission(identity, "users:update");
             }
             return true;
           });
@@ -680,7 +680,7 @@ function LayoutContent({ children }: PropsWithChildren) {
         breakpoint: "sm",
         collapsed: { desktop: false, mobile: !mobileOpened },
       }}
-      padding="md"
+      padding={{ base: "xs", sm: "md" }}
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">

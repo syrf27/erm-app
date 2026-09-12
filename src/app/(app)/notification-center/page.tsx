@@ -14,6 +14,7 @@ import {
   Center,
   Stack,
   Alert,
+  ScrollArea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconBell, IconAlertCircle, IconCheck } from "@tabler/icons-react";
@@ -103,7 +104,7 @@ export default function NotificationCenterPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
+      <Group justify="space-between" align="flex-start" gap="sm">
         <div>
           <Title order={3}>Pusat Notifikasi &amp; Urgensi Risiko</Title>
           <Text size="sm" c="dimmed">
@@ -141,57 +142,59 @@ export default function NotificationCenterPage() {
           </Alert>
 
           <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
-            <Table highlightOnHover verticalSpacing="md" horizontalSpacing="md">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th style={{ width: 60 }}>No</Table.Th>
-                  <Table.Th>Risiko</Table.Th>
-                  <Table.Th>Penanggung Jawab (Tim)</Table.Th>
-                  <Table.Th>Rencana Penanganan (RTP)</Table.Th>
-                  <Table.Th>Target Waktu</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th style={{ width: 150 }} align="center">Aksi</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {pendingRealisationRtp.map((r: any, idx: number) => {
-                  const riskName = r.identifikasiRisiko?.risiko || "-";
-                  const teamName = r.penanggungJawab || r.identifikasiRisiko?.team?.nama || "Semua Tim";
-                  const targetWaktu = r.targetWaktu || "-";
+            <ScrollArea type="auto">
+              <Table highlightOnHover verticalSpacing="md" horizontalSpacing="md" miw={860}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th style={{ width: 60 }}>No</Table.Th>
+                    <Table.Th>Risiko</Table.Th>
+                    <Table.Th>Penanggung Jawab (Tim)</Table.Th>
+                    <Table.Th>Rencana Penanganan (RTP)</Table.Th>
+                    <Table.Th>Target Waktu</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th style={{ width: 150 }} align="center">Aksi</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {pendingRealisationRtp.map((r: any, idx: number) => {
+                    const riskName = r.identifikasiRisiko?.risiko || "-";
+                    const teamName = r.penanggungJawab || r.identifikasiRisiko?.team?.nama || "Semua Tim";
+                    const targetWaktu = r.targetWaktu || "-";
 
-                  return (
-                    <Table.Tr key={r.id}>
-                      <Table.Td>{idx + 1}</Table.Td>
-                      <Table.Td style={{ fontWeight: 500 }}>{riskName}</Table.Td>
-                      <Table.Td>
-                        <Badge variant="light" color="blue">
-                          {teamName}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>{r.rencanaTidakPenanganan || "-"}</Table.Td>
-                      <Table.Td>{targetWaktu}</Table.Td>
-                      <Table.Td>
-                        <Badge variant="filled" color="orange">
-                          Belum Realisasi
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Button
-                          variant="light"
-                          color="red"
-                          size="xs"
-                          leftSection={<IconBell size={14} />}
-                          loading={sendingId === Number(r.id)}
-                          onClick={() => sendReminder(Number(r.id))}
-                        >
-                          Ingatkan
-                        </Button>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
+                    return (
+                      <Table.Tr key={r.id}>
+                        <Table.Td>{idx + 1}</Table.Td>
+                        <Table.Td style={{ fontWeight: 500 }}>{riskName}</Table.Td>
+                        <Table.Td>
+                          <Badge variant="light" color="blue">
+                            {teamName}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>{r.rencanaTidakPenanganan || "-"}</Table.Td>
+                        <Table.Td>{targetWaktu}</Table.Td>
+                        <Table.Td>
+                          <Badge variant="filled" color="orange">
+                            Belum Realisasi
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Button
+                            variant="light"
+                            color="red"
+                            size="xs"
+                            leftSection={<IconBell size={14} />}
+                            loading={sendingId === Number(r.id)}
+                            onClick={() => sendReminder(Number(r.id))}
+                          >
+                            Ingatkan
+                          </Button>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
           </Card>
         </>
       )}
