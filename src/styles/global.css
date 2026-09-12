@@ -23,6 +23,15 @@
 
 .repository-search-layout {
   display: grid;
+  min-width: 0;
+}
+
+.repository-desktop-table {
+  display: block;
+}
+
+.repository-mobile-list {
+  display: none;
 }
 
 .mantine-AppShell-main {
@@ -44,6 +53,14 @@
 }
 
 @media (max-width: 48em) {
+  .repository-desktop-table {
+    display: none;
+  }
+
+  .repository-mobile-list {
+    display: flex;
+  }
+
   .mantine-Modal-content {
     max-height: calc(100dvh - 24px);
   }

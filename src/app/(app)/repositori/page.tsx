@@ -478,7 +478,13 @@ export default function RepositoryPage() {
       >
         {/* Documents Explorer Table */}
         <Stack gap="sm">
-          <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
+          <Card
+            className="repository-desktop-table"
+            withBorder
+            padding="0"
+            radius="md"
+            style={{ overflow: "hidden" }}
+          >
             {isLoading ? (
               <Center h={200}>
                 <Loader />
@@ -644,6 +650,168 @@ export default function RepositoryPage() {
               </ScrollArea>
             )}
           </Card>
+
+          <Stack className="repository-mobile-list" gap="sm">
+            {isLoading ? (
+              <Card withBorder padding="md" radius="md">
+                <Center h={120}>
+                  <Loader />
+                </Center>
+              </Card>
+            ) : files.length === 0 ? (
+              <Card withBorder padding="md" radius="md">
+                <Stack gap="xs" align="center">
+                  <IconFileText size={34} color="var(--mantine-color-gray-4)" />
+                  <Text size="sm" c="dimmed" ta="center">
+                    Tidak ada berkas ditemukan di repositori untuk tahun/kategori ini.
+                  </Text>
+                </Stack>
+              </Card>
+            ) : (
+              files.map((file: RepositoryFile, idx: number) => {
+                const categoryColor =
+                  file.category === "pedoman"
+                    ? "grape"
+                    : file.category === "bukti_dukung"
+                    ? "teal"
+                    : "orange";
+                const categoryLabel =
+                  file.category === "pedoman"
+                    ? "Pedoman"
+                    : file.category === "bukti_dukung"
+                    ? "Mitigasi"
+                    : "Laporan";
+                const documentUrl = file.url.startsWith("/uploads/")
+                  ? file.url.replace("/uploads/", "/api/uploads/")
+                  : file.url;
+                const isCreator = file.id.startsWith("manual-") && (
+                  file.uploader === identity?.name ||
+                  file.uploader === identity?.email ||
+                  identity?.role?.name?.toLowerCase() === "admin" ||
+                  identity?.roleName?.toLowerCase() === "admin"
+                );
+
+                return (
+                  <Card
+                    key={file.id}
+                    withBorder
+                    padding="sm"
+                    radius="md"
+                    onClick={() => {
+                      if (isSearching) setSelectedSearchFileId(file.id);
+                    }}
+                    style={{
+                      borderColor:
+                        isSearching && selectedSearchFile?.id === file.id
+                          ? "var(--mantine-color-blue-filled)"
+                          : "var(--mantine-color-default-border)",
+                      cursor: isSearching ? "pointer" : undefined,
+                    }}
+                  >
+                    <Stack gap="sm">
+                      <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <Group gap="xs" align="flex-start" wrap="nowrap" style={{ minWidth: 0 }}>
+                          <IconFileText size={18} color="var(--mantine-color-blue-5)" style={{ flexShrink: 0, marginTop: 2 }} />
+                          <Stack gap={4} style={{ minWidth: 0 }}>
+                            <Text size="sm" fw={700} style={{ wordBreak: "break-word" }}>
+                              {file.title}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              No. {(currentPage - 1) * pageSize + idx + 1}
+                            </Text>
+                          </Stack>
+                        </Group>
+                        <Badge color={categoryColor} variant="light" size="sm">
+                          {categoryLabel}
+                        </Badge>
+                      </Group>
+
+                      <Stack gap={4}>
+                        <Text size="xs" c="dimmed" fw={600}>
+                          Risiko Terkait
+                        </Text>
+                        <Text size="xs" c="dimmed" fs={file.relatedRisk ? undefined : "italic"}>
+                          {file.relatedRisk || "Dokumen umum, tidak terkait risiko spesifik"}
+                        </Text>
+                      </Stack>
+
+                      <Group gap="xs">
+                        <Badge variant="outline" color="gray" leftSection={<IconCalendar size={12} />}>
+                          {new Date(file.createdAt).toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </Badge>
+                        <Badge variant="outline" color="gray">
+                          {file.uploader}
+                        </Badge>
+                      </Group>
+
+                      {isSearching && (
+                        <Text size="xs" c="dimmed">
+                          Tap kartu untuk melihat alasan rekomendasi.
+                        </Text>
+                      )}
+
+                      <Group gap="xs">
+                        <Button
+                          component="a"
+                          href={documentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          variant="light"
+                          size="xs"
+                          leftSection={<IconExternalLink size={14} />}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Buka
+                        </Button>
+                        <Button
+                          variant="light"
+                          color="grape"
+                          size="xs"
+                          leftSection={<IconSparkles size={14} />}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleViewSummary(file);
+                          }}
+                        >
+                          Ringkasan
+                        </Button>
+                        {isCreator && (
+                          <>
+                            <ActionIcon
+                              color="yellow"
+                              variant="subtle"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleEditFile(file);
+                              }}
+                              title="Edit Dokumen"
+                            >
+                              <IconPencil size={16} />
+                            </ActionIcon>
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteFile(file.id);
+                              }}
+                              title="Hapus Dokumen"
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </>
+                        )}
+                      </Group>
+                    </Stack>
+                  </Card>
+                );
+              })
+            )}
+          </Stack>
 
           {totalFiles > 0 && (
             <Pagination
