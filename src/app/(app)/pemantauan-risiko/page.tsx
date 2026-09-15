@@ -589,7 +589,7 @@ export default function PemantauanRisikoPage() {
                       <Stack gap="xs">
                         {row.dokumenPendukungs.map((doc) => (
                           <Group key={doc.id} gap="xs" wrap="nowrap" style={{ wordBreak: "break-all" }}>
-                            <IconFileText size={16} color="#495057" style={{ flexShrink: 0 }} />
+                            <IconFileText size={16} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
                             <Text
                               component="a"
                               href={

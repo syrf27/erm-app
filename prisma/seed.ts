@@ -1,6 +1,190 @@
 import { prisma } from "../src/lib/prisma";
 import { hashPassword } from "../src/lib/password-utils";
 
+const defaultFaqs = [
+  {
+    order: 10,
+    question: "Apa itu manajemen risiko di aplikasi Risk?",
+    answer:
+      "<p>Manajemen risiko adalah proses mengenali hal yang dapat mengganggu pencapaian tujuan, menilai seberapa besar risikonya, menentukan respons, lalu memantau penanganannya.</p><p>Di aplikasi Risk, alurnya dibuat berurutan: mulai dari Penetapan Konteks, Identifikasi Risiko, Analisis Risiko, Evaluasi Risiko, Rencana Penanganan, Pemantauan Risiko, sampai Pelaporan Risiko.</p>",
+  },
+  {
+    order: 20,
+    question: "Apa arti periode data dan tahun risiko?",
+    answer:
+      "<p>Periode data adalah tahun kerja yang sedang dipakai aplikasi untuk menampilkan data risiko. Jika periode dipilih 2026, maka daftar risiko, dokumen, pemantauan, dan laporan yang berhubungan dengan tahun 2026 akan lebih mudah ditemukan.</p><p>Tahun risiko pada dokumen dipakai agar pencarian dan repositori dapat memfilter dokumen sesuai periode manajemen risiko yang relevan.</p>",
+  },
+  {
+    order: 30,
+    question: "Urutan kerja yang disarankan untuk mengisi manajemen risiko apa saja?",
+    answer:
+      "<p>Urutan yang disarankan adalah:</p><ol><li>Isi Penetapan Konteks sebagai data dasar.</li><li>Masuk ke Identifikasi Risiko untuk mencatat risiko.</li><li>Lanjutkan ke Analisis Risiko untuk menilai kemungkinan dan dampak.</li><li>Gunakan Evaluasi Risiko untuk menentukan respons.</li><li>Buat Rencana Penanganan jika risiko perlu dikurangi.</li><li>Update Pemantauan Risiko saat rencana sudah berjalan.</li><li>Gunakan Pelaporan Risiko untuk rekap dan persetujuan.</li></ol>",
+  },
+  {
+    order: 40,
+    question: "Apa yang harus diisi di Penetapan Konteks?",
+    answer:
+      "<p>Penetapan Konteks berisi data referensi yang menjadi dasar proses manajemen risiko, seperti sasaran, tim kerja, kegiatan, proses bisnis, pemangku kepentingan, peraturan, jenis risiko, sumber risiko, kategori risiko, area dampak, level kemungkinan, level dampak, matriks risiko, selera risiko, dan opsi penanganan.</p><p>Mulailah dari sasaran dan proses bisnis karena data ini biasanya dipakai lagi saat identifikasi risiko.</p>",
+  },
+  {
+    order: 50,
+    question: "Data referensi mana yang biasanya perlu diisi lebih dulu?",
+    answer:
+      "<p>Untuk pengguna baru, fokus dulu pada data yang paling sering dipakai: Tim Kerja, Kegiatan, Sasaran, Proses Bisnis, Pemangku Kepentingan, dan Peraturan Perundangan.</p><p>Data seperti level risiko, level kemungkinan, level dampak, kategori risiko, dan opsi penanganan biasanya sudah disiapkan sebagai acuan, tetapi tetap bisa dikelola oleh admin jika perlu disesuaikan.</p>",
+  },
+  {
+    order: 60,
+    question: "Bagaimana cara menambahkan risiko baru?",
+    answer:
+      "<p>Buka Manajemen Risiko, lalu masuk ke Identifikasi Risiko. Pilih konteks yang sesuai seperti kegiatan atau proses bisnis, kemudian tambahkan risiko.</p><p>Isi pernyataan risiko dengan kalimat yang jelas. Format yang mudah dipahami adalah kejadian risiko, penyebab, dan dampaknya terhadap sasaran atau proses kerja.</p>",
+  },
+  {
+    order: 70,
+    question: "Apa beda risiko, penyebab, dan dampak?",
+    answer:
+      "<p>Risiko adalah peristiwa yang mungkin terjadi dan dapat memengaruhi tujuan. Penyebab adalah hal yang memicu risiko tersebut. Dampak adalah akibat jika risiko benar-benar terjadi.</p><p>Contoh: risiko adalah data terlambat diterima, penyebabnya koordinasi dengan sumber data belum efektif, dampaknya publikasi atau layanan dapat terlambat.</p>",
+  },
+  {
+    order: 80,
+    question: "Bagaimana cara mengisi Analisis Risiko?",
+    answer:
+      "<p>Di Analisis Risiko, nilai kemungkinan dan dampak risiko menggunakan skala yang tersedia. Aplikasi akan membantu menghasilkan besaran atau level risiko berdasarkan matriks yang sudah ditetapkan.</p><p>Jika ada pengendalian yang sudah pernah dilakukan, catat pengendalian tersebut dan nilai efektivitasnya agar kondisi risiko aktual lebih jelas.</p>",
+  },
+  {
+    order: 90,
+    question: "Apa itu level kemungkinan, level dampak, dan level risiko?",
+    answer:
+      "<p>Level kemungkinan menggambarkan seberapa besar peluang risiko terjadi. Level dampak menggambarkan seberapa besar akibatnya bila terjadi. Level risiko adalah hasil penilaian gabungan dari kemungkinan dan dampak.</p><p>Warna atau kategori level risiko membantu menentukan prioritas, misalnya risiko rendah, sedang, tinggi, atau sangat tinggi.</p>",
+  },
+  {
+    order: 100,
+    question: "Apa fungsi Evaluasi Risiko?",
+    answer:
+      "<p>Evaluasi Risiko dipakai untuk menentukan respons terhadap risiko setelah dianalisis. Respons dapat berupa menerima, menghindari, mengalihkan, atau mengurangi risiko, sesuai kondisi dan kebijakan organisasi.</p><p>Jika responsnya mengurangi risiko, biasanya proses dilanjutkan ke Rencana Penanganan.</p>",
+  },
+  {
+    order: 110,
+    question: "Kapan perlu membuat Rencana Penanganan Risiko?",
+    answer:
+      "<p>Rencana Penanganan Risiko dibuat ketika risiko perlu dikurangi atau dimitigasi. Isi rencana dengan tindakan yang akan dilakukan, target output, target waktu, penanggung jawab, dan target residual setelah penanganan.</p><p>Rencana yang baik sebaiknya spesifik, punya penanggung jawab, dan bisa dibuktikan progresnya.</p>",
+  },
+  {
+    order: 120,
+    question: "Bagaimana mengisi Pemantauan Risiko?",
+    answer:
+      "<p>Pemantauan Risiko dipakai untuk mencatat pelaksanaan rencana penanganan. Update realisasi output, realisasi waktu, status progres, dan unggah bukti pendukung jika tersedia.</p><p>Dokumen pendukung yang diunggah dari pemantauan dapat membantu pelaporan dan memperkuat jejak audit.</p>",
+  },
+  {
+    order: 130,
+    question: "Apa fungsi Pelaporan Risiko?",
+    answer:
+      "<p>Pelaporan Risiko digunakan untuk melihat rekap risiko, menyusun laporan, dan mencatat persetujuan. Pada bagian persetujuan, isi status laporan dan nama pejabat atau approver yang menyetujui.</p><p>Gunakan menu ini saat data risiko sudah cukup lengkap dan siap dilaporkan.</p>",
+  },
+  {
+    order: 140,
+    question: "Apa fungsi Bank Risiko?",
+    answer:
+      "<p>Bank Risiko adalah kumpulan risiko yang dapat dipakai ulang sebagai referensi. Menu ini membantu pengguna mencari contoh risiko yang mirip sehingga input risiko tidak selalu dimulai dari nol.</p><p>Walaupun mengambil referensi dari Bank Risiko, tetap sesuaikan pernyataan risiko, penyebab, dan dampaknya dengan konteks unit kerja atau kegiatan masing-masing.</p>",
+  },
+  {
+    order: 150,
+    question: "Apa fungsi Repositori Dokumen?",
+    answer:
+      "<p>Repositori Dokumen adalah tempat menyimpan, mengarsipkan, dan mencari dokumen pendukung manajemen risiko. Kategori dokumen mencakup pedoman dan kebijakan, bukti dukung mitigasi, serta laporan dan risalah.</p><p>Gunakan pencarian cerdas untuk menemukan dokumen berdasarkan judul, risiko terkait, ringkasan AI, atau isi dokumen yang sudah berhasil diproses.</p>",
+  },
+  {
+    order: 160,
+    question: "Kenapa dokumen di Repositori punya tahun risiko?",
+    answer:
+      "<p>Tahun risiko membantu aplikasi mengaitkan dokumen dengan periode manajemen risiko tertentu. Saat upload dokumen, pilih tahun risiko yang sesuai dengan konteks dokumen tersebut.</p><p>Filter Tahun Risiko pada pencarian memakai nilai ini, sehingga dokumen tahun 2025 dan 2026 tidak tercampur saat pengguna mencari bukti atau laporan.</p>",
+  },
+  {
+    order: 170,
+    question: "Bagaimana menggunakan ringkasan AI di Repositori Dokumen?",
+    answer:
+      "<p>Pada daftar dokumen, gunakan tombol Ringkasan untuk meminta aplikasi merangkum isi dokumen. Ringkasan membantu memahami isi file tanpa harus membaca dokumen dari awal.</p><p>Hasil ringkasan tetap perlu dicek oleh pengguna, terutama jika dokumen berisi informasi penting, istilah teknis, atau keputusan resmi.</p>",
+  },
+  {
+    order: 180,
+    question: "Apa fungsi Audit Log?",
+    answer:
+      "<p>Audit Log menampilkan riwayat aktivitas penting di aplikasi, seperti penambahan, perubahan, atau penghapusan data. Menu ini membantu admin melacak siapa yang melakukan perubahan dan kapan perubahan dilakukan.</p><p>Jika ada data yang terasa berubah tiba-tiba, cek Audit Log sebagai langkah awal.</p>",
+  },
+  {
+    order: 190,
+    question: "Bagaimana mengatur pengguna, role, dan permission?",
+    answer:
+      "<p>Admin dapat mengelola akses dari menu Manajemen Akses. Pengguna ditempatkan pada role tertentu, lalu role tersebut memiliki permission untuk membaca, membuat, memperbarui, atau menghapus data pada menu tertentu.</p><p>Jika sebuah tombol atau menu tidak muncul, kemungkinan akun belum memiliki permission yang sesuai.</p>",
+  },
+  {
+    order: 200,
+    question: "Kenapa saya tidak bisa melihat menu atau tombol tertentu?",
+    answer:
+      "<p>Menu dan tombol mengikuti hak akses akun. Jika pengguna tidak memiliki permission untuk suatu fitur, aplikasi dapat menyembunyikan menu atau membatasi tindakan seperti tambah, edit, dan hapus.</p><p>Hubungi admin aplikasi dan sebutkan menu yang dibutuhkan agar role atau permission akun bisa diperiksa.</p>",
+  },
+  {
+    order: 210,
+    question: "Apa fungsi notifikasi di aplikasi?",
+    answer:
+      "<p>Notifikasi membantu pengguna melihat informasi penting, pengingat, atau perubahan yang perlu ditindaklanjuti. Buka pusat notifikasi untuk membaca daftar notifikasi dan menandai notifikasi yang sudah selesai dibaca.</p>",
+  },
+  {
+    order: 220,
+    question: "Bagaimana memakai chat bantuan?",
+    answer:
+      "<p>Chat bantuan menjawab pertanyaan berdasarkan FAQ aplikasi. Tulis pertanyaan dengan kata sederhana, misalnya cara upload dokumen, kenapa menu tidak muncul, atau apa itu analisis risiko.</p><p>Jika jawaban belum cocok, coba gunakan kata kunci lain atau buka halaman FAQ untuk membaca daftar panduan lengkap.</p>",
+  },
+  {
+    order: 230,
+    question: "Apa yang harus dilakukan kalau data tidak muncul setelah disimpan?",
+    answer:
+      "<p>Periksa dulu filter yang sedang aktif, seperti periode data, tahun risiko, kategori, status, atau kata kunci pencarian. Data yang tersimpan di tahun atau kategori berbeda bisa terlihat seperti hilang jika filter belum sesuai.</p><p>Jika masih belum muncul, refresh halaman dan cek apakah akun memiliki akses ke menu tersebut.</p>",
+  },
+  {
+    order: 240,
+    question: "Bagaimana cara kerja mode gelap dan mode terang?",
+    answer:
+      "<p>Mode gelap dan mode terang hanya mengubah tampilan warna aplikasi agar nyaman dibaca. Data, filter, dan hak akses tidak berubah saat tema diganti.</p><p>Jika ada teks atau tombol yang sulit dibaca pada tema tertentu, laporkan ke admin atau pengembang agar warna komponennya bisa disesuaikan.</p>",
+  },
+];
+
+async function seedDefaultFaqs() {
+  const legacyFaqQuestions = [
+    "<p>Bagaimana menambahkan risiko?</p>",
+    "<p>Cara upload dokumen</p>",
+  ];
+
+  await prisma.faq.updateMany({
+    where: {
+      order: 0,
+      question: { in: legacyFaqQuestions },
+    },
+    data: { order: 900 },
+  });
+
+  for (const faq of defaultFaqs) {
+    const existing = await prisma.faq.findFirst({
+      where: { question: faq.question },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.faq.update({
+        where: { id: existing.id },
+        data: {
+          answer: faq.answer,
+          order: faq.order,
+        },
+      });
+      continue;
+    }
+
+    await prisma.faq.create({ data: faq });
+  }
+
+  console.log("Seeded default FAQs");
+}
+
 async function main() {
   // 1. Seed JenisRisiko
   const jenisCount = await prisma.jenisRisiko.count();
@@ -630,6 +814,8 @@ async function main() {
       }
     }
   }
+
+  await seedDefaultFaqs();
 }
 
 main()

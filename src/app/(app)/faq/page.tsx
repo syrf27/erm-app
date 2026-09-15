@@ -25,6 +25,7 @@ import LinkExtension from "@tiptap/extension-link";
 import { RichTextEditor, Link } from "@mantine/tiptap";
 import { IconPlus, IconEdit, IconTrash, IconSearch } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
+import { hasClientPermission } from "@/lib/client-permissions";
 
 interface FaqItem {
   id: number;
@@ -52,10 +53,9 @@ export default function FaqPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const permissions = useMemo(() => identity?.permissions || [], [identity]);
-  const canCreate = permissions.includes("faq:create");
-  const canUpdate = permissions.includes("faq:update");
-  const canDelete = permissions.includes("faq:delete");
+  const canCreate = hasClientPermission(identity, "faq:create");
+  const canUpdate = hasClientPermission(identity, "faq:update");
+  const canDelete = hasClientPermission(identity, "faq:delete");
 
   const questionEditor = useEditor({
     extensions: [StarterKit, Underline, LinkExtension.configure({ openOnClick: false })],
@@ -72,7 +72,7 @@ export default function FaqPage() {
   const fetchFaqs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/faq?_start=0&_end=1000&_sort=id&_order=asc");
+      const res = await fetch("/api/faq?_start=0&_end=1000&_sort=order&_order=asc");
       if (!res.ok) throw new Error("Gagal mengambil data FAQ");
       const data = await res.json();
       setFaqs(data || []);

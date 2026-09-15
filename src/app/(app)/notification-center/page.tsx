@@ -126,8 +126,15 @@ export default function NotificationCenterPage() {
       {pendingRealisationRtp.length === 0 ? (
         <Card withBorder padding="xl" radius="md">
           <Stack align="center" gap="sm">
-            <Center style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: "#e6fcf5" }}>
-              <IconCheck size={32} color="#099268" />
+            <Center
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: "50%",
+                backgroundColor: "light-dark(var(--mantine-color-teal-0), var(--mantine-color-teal-9))",
+              }}
+            >
+              <IconCheck size={32} color="light-dark(var(--mantine-color-teal-7), var(--mantine-color-teal-2))" />
             </Center>
             <Text fw={500} size="lg">Semua Rencana Penanganan Selesai</Text>
             <Text size="sm" c="dimmed" ta="center" style={{ maxWidth: 450 }}>

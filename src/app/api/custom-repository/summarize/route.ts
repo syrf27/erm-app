@@ -8,9 +8,11 @@ import { createWorker } from "tesseract.js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// OpenCode Zen API configurations
-const ZEN_API_URL = "https://opencode.ai/zen/v1/chat/completions";
-const SUMMARY_MODEL = "nemotron-3-ultra-free";
+// B.AI Messages API configuration. Keep these configurable for local and deployment environments.
+const BAI_API_BASE_URL = (process.env.BAI_API_BASE_URL || "https://api.b.ai/v1").replace(/\/+$/, "");
+const BAI_API_URL = `${BAI_API_BASE_URL}/messages`;
+const SUMMARY_MODEL = process.env.BAI_SUMMARY_MODEL || "qwen3.8-flash";
+const SUMMARY_MAX_TOKENS = getPositiveIntegerEnv("BAI_SUMMARY_MAX_TOKENS", 2048);
 const DIRECT_SUMMARY_CHAR_LIMIT = 12000;
 const CHUNK_SIZE = 9000;
 const CHUNK_OVERLAP = 700;
@@ -263,7 +265,12 @@ async function extractTextWithOcr(parser: any, pageCount?: number) {
 }
 
 async function requestSummary(messages: { role: "system" | "user"; content: string }[], apiKey: string) {
-  const response = await fetch(ZEN_API_URL, {
+  const systemMessage = messages.find((message) => message.role === "system")?.content;
+  const userMessages = messages
+    .filter((message) => message.role !== "system")
+    .map(({ role, content }) => ({ role, content }));
+
+  const response = await fetch(BAI_API_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
@@ -271,22 +278,31 @@ async function requestSummary(messages: { role: "system" | "user"; content: stri
     },
     body: JSON.stringify({
       model: SUMMARY_MODEL,
-      messages,
+      max_tokens: SUMMARY_MAX_TOKENS,
+      ...(systemMessage ? { system: systemMessage } : {}),
+      messages: userMessages,
       temperature: 0.3,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("OpenCode Zen API failure details:", errorText);
-    throw new Error(`OpenCode Zen API returned status: ${response.status}`);
+    console.error("B.AI API failure details:", errorText);
+    throw new Error(`B.AI API returned status: ${response.status}`);
   }
 
   const data = await response.json();
-  const summary = data.choices?.[0]?.message?.content || "";
+  const summary = Array.isArray(data.content)
+    ? data.content
+        .filter((block: any) => block?.type === "text" && typeof block.text === "string")
+        .map((block: any) => block.text)
+        .join("\n")
+    : typeof data.content === "string"
+    ? data.content
+    : "";
 
   if (!summary || summary.trim().length === 0) {
-    throw new Error("Empty summary received from OpenCode Zen");
+    throw new Error("Empty summary received from B.AI");
   }
 
   return summary.trim();
@@ -524,17 +540,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Request summary from OpenCode Zen API with adaptive strategy when text is readable.
+    // 4. Request summary from B.AI with adaptive strategy when text is readable.
     let summary: string;
     if (extractedDocument.isProbablyScanned || extractedDocument.charCount <= 50) {
       summary = buildUnreadableDocumentSummary(documentTitle, extractedDocument);
     } else {
-      const apiKey = process.env.OPENCODE_ZEN_API_KEY;
+      const apiKey = process.env.BAI_API_KEY;
       if (!apiKey) {
-        return NextResponse.json({ error: "OPENCODE_ZEN_API_KEY is not configured in .env" }, { status: 500 });
+        return NextResponse.json({ error: "BAI_API_KEY is not configured in .env.local or deployment environment" }, { status: 500 });
       }
 
-      console.log("[summarize-debug] Sending request to OpenCode Zen API with adaptive summary strategy...");
+      console.log(`[summarize-debug] Sending request to B.AI (${SUMMARY_MODEL}) with adaptive summary strategy...`);
       summary = await summarizeDocument(documentTitle, extractedDocument, apiKey);
     }
 

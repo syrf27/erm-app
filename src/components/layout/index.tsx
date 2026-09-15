@@ -57,9 +57,11 @@ import {
   IconDatabase,
   IconRoute,
   IconBell,
+  IconCalendar,
   IconCheck,
   IconChevronDown,
   IconChevronRight,
+  IconX,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
@@ -334,7 +336,7 @@ function SidebarItem({
             </Text>
 
             {hasChildren && (
-              <Box c="gray.5" style={{ display: "flex", alignItems: "center" }}>
+              <Box c="dimmed" style={{ display: "flex", alignItems: "center" }}>
                 {isOpen ? (
                   <IconChevronDown size={16} stroke={1.8} />
                 ) : (
@@ -372,7 +374,7 @@ function SidebarItem({
             </Text>
 
             {hasChildren && (
-              <Box c="gray.5" style={{ display: "flex", alignItems: "center" }}>
+              <Box c="dimmed" style={{ display: "flex", alignItems: "center" }}>
                 {isOpen ? (
                   <IconChevronDown size={16} stroke={1.8} />
                 ) : (
@@ -530,7 +532,7 @@ function renderMiniNavItems(items: MenuItem[], pathname: string) {
 }
 
 function LayoutContent({ children }: PropsWithChildren) {
-  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+  const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop, open: openDesktop }] = useDisclosure(true);
   const [logoutOpened, { open: openLogout, close: closeLogout }] = useDisclosure(false);
   const pathname = usePathname();
@@ -541,6 +543,7 @@ function LayoutContent({ children }: PropsWithChildren) {
   const { tahunDari, tahunSampai, setTahunDari, setTahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
   const [periodOpened, setPeriodOpened] = useState(false);
+  const [mobilePeriodOpened, setMobilePeriodOpened] = useState(false);
   const [draftTahunDari, setDraftTahunDari] = useState(tahunDari);
   const [draftTahunSampai, setDraftTahunSampai] = useState(tahunSampai);
   const [mounted, setMounted] = useState(false);
@@ -632,6 +635,7 @@ function LayoutContent({ children }: PropsWithChildren) {
     setTahunDari(draftTahunDari);
     setTahunSampai(draftTahunSampai);
     setPeriodOpened(false);
+    setMobilePeriodOpened(false);
   }, [draftTahunDari, draftTahunSampai, setTahunDari, setTahunSampai]);
 
   const resetDraftPeriodFilter = useCallback(() => {
@@ -672,6 +676,13 @@ function LayoutContent({ children }: PropsWithChildren) {
     if (!desktopOpened) openDesktop();
   }, [desktopOpened]);
 
+  const startGuide = useCallback(() => {
+    closeMobile();
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event("erm:start-tour"));
+    }, 150);
+  }, [closeMobile]);
+
   return (
     <AppShell
       header={{ height: 60 }}
@@ -695,17 +706,6 @@ function LayoutContent({ children }: PropsWithChildren) {
             />
             <Title order={4} style={{ letterSpacing: 0.5 }}>Risk</Title>
 
-            {/* Mobile toggle */}
-            <ActionIcon
-              onClick={toggleMobile}
-              hiddenFrom="sm"
-              variant="subtle"
-              size="lg"
-              aria-label="Toggle mobile menu"
-            >
-              <IconMenu2 size={20} />
-            </ActionIcon>
-
             {/* Desktop toggle */}
             <Tooltip
               label={desktopOpened ? "Collapse sidebar" : "Expand sidebar"}
@@ -728,6 +728,18 @@ function LayoutContent({ children }: PropsWithChildren) {
           </Group>    
 
           <Group gap="sm">
+            <ActionIcon
+              onClick={toggleMobile}
+              hiddenFrom="sm"
+              variant="light"
+              color="blue"
+              size="lg"
+              aria-label={mobileOpened ? "Tutup menu" : "Buka menu"}
+            >
+              {mobileOpened ? <IconX size={20} /> : <IconMenu2 size={20} />}
+            </ActionIcon>
+
+            <Group gap="sm" visibleFrom="sm">
             {mounted && (
               <Group gap="xs">
                 <Popover
@@ -983,7 +995,7 @@ function LayoutContent({ children }: PropsWithChildren) {
                     <Menu.Divider />
                     <Menu.Item
                       leftSection={<IconRoute size={16} />}
-                      onClick={() => window.dispatchEvent(new Event("erm:start-tour"))}
+                      onClick={startGuide}
                     >
                       Lihat Panduan
                     </Menu.Item>
@@ -1007,13 +1019,20 @@ function LayoutContent({ children }: PropsWithChildren) {
                 </Stack>
               </Group>
             )}
+            </Group>
           </Group>
         </Group>
       </AppShell.Header>
 
       <AppShell.Navbar
         p="xs"
-        style={{ display: "flex", flexDirection: "column" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: desktopOpened ? "min(280px, 100vw)" : 60,
+          maxWidth: "100vw",
+          overflowX: "hidden",
+        }}
       >
         <AppShell.Section
           grow
@@ -1021,9 +1040,62 @@ function LayoutContent({ children }: PropsWithChildren) {
           style={{ minHeight: 0, overflowY: "auto", overflowX: "hidden" }}
         >
           <Stack gap={4} align={desktopOpened ? "stretch" : "center"}>
+            <Box hiddenFrom="sm" mb="sm">
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs">
+                Preferensi
+              </Text>
+              <Group grow gap="xs" align="stretch">
+                <Button
+                  variant="light"
+                  color="blue"
+                  size="xs"
+                  leftSection={<IconCalendar size={15} />}
+                  onClick={() => setMobilePeriodOpened(true)}
+                >
+                  {tahunDari === tahunSampai ? `Periode ${tahunDari}` : `${tahunDari}-${tahunSampai}`}
+                </Button>
+                <Button
+                  variant="light"
+                  color="gray"
+                  size="xs"
+                  leftSection={mounted && colorScheme === "dark" ? <IconSun size={15} /> : <IconMoon size={15} />}
+                  onClick={() => toggleColorScheme()}
+                >
+                  {mounted && colorScheme === "dark" ? "Terang" : "Gelap"}
+                </Button>
+              </Group>
+
+              {identity && (
+                <Card withBorder padding="sm" radius="md" mt="sm">
+                  <Text size="xs" fw={700} lineClamp={1}>
+                    {identity.name ?? "User"}
+                  </Text>
+                  <Text size="xs" c="dimmed" lineClamp={1} mt={2}>
+                    {identity.email ?? ""}
+                  </Text>
+                </Card>
+              )}
+              <Divider my="sm" />
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase">
+                Navigasi
+              </Text>
+            </Box>
+
             {desktopOpened
               ? <SidebarNavList items={filteredMenuItems} pathname={pathname} />
               : renderMiniNavItems(filteredMenuItems, pathname)}
+            <Button
+              hiddenFrom="sm"
+              variant="subtle"
+              color="blue"
+              leftSection={<IconRoute size={18} />}
+              onClick={startGuide}
+              fullWidth
+              justify="flex-start"
+              mt="sm"
+            >
+              Lihat Panduan
+            </Button>
             {desktopOpened ? (
               <Button
                 variant="subtle"
@@ -1060,6 +1132,61 @@ function LayoutContent({ children }: PropsWithChildren) {
 
       <HelpChatWidget />
       <WelcomeTour onBeforeStart={handleTourBeforeStart} />
+
+      <Modal
+        opened={mobilePeriodOpened}
+        onClose={() => {
+          resetDraftPeriodFilter();
+          setMobilePeriodOpened(false);
+        }}
+        title="Periode Data"
+        size="xs"
+        radius="md"
+        hiddenFrom="sm"
+      >
+        <Stack gap="sm">
+          <Text size="xs" c="dimmed">
+            Filter ini memengaruhi dashboard dan data risiko.
+          </Text>
+          <NumberInput
+            label="Dari Tahun"
+            value={draftTahunDari}
+            min={2020}
+            max={currentYear + 10}
+            step={1}
+            allowDecimal={false}
+            onChange={(value) => setDraftTahunDari(Number(value) || currentYear)}
+          />
+          <NumberInput
+            label="Sampai Tahun"
+            value={draftTahunSampai}
+            min={2020}
+            max={currentYear + 10}
+            step={1}
+            allowDecimal={false}
+            onChange={(value) => setDraftTahunSampai(Number(value) || currentYear)}
+          />
+          {draftTahunDari > draftTahunSampai && (
+            <Text size="xs" c="orange">
+              Dari Tahun tidak boleh lebih besar dari Sampai Tahun.
+            </Text>
+          )}
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => {
+                resetDraftPeriodFilter();
+                setMobilePeriodOpened(false);
+              }}
+            >
+              Batal
+            </Button>
+            <Button onClick={applyPeriodFilter} disabled={draftTahunDari > draftTahunSampai}>
+              Terapkan
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={logoutOpened}

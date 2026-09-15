@@ -35,6 +35,16 @@ const CONTENT_TYPES: Record<string, string> = {
 export function getStorageDriver(): StorageDriver {
   const driver = process.env.STORAGE_DRIVER || "local";
 
+  if (driver === "vercel-blob" && !process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) {
+    if (process.env.NODE_ENV !== "production") {
+      return "local";
+    }
+
+    throw new Error(
+      "Vercel Blob storage is selected, but no Blob credentials are configured."
+    );
+  }
+
   if (driver === "local" || driver === "vercel-blob") {
     return driver;
   }

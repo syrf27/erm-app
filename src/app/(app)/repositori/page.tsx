@@ -74,6 +74,7 @@ export default function RepositoryPage() {
   const [uploadOpened, setUploadOpened] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCat, setUploadCat] = useState("pedoman");
+  const [uploadYear, setUploadYear] = useState(String(tahunDari || new Date().getFullYear()));
   const [uploadDocType, setUploadDocType] = useState<"link" | "upload">("link");
   const [uploadDocLink, setUploadDocLink] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -163,10 +164,10 @@ export default function RepositoryPage() {
   }, [files, isSearching, selectedSearchFileId]);
 
   useEffect(() => {
-    if (!Array.isArray(repositoryResult) && repositoryResult?.page && repositoryResult.page !== currentPage) {
+    if (!result.query.isFetching && !Array.isArray(repositoryResult) && repositoryResult?.page && repositoryResult.page !== currentPage) {
       setCurrentPage(repositoryResult.page);
     }
-  }, [currentPage, repositoryResult]);
+  }, [currentPage, repositoryResult, result.query.isFetching]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -227,7 +228,7 @@ export default function RepositoryPage() {
       title: uploadTitle.trim(),
       url: docUrl.trim(),
       category: uploadCat,
-      tahun: parseInt(selectedYear, 10),
+      tahun: parseInt(uploadYear, 10),
       uploader: identity?.name || identity?.email || "Administrator",
     };
 
@@ -240,6 +241,7 @@ export default function RepositoryPage() {
             title: payload.title,
             url: payload.url,
             category: payload.category,
+            tahun: payload.tahun,
           },
           successNotification: {
             message: "Dokumen berhasil diperbarui",
@@ -294,6 +296,7 @@ export default function RepositoryPage() {
     setEditingId(realId);
     setUploadTitle(file.title);
     setUploadCat(file.category);
+    setUploadYear(String(file.tahun));
     const isLocalUpload = file.url.startsWith("/uploads/") || file.url.startsWith("/api/uploads/");
     if (isLocalUpload) {
       setUploadDocType("upload");
@@ -365,6 +368,7 @@ export default function RepositoryPage() {
             setUploadTitle("");
             setUploadDocLink("");
             setUploadedFile(null);
+            setUploadYear(selectedYear);
             setUploadOpened(true);
           }}
         >
@@ -421,15 +425,8 @@ export default function RepositoryPage() {
             <div>
               <Group gap="xs">
                 <Text size="sm" fw={700}>
-                  Pencarian Cerdas Dokumen
+                  Pencarian Cerdas
                 </Text>
-                <Badge size="xs" variant="light" color={activeSearchMethod === "semantic" ? "blue" : "gray"}>
-                  {isSearching
-                    ? activeSearchMethod === "semantic"
-                      ? "Berdasarkan makna"
-                      : "Berdasarkan kata kunci"
-                    : "Siap digunakan"}
-                </Badge>
               </Group>
               <Text size="xs" c="dimmed" mt={3}>
                 Cari dengan bahasa sehari-hari, misalnya “dokumen yang membahas SOP manajemen risiko” atau “bukti mitigasi gangguan layanan”.
@@ -568,7 +565,7 @@ export default function RepositoryPage() {
                               {file.relatedRisk}
                             </Text>
                           ) : (
-                            <Text size="xs" c="gray.4" fs="italic">
+                            <Text size="xs" c="dimmed" fs="italic">
                               Dokumen umum, tidak terkait risiko spesifik
                             </Text>
                           )}
@@ -956,7 +953,19 @@ export default function RepositoryPage() {
             onChange={(val) => setUploadCat(val || "pedoman")}
             data={[
               { value: "pedoman", label: "Pedoman & Kebijakan" },
+              { value: "bukti_dukung", label: "Bukti Dukung Mitigasi" },
               { value: "laporan", label: "Laporan & Risalah" },
+            ]}
+          />
+
+          <Select
+            label="Tahun Risiko"
+            value={uploadYear}
+            onChange={(val) => setUploadYear(val || String(tahunDari || new Date().getFullYear()))}
+            data={[
+              { value: "2024", label: "Tahun 2024" },
+              { value: "2025", label: "Tahun 2025" },
+              { value: "2026", label: "Tahun 2026" },
             ]}
           />
 
@@ -980,12 +989,12 @@ export default function RepositoryPage() {
               placeholder="https://drive.google.com/..."
               value={uploadDocLink}
               onChange={(e) => setUploadDocLink(e.currentTarget.value)}
-              rightSection={<IconLink size={16} color="#adb5bd" />}
+              rightSection={<IconLink size={16} color="var(--mantine-color-dimmed)" />}
             />
           ) : (
             <Stack gap="xs">
               <Text size="xs" fw={500} c="dimmed">
-                Pilih berkas kebijakan/pedoman untuk diunggah
+                Pilih berkas sesuai folder kategori yang dipilih
               </Text>
               <FileDropUpload
                 loading={uploading}

@@ -130,7 +130,7 @@ export function HelpChatWidget() {
       style={{
         position: "fixed",
         right: 24,
-        bottom: 24,
+        bottom: 88,
         zIndex: 220,
       }}
     >

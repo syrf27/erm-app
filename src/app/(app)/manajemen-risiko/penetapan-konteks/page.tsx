@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 
-import { Card, Group, SegmentedControl, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Card, Group, ScrollArea, SegmentedControl, Stack, Tabs, Text, Title } from "@mantine/core";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { CrudTable } from "./crud-table";
 
@@ -88,19 +88,27 @@ function PageContent() {
             </Text>
           </Group>
 
-          <SegmentedControl
-            value={activeGroup.value}
-            onChange={(groupValue) => {
-              const nextGroup = tabGroups.find((group) => group.value === groupValue);
-              const nextTab = nextGroup?.tabs[0]?.value ?? "sasaran";
-              router.push(`${pathname}?tab=${nextTab}`, { scroll: false });
-            }}
-            data={tabGroups.map((group) => ({
-              value: group.value,
-              label: group.label,
-            }))}
-            fullWidth
-          />
+          <ScrollArea
+            className="context-group-switcher-scroll"
+            type="auto"
+            scrollbarSize={6}
+            offsetScrollbars
+          >
+            <SegmentedControl
+              className="context-group-switcher"
+              value={activeGroup.value}
+              onChange={(groupValue) => {
+                const nextGroup = tabGroups.find((group) => group.value === groupValue);
+                const nextTab = nextGroup?.tabs[0]?.value ?? "sasaran";
+                router.push(`${pathname}?tab=${nextTab}`, { scroll: false });
+              }}
+              data={tabGroups.map((group) => ({
+                value: group.value,
+                label: group.label,
+              }))}
+              fullWidth
+            />
+          </ScrollArea>
         </Stack>
       </Card>
 

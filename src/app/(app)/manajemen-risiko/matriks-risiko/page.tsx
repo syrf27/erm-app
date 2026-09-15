@@ -524,7 +524,7 @@ export default function MatriksRisikoPage() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#000",
+                          color: "light-dark(var(--mantine-color-black), var(--mantine-color-white))",
                           fontWeight: 700,
                           fontSize: 18,
                         }}
