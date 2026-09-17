@@ -29,7 +29,7 @@ export async function sendEmail(options: SendEmailOptions) {
     await transporter.verify();
 
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `"${process.env.SMTP_FROM_NAME || 'ERM Notification'}" <${process.env.SMTP_USER}>`,
+      from: process.env.SMTP_FROM || `"${process.env.SMTP_FROM_NAME || 'gojags risk'}" <${process.env.SMTP_USER}>`,
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       html: options.html,
@@ -56,7 +56,7 @@ export async function testEmailConfig(testEmail: string) {
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: testEmail,
-      subject: 'Test Email Configuration - ERM App',
+      subject: 'Test Email Configuration - gojags risk',
       html: `
         <h2>✅ Email Configuration Test Successful</h2>
         <p>Your SMTP configuration is working correctly!</p>

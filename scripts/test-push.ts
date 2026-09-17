@@ -49,7 +49,7 @@ async function sendTestPush() {
       const response = await getMessaging().send({
         token: fcm.token,
         notification: {
-          title: "ERM Push Notification Test",
+          title: "gojags risk Push Notification Test",
           body: "Halo! Ini adalah notifikasi pengujian dari Firebase Cloud Messaging Admin SDK.",
         },
         data: {

@@ -75,7 +75,7 @@ function CallbackContent() {
               Menyiapkan sesi Anda...
             </Title>
             <Text size="sm" c="dimmed" ta="center">
-              Tunggu sebentar, kami sedang menghubungkan akun GOJAGS dengan GOJAGS Risk.
+              Tunggu sebentar, kami sedang menghubungkan akun GOJAGS dengan gojags risk.
             </Text>
           </>
         )}

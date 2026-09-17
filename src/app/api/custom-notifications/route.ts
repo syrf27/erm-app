@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { getOrSet } from "@/lib/cache";
+import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(notifications, {
       headers: {
-        "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
+        "Cache-Control": REVALIDATE_CACHE_CONTROL,
       },
     });
   } catch (error: any) {

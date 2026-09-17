@@ -17,8 +17,8 @@ import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 
 export const metadata: Metadata = {
-  title: "Gojags Risk",
-  description: "Gojags Risk",
+  title: "gojags risk",
+  description: "gojags risk",
   icons: {
     icon: "/gojags.png",
     apple: "/gojags.png",

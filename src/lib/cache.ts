@@ -19,6 +19,7 @@ const REFERENCE_RESOURCES = [
   "unit-kerja",
   "kegiatan",
   "matriks-analisis-risiko",
+  "teams",
 ];
 
 const RISK_DATA_RESOURCES = [
@@ -30,9 +31,18 @@ const RISK_DATA_RESOURCES = [
   "kri",
   "sasaran",
   "proses-bisnis",
+  "jenis-risiko",
+  "kategori-risiko",
+  "level-kemungkinan",
+  "level-dampak",
+  "level-risiko",
+  "matriks-analisis-risiko",
 ];
 
 const AUTH_RESOURCES = ["users", "roles", "permissions"];
+
+export const REVALIDATE_CACHE_CONTROL =
+  "private, no-cache, max-age=0, must-revalidate";
 
 export function isReferenceResource(resource: string): boolean {
   return REFERENCE_RESOURCES.includes(resource);
@@ -62,13 +72,17 @@ export async function getOrSet<T>(
     } catch {
       // fall through to fetcher
     }
-  } else {
-    // In-memory fallback for serverless warm instances
+  } else if (process.env.NODE_ENV !== "production") {
+    // In-memory caching is safe for the single local development process.
+    // In production, separate serverless instances cannot invalidate each
+    // other's memory, so bypass this cache when Redis is not configured.
     const now = Date.now();
     const cached = memoryCache.get(key);
     if (cached && cached.expiry > now) {
       return cached.value as T;
     }
+  } else {
+    return fetcher();
   }
 
   const data = await fetcher();
@@ -79,7 +93,7 @@ export async function getOrSet<T>(
     } catch {
       // non-critical
     }
-  } else {
+  } else if (process.env.NODE_ENV !== "production") {
     // Cache in memory for warmed up serverless instances
     memoryCache.set(key, {
       value: data,
@@ -119,4 +133,26 @@ export async function delCacheByPattern(pattern: string): Promise<void> {
   } catch {
     // non-critical
   }
+}
+
+export async function invalidateResourceCache(resource: string): Promise<void> {
+  const invalidations: Promise<void>[] = [
+    // Covers current reference keys and any resource-scoped cache added later.
+    delCacheByPattern(`ref:${resource}:*`),
+    delCacheByPattern(`resource:${resource}:*`),
+  ];
+
+  if (shouldInvalidateDashboard(resource)) {
+    invalidations.push(delCache("dashboard:stats"));
+  }
+
+  if (isAuthResource(resource)) {
+    invalidations.push(
+      delCacheByPattern("user:context:*"),
+      delCacheByPattern("user:permissions:*"),
+      delCacheByPattern("notification:user:*")
+    );
+  }
+
+  await Promise.all(invalidations);
 }

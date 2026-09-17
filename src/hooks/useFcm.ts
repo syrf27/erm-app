@@ -68,7 +68,7 @@ export const useFcm = (identity: any) => {
       console.log("Foreground notification received:", payload);
       notifications.show({
         title: payload.notification?.title || "Notifikasi Baru",
-        message: payload.notification?.body || "Ada pembaruan data ERM.",
+        message: payload.notification?.body || "Ada pembaruan data gojags risk.",
         color: "blue",
       });
     });

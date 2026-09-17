@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { checkPermission } from "@/lib/access-control";
 import { getStorageExtension, readFileFromStorage } from "@/lib/storage";
 import { generateAndStoreDocumentEmbedding } from "@/lib/embedding";
+import { invalidateResourceCache } from "@/lib/cache";
 import { createWorker } from "tesseract.js";
 
 export const dynamic = "force-dynamic";
@@ -571,6 +572,8 @@ export async function POST(request: NextRequest) {
         data: { summary, extractedText: extractedTextForSearch },
       });
     }
+
+    await invalidateResourceCache(isManual ? "repositori" : "dokumen-pendukung");
 
     const embeddingText = [documentTitle, summary, extractedTextForSearch]
       .filter(Boolean)

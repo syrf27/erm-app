@@ -7,11 +7,8 @@ import { checkPermission, checkRecordPermission, getUserPermissions, canGrantPer
 import { deleteDocumentEmbedding, generateAndStoreEmbedding } from "@/lib/embedding";
 import { deleteFile } from "@/lib/storage";
 import {
-  delCache,
-  delCacheByPattern,
-  isReferenceResource,
-  shouldInvalidateDashboard,
-  isAuthResource,
+  invalidateResourceCache,
+  REVALIDATE_CACHE_CONTROL,
 } from "@/lib/cache";
 import {
   updateIdentifikasiRisikoSchema,
@@ -69,7 +66,9 @@ export async function GET(
   if (!item) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json(item);
+  return NextResponse.json(item, {
+    headers: { "Cache-Control": REVALIDATE_CACHE_CONTROL },
+  });
 }
 
 export async function PATCH(
@@ -308,16 +307,7 @@ export async function PATCH(
       userAgent: request.headers.get("user-agent") || "unknown",
     });
 
-    // Invalidate cache
-    if (isReferenceResource(resource)) {
-      await delCache(`ref:${resource}:list`);
-    }
-    if (shouldInvalidateDashboard(resource)) {
-      await delCache("dashboard:stats");
-    }
-    if (isAuthResource(resource)) {
-      await delCacheByPattern("user:permissions:*");
-    }
+    await invalidateResourceCache(resource);
 
     if (resource === "identifikasi-risiko" && (validatedData.risiko || validatedData.penyebab || validatedData.dampak)) {
       const embeddingText = [
@@ -425,16 +415,7 @@ export async function DELETE(
       userAgent: request.headers.get("user-agent") || "unknown",
     });
 
-    // Invalidate cache
-    if (isReferenceResource(resource)) {
-      await delCache(`ref:${resource}:list`);
-    }
-    if (shouldInvalidateDashboard(resource)) {
-      await delCache("dashboard:stats");
-    }
-    if (isAuthResource(resource)) {
-      await delCacheByPattern("user:permissions:*");
-    }
+    await invalidateResourceCache(resource);
 
     return NextResponse.json(item);
   } catch (e: any) {

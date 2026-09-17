@@ -167,7 +167,7 @@ export function CrudTable({ resource }: CrudTableProps) {
   const [pageSize, setPageSize] = useState(20); // Default 20 items per page
 
   const pagination: RefinePagination = { currentPage: 1, pageSize, mode: "server" };
-  const initialSort: CrudSort[] = [{ field: "id", order: "asc" }];
+  const initialSort: CrudSort[] = [{ field: "id", order: "desc" }];
 
   const {
     result,
@@ -258,7 +258,8 @@ export function CrudTable({ resource }: CrudTableProps) {
       updateMutate(
         { resource, id: editingItem.id, values: formData },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            await tableQuery.refetch();
             close();
           },
         },
@@ -267,7 +268,9 @@ export function CrudTable({ resource }: CrudTableProps) {
       createMutate(
         { resource, values: formData },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            setCurrentPage(1);
+            await tableQuery.refetch();
             close();
           },
         },
@@ -280,7 +283,8 @@ export function CrudTable({ resource }: CrudTableProps) {
     deleteMutate(
       { resource, id: deleteTarget.id },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          await tableQuery.refetch();
           setDeleteTarget(null);
         },
         onError: () => {

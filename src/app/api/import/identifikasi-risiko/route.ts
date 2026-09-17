@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { checkPermission } from "@/lib/access-control";
 import { logAudit } from "@/lib/audit-log";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
+import { invalidateResourceCache } from "@/lib/cache";
 import {
   parseImportWorkbook,
   ACCEPTED_IMPORT_EXTENSIONS,
@@ -530,6 +531,15 @@ export async function POST(request: NextRequest) {
       ipAddress,
       userAgent,
     });
+
+    if (created > 0 || updated > 0) {
+      await Promise.all([
+        invalidateResourceCache("identifikasi-risiko"),
+        invalidateResourceCache("analisis-risiko"),
+        invalidateResourceCache("evaluasi-risiko"),
+        invalidateResourceCache("rencana-penanganan"),
+      ]);
+    }
 
     return NextResponse.json({
       total: results.length,

@@ -19,7 +19,7 @@ const STEP_DEFS: StepDef[] = [
   {
     title: "Selamat Datang! 👋",
     description:
-      "Tur singkat ini akan memperkenalkan fitur-fitur utama aplikasi ERM. " +
+      "Tur singkat ini akan memperkenalkan fitur-fitur utama gojags risk. " +
       "Tekan <b>Lanjut</b> untuk memulai, atau tombol <b>✕</b> untuk melewati tur ini.",
   },
   {
@@ -100,7 +100,7 @@ const STEP_DEFS: StepDef[] = [
     title: "Matriks Risiko (Inheren)",
     description:
       "Peta panas sebaran risiko berdasarkan kemungkinan × dampak. " +
-      "Selamat menggunakan aplikasi ERM! 🎉",
+      "Selamat menggunakan gojags risk! 🎉",
   },
 ];
 

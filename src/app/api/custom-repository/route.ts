@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkPermission } from "@/lib/access-control";
 import { generateEmbedding } from "@/lib/embedding";
+import { REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
 type RepositorySearchMethod = "browse" | "semantic" | "text";
 
@@ -291,7 +292,12 @@ export async function GET(request: NextRequest) {
             searchMethod = "semantic";
             return NextResponse.json(
               createPaginatedResponse(withSemanticReasons(semanticDocs), page, pageSize, searchMethod),
-              { headers: { "x-repository-search-method": searchMethod } }
+              {
+                headers: {
+                  "x-repository-search-method": searchMethod,
+                  "Cache-Control": REVALIDATE_CACHE_CONTROL,
+                },
+              }
             );
           }
         }
@@ -364,7 +370,10 @@ export async function GET(request: NextRequest) {
     combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return NextResponse.json(createPaginatedResponse(combined, page, pageSize, searchMethod), {
-      headers: { "x-repository-search-method": searchMethod },
+      headers: {
+        "x-repository-search-method": searchMethod,
+        "Cache-Control": REVALIDATE_CACHE_CONTROL,
+      },
     });
   } catch (error: any) {
     console.error("Error in custom-repository GET:", error);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrSet } from "@/lib/cache";
+import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -272,7 +272,7 @@ export async function GET() {
 
     return NextResponse.json(stats, {
       headers: {
-        "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        "Cache-Control": REVALIDATE_CACHE_CONTROL,
       },
     });
   } catch (e: any) {

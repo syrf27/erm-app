@@ -278,7 +278,7 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
               </Stack>
 
               <Text size="xs" c="dimmed" ta="center" lh={1.6}>
-                GOJAGS digunakan hanya untuk autentikasi. Hak akses tetap mengikuti role dan permission di GOJAGS Risk.
+                GOJAGS digunakan hanya untuk autentikasi. Hak akses tetap mengikuti role dan permission di gojags risk.
               </Text>
             </Stack>
           </Paper>

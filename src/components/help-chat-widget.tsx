@@ -35,7 +35,7 @@ const welcomeMessage: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Halo, saya bisa bantu menjelaskan cara menggunakan GOJAGS Risk. Coba tanyakan hal seperti cara menambahkan risiko, upload bukti dukung, atau kenapa kolom tertentu terkunci.",
+    "Halo, saya bisa bantu menjelaskan cara menggunakan gojags risk. Coba tanyakan hal seperti cara menambahkan risiko, upload bukti dukung, atau kenapa kolom tertentu terkunci.",
 };
 
 export function HelpChatWidget() {
@@ -148,7 +148,7 @@ export function HelpChatWidget() {
           <Group justify="space-between" px="md" py="sm" bg="var(--mantine-color-blue-light)">
             <Stack gap={0}>
               <Text fw={700} size="sm">
-                Bantuan GOJAGS Risk
+                Bantuan gojags risk
               </Text>
               <Text size="xs" c="dimmed">
                 Jawaban mengacu pada FAQ aplikasi

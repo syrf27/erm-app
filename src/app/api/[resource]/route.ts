@@ -7,11 +7,9 @@ import { checkPermission } from "@/lib/access-control";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import {
   getOrSet,
-  delCache,
-  delCacheByPattern,
   isReferenceResource,
-  shouldInvalidateDashboard,
-  isAuthResource,
+  invalidateResourceCache,
+  REVALIDATE_CACHE_CONTROL,
 } from "@/lib/cache";
 import {
   createIdentifikasiRisikoSchema,
@@ -47,15 +45,11 @@ function getDelegate(resource: string) {
   return delegate;
 }
 
-function getCacheHeaders(resource: string) {
-  if (isReferenceResource(resource)) {
-    return {
-      "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
-    };
-  }
-
+function getCacheHeaders() {
   return {
-    "Cache-Control": "private, max-age=15, stale-while-revalidate=60",
+    // Reference data is already cached server-side. The browser must always
+    // revalidate so a list refetch after a mutation cannot reuse stale rows.
+    "Cache-Control": REVALIDATE_CACHE_CONTROL,
   };
 }
 
@@ -163,12 +157,12 @@ export async function GET(
             }),
           3600
         );
-        return NextResponse.json(data);
+        return NextResponse.json(data, { headers: getCacheHeaders() });
       }
       const data = await delegate.findMany({
         where: { id: { in: ids.map(Number) } },
       });
-      return NextResponse.json(data);
+      return NextResponse.json(data, { headers: getCacheHeaders() });
     }
 
     const _start = parseInt(searchParams.get("_start") ?? "0");
@@ -180,7 +174,7 @@ export async function GET(
     const include = includeMap[resource];
 
     if (isReferenceResource(resource)) {
-      const cacheKey = `ref:${resource}:list`;
+      const cacheKey = `ref:${resource}:list:${_sort}:${_order}`;
       const cached = await getOrSet(
         cacheKey,
         async () => {
@@ -198,7 +192,7 @@ export async function GET(
       return NextResponse.json(cached.data.slice(_start, _end), {
         headers: {
           "x-total-count": String(cached.total),
-          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+          ...getCacheHeaders(),
         },
       });
     }
@@ -246,7 +240,7 @@ export async function GET(
     return NextResponse.json(data, {
       headers: {
         "x-total-count": String(total),
-        ...getCacheHeaders(resource),
+        ...getCacheHeaders(),
       },
     });
   } catch (e: any) {
@@ -422,16 +416,7 @@ export async function POST(
       userAgent: request.headers.get("user-agent") || "unknown",
     });
 
-    // Invalidate cache
-    if (isReferenceResource(resource)) {
-      await delCache(`ref:${resource}:list`);
-    }
-    if (shouldInvalidateDashboard(resource)) {
-      await delCache("dashboard:stats");
-    }
-    if (isAuthResource(resource)) {
-      await delCacheByPattern("user:permissions:*");
-    }
+    await invalidateResourceCache(resource);
 
     if (resource === "identifikasi-risiko" && (validatedData as any).risiko) {
       const embeddingText = [validatedData.risiko, validatedData.penyebab, validatedData.dampak]
