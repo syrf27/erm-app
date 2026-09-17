@@ -11,6 +11,10 @@ const SYSTEM_CHANGE_SOURCES = new Set([
 
 export const PROGRESSIVE_LOCKED_CELL_CLASS = "rm-progressive-locked-cell";
 
+type ShouldEnforceProgressiveRow = (rowData: unknown[]) => boolean;
+
+const enforceAllRows: ShouldEnforceProgressiveRow = () => true;
+
 export const progressiveLockedCellStyles = `
   .handsontable td.${PROGRESSIVE_LOCKED_CELL_CLASS} {
     color: var(--ht-locked-text, #667085) !important;
@@ -44,6 +48,11 @@ export const progressiveLockedCellStyles = `
 
 export function isFilledCellValue(value: unknown) {
   return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+export function hasPersistedRowId(rowData: unknown[], idColumn: number) {
+  const id = Number(rowData[idColumn]);
+  return Number.isInteger(id) && id > 0;
 }
 
 export function isCellChange(
@@ -103,7 +112,8 @@ export function handleProgressiveBeforeChange(
   hot: Handsontable.Core,
   changes: (Handsontable.CellChange | null)[] | null,
   inputColumns: number[],
-  source?: Handsontable.ChangeSource
+  source?: Handsontable.ChangeSource,
+  shouldEnforceRow: ShouldEnforceProgressiveRow = enforceAllRows
 ) {
   if (!changes || isSystemChangeSource(source)) return;
 
@@ -128,6 +138,11 @@ export function handleProgressiveBeforeChange(
       if (typeof row !== "number" || typeof col !== "number") return;
 
       const shadowRow = getShadowRow(row);
+      if (!shouldEnforceRow(shadowRow)) {
+        shadowRow[col] = newValue;
+        return;
+      }
+
       const isAllowed = isColumnUnlockedForRow(shadowRow, inputColumns, col);
 
       if (!isAllowed) {
@@ -144,7 +159,8 @@ export function applyProgressiveCascade(
   changes: Handsontable.CellChange[],
   inputColumns: number[],
   resetColumnsByInput: Record<number, number[]>,
-  source?: Handsontable.ChangeSource
+  source?: Handsontable.ChangeSource,
+  shouldEnforceRow: ShouldEnforceProgressiveRow = enforceAllRows
 ) {
   if (!changes || isSystemChangeSource(source)) return;
 
@@ -166,6 +182,7 @@ export function applyProgressiveCascade(
     if (typeof row !== "number" || typeof col !== "number") continue;
     if (!isProgressiveColumn(inputColumns, col)) continue;
     if (oldValue === newValue) continue;
+    if (!shouldEnforceRow(hot.getDataAtRow(row) as unknown[])) continue;
 
     const changedCols = changedColsByRow.get(row);
     for (const downstreamCol of resetColumnsByInput[col] ?? []) {
@@ -198,12 +215,14 @@ export function preventLockedCellMouseDown(
   event: MouseEvent,
   coords: { row: number; col: number },
   hot: Handsontable.Core | null | undefined,
-  inputColumns: number[]
+  inputColumns: number[],
+  shouldEnforceRow: ShouldEnforceProgressiveRow = enforceAllRows
 ) {
   if (!hot || coords.row < 0 || coords.col < 0) return;
 
   const rowData = getSafeRowData(hot, [], coords.row);
   const isLocked =
+    shouldEnforceRow(rowData) &&
     isProgressiveColumn(inputColumns, coords.col) &&
     !isColumnUnlockedForRow(rowData, inputColumns, coords.col);
 
@@ -217,12 +236,14 @@ export function openUnlockedDropdownOnMouseDown(
   event: MouseEvent,
   hot: Handsontable.Core | null | undefined,
   coords: { row: number; col: number },
-  inputColumns: number[]
+  inputColumns: number[],
+  shouldEnforceRow: ShouldEnforceProgressiveRow = enforceAllRows
 ) {
   if (!hot || coords.row < 0 || coords.col < 0) return;
 
   const rowData = getSafeRowData(hot, [], coords.row);
   const isLocked =
+    shouldEnforceRow(rowData) &&
     isProgressiveColumn(inputColumns, coords.col) &&
     !isColumnUnlockedForRow(rowData, inputColumns, coords.col);
   if (isLocked) return;

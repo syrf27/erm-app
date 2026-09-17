@@ -15,6 +15,7 @@ import {
   applyProgressiveCascade,
   handleProgressiveBeforeChange,
   getSafeRowData,
+  hasPersistedRowId,
   isColumnUnlockedForRow,
   isProgressiveColumn,
   openUnlockedDropdownOnMouseDown,
@@ -34,6 +35,8 @@ const ANALISIS_RESET_COLUMNS: Record<number, number[]> = {
   7: [8],
   8: [],
 };
+const shouldEnforceAnalisisProgression = (rowData: unknown[]) =>
+  !hasPersistedRowId(rowData, 1);
 
 export default function AnalisisRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
@@ -170,8 +173,9 @@ export default function AnalisisRisikoPage() {
       const identId = parseInt(row[0] as string, 10);
       const analisisId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const isExistingRow = Number.isInteger(analisisId) && analisisId > 0;
       const canUseColumn = (col: number) =>
-        isColumnUnlockedForRow(row, ANALISIS_INPUT_COLUMNS, col);
+        isExistingRow || isColumnUnlockedForRow(row, ANALISIS_INPUT_COLUMNS, col);
 
       const levelKemungkinanId = findId(kemungkinanData, (row[3] as string) ?? "");
       const levelDampakId = canUseColumn(4)
@@ -296,6 +300,7 @@ export default function AnalisisRisikoPage() {
     const isEmptySourceRow = identId == null;
     const isLocked =
       !isEmptySourceRow &&
+      shouldEnforceAnalisisProgression(rowData) &&
       isProgressiveColumn(ANALISIS_INPUT_COLUMNS, col) &&
       !isColumnUnlockedForRow(rowData, ANALISIS_INPUT_COLUMNS, col);
 
@@ -309,7 +314,13 @@ export default function AnalisisRisikoPage() {
     (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
       const hot = hotRef.current?.hotInstance;
       if (!hot) return;
-      handleProgressiveBeforeChange(hot, changes, ANALISIS_INPUT_COLUMNS, source);
+      handleProgressiveBeforeChange(
+        hot,
+        changes,
+        ANALISIS_INPUT_COLUMNS,
+        source,
+        shouldEnforceAnalisisProgression
+      );
     },
     []
   );
@@ -395,14 +406,33 @@ export default function AnalisisRisikoPage() {
         cells={getCellMeta}
         beforeChange={handleBeforeChange}
         beforeOnCellMouseDown={(event, coords) => {
-          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, ANALISIS_INPUT_COLUMNS);
-          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, ANALISIS_INPUT_COLUMNS);
+          preventLockedCellMouseDown(
+            event,
+            coords,
+            hotRef.current?.hotInstance,
+            ANALISIS_INPUT_COLUMNS,
+            shouldEnforceAnalisisProgression
+          );
+          openUnlockedDropdownOnMouseDown(
+            event,
+            hotRef.current?.hotInstance,
+            coords,
+            ANALISIS_INPUT_COLUMNS,
+            shouldEnforceAnalisisProgression
+          );
         }}
         afterChange={(changes, source) => {
           if (!changes) return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
-          applyProgressiveCascade(hot, changes, ANALISIS_INPUT_COLUMNS, ANALISIS_RESET_COLUMNS, source);
+          applyProgressiveCascade(
+            hot,
+            changes,
+            ANALISIS_INPUT_COLUMNS,
+            ANALISIS_RESET_COLUMNS,
+            source,
+            shouldEnforceAnalisisProgression
+          );
           for (const [row, col] of changes) {
             if (col === 3 || col === 4) {
               recalcAnalisisRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);

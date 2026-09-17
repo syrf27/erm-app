@@ -1,0 +1,15 @@
+export const DEFAULT_PROSES_BISNIS = [
+  "S01 - Persiapan (Identifikasi Kebutuhan)",
+  "S02 - Persiapan (Perancangan)",
+  "S03 - Persiapan (Pembangunan)",
+  "S04 - Pengumpulan Data",
+  "S05 - Pengolahan Data",
+  "S06 - Analisis Statistik",
+  "S07 - Diseminasi Statistik",
+  "S08 - Evaluasi Data",
+  "K01 - Perencanaan",
+  "K02 - Persiapan",
+  "K03 - Pelaksanaan",
+  "K04 - Pelaporan",
+  "K05 - Evaluasi",
+] as const;

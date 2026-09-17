@@ -15,6 +15,7 @@ import {
   applyProgressiveCascade,
   handleProgressiveBeforeChange,
   getSafeRowData,
+  hasPersistedRowId,
   isColumnUnlockedForRow,
   isProgressiveColumn,
   openUnlockedDropdownOnMouseDown,
@@ -34,6 +35,8 @@ const EVALUASI_RESET_COLUMNS: Record<number, number[]> = {
   7: [8],
   8: [],
 };
+const shouldEnforceEvaluasiProgression = (rowData: unknown[]) =>
+  !hasPersistedRowId(rowData, 1);
 
 const RESPON_OPTIONS = [
   "Mengurangi Risiko",
@@ -280,8 +283,9 @@ export default function EvaluasiRisikoPage() {
       const identId = parseInt(row[0] as string, 10);
       const evaluasiId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const isExistingRow = Number.isInteger(evaluasiId) && evaluasiId > 0;
       const canUseColumn = (col: number) =>
-        isColumnUnlockedForRow(row, EVALUASI_INPUT_COLUMNS, col);
+        isExistingRow || isColumnUnlockedForRow(row, EVALUASI_INPUT_COLUMNS, col);
       const respon = canUseColumn(7) ? (row[7] as string) ?? "" : "";
       const residualBesaran = Number(row[6]);
       const autoPriority = autoPriorityByIdentIdRef.current.get(identId);
@@ -425,6 +429,7 @@ export default function EvaluasiRisikoPage() {
       isReducingResponse(rowData[7]);
     const isLocked =
       !isEmptySourceRow &&
+      shouldEnforceEvaluasiProgression(rowData) &&
       isProgressiveColumn(EVALUASI_INPUT_COLUMNS, col) &&
       !isColumnUnlockedForRow(rowData, EVALUASI_INPUT_COLUMNS, col);
 
@@ -446,7 +451,13 @@ export default function EvaluasiRisikoPage() {
     (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
       const hot = hotRef.current?.hotInstance;
       if (!hot) return;
-      handleProgressiveBeforeChange(hot, changes, EVALUASI_INPUT_COLUMNS, source);
+      handleProgressiveBeforeChange(
+        hot,
+        changes,
+        EVALUASI_INPUT_COLUMNS,
+        source,
+        shouldEnforceEvaluasiProgression
+      );
       if (!changes) return;
 
       for (const change of changes) {
@@ -550,15 +561,34 @@ export default function EvaluasiRisikoPage() {
         cells={getCellMeta}
         beforeChange={handleBeforeChange}
         beforeOnCellMouseDown={(event, coords) => {
-          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, EVALUASI_INPUT_COLUMNS);
-          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, EVALUASI_INPUT_COLUMNS);
+          preventLockedCellMouseDown(
+            event,
+            coords,
+            hotRef.current?.hotInstance,
+            EVALUASI_INPUT_COLUMNS,
+            shouldEnforceEvaluasiProgression
+          );
+          openUnlockedDropdownOnMouseDown(
+            event,
+            hotRef.current?.hotInstance,
+            coords,
+            EVALUASI_INPUT_COLUMNS,
+            shouldEnforceEvaluasiProgression
+          );
         }}
         afterChange={(changes, source) => {
           if (!changes) return;
           if (String(source) === "priority-auto") return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
-          applyProgressiveCascade(hot, changes, EVALUASI_INPUT_COLUMNS, EVALUASI_RESET_COLUMNS, source);
+          applyProgressiveCascade(
+            hot,
+            changes,
+            EVALUASI_INPUT_COLUMNS,
+            EVALUASI_RESET_COLUMNS,
+            source,
+            shouldEnforceEvaluasiProgression
+          );
           for (const [row, col] of changes) {
             if (col === 3 || col === 4) {
               recalcResidualRow(hot, row, kemungkinanData, dampakData, matriksData);

@@ -31,6 +31,7 @@ import {
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Pagination } from "@/components/pagination";
 import { useYear } from "@/lib/year-context";
+import { getSafeDocumentHref } from "@/lib/safe-url";
 
 interface ReportRow {
   identId: number;
@@ -1135,14 +1136,7 @@ export default function PelaporanRisikoPage() {
                         <IconFileText size={14} />
                         <Text
                           component="a"
-                          href={
-                            row.dokumenPendukung.startsWith("/uploads/")
-                              ? row.dokumenPendukung.replace(
-                                  "/uploads/",
-                                  "/api/uploads/"
-                                )
-                              : row.dokumenPendukung
-                          }
+                          href={getSafeDocumentHref(row.dokumenPendukung) ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           size="xs"

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { sanitizeHtml, sanitizeRichText } from "@/lib/sanitize";
+import { isSafeAppUrl } from "@/lib/safe-url";
 
 /**
  * Zod schemas for input validation
@@ -11,11 +13,47 @@ const nonNegativeInt = z.number().int().nonnegative();
 const optionalPositiveInt = z.number().int().positive().optional();
 const optionalNonNegativeInt = z.number().int().nonnegative().optional();
 
+const safePlainText = (max: number, requiredMessage?: string) => {
+  const schema = z
+    .string()
+    .trim()
+    .max(max)
+    .transform((value) => sanitizeHtml(value).trim());
+
+  return requiredMessage
+    ? schema.refine((value) => value.length > 0, requiredMessage)
+    : schema;
+};
+
+const safeRichText = (max: number, requiredMessage: string) =>
+  z
+    .string()
+    .max(max)
+    .transform((value) => sanitizeRichText(value))
+    .refine((value) => sanitizeHtml(value).trim().length > 0, requiredMessage);
+
+export const safeDocumentUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Tautan harus diisi")
+  .max(2048, "Tautan terlalu panjang")
+  .refine(
+    isSafeAppUrl,
+    "Tautan harus menggunakan http://, https://, atau path internal aplikasi"
+  );
+
+export const documentReferenceSchema = z
+  .object({
+    title: safePlainText(500, "Judul dokumen harus diisi"),
+    url: safeDocumentUrlSchema,
+  })
+  .strict();
+
 // Risk identification schemas
 export const createIdentifikasiRisikoSchema = z.object({
-  risiko: z.string().min(1, "Risiko harus diisi").max(5000, "Risiko terlalu panjang"),
-  penyebab: z.string().max(5000, "Penyebab terlalu panjang").optional().nullable(),
-  dampak: z.string().max(5000, "Dampak terlalu panjang").optional().nullable(),
+  risiko: safePlainText(5000, "Risiko harus diisi"),
+  penyebab: safePlainText(5000).optional().nullable(),
+  dampak: safePlainText(5000).optional().nullable(),
   jenisRisikoId: positiveInt,
   sumberRisikoId: positiveInt,
   kategoriRisikoId: positiveInt,
@@ -35,7 +73,7 @@ export const createAnalisisRisikoSchema = z.object({
   levelKemungkinanId: optionalPositiveInt,
   levelDampakId: optionalPositiveInt,
   levelRisikoId: optionalPositiveInt,
-  pengendalianUraian: z.string().max(5000).optional().nullable(),
+  pengendalianUraian: safePlainText(5000).optional().nullable(),
   pengendalianEfektivitas: z.enum(["efektif", "cukup_efektif", "kurang_efektif", "tidak_efektif"]).optional().nullable(),
 });
 
@@ -57,26 +95,30 @@ export const updateEvaluasiRisikoSchema = createEvaluasiRisikoSchema.partial().o
 export const createRencanaPenangananSchema = z.object({
   identifikasiRisikoId: positiveInt,
   jenisPenanganan: z.enum(["mengurangi", "menerima", "mentransfer", "menghindari"]).optional().nullable(),
-  rencanaTidakPenanganan: z.string().max(5000).optional().nullable(),
-  targetOutput: z.string().max(5000).optional().nullable(),
-  targetWaktu: z.string().max(500).optional().nullable(),
-  penanggungJawab: z.string().max(500).optional().nullable(),
+  rencanaTidakPenanganan: safePlainText(5000).optional().nullable(),
+  targetOutput: safePlainText(5000).optional().nullable(),
+  targetWaktu: safePlainText(500).optional().nullable(),
+  penanggungJawab: safePlainText(500).optional().nullable(),
   residualLevelKemungkinanId: optionalPositiveInt,
   residualLevelDampakId: optionalPositiveInt,
   keterjadiRisiko: z.enum(["Terjadi", "Tidak Terjadi"]).optional().nullable(),
-  realisasiWaktu: z.string().max(500).optional().nullable(),
-  realisasiOutput: z.string().max(5000).optional().nullable(),
-  dokumenPendukung: z.string().max(500).optional().nullable(),
+  realisasiWaktu: safePlainText(500).optional().nullable(),
+  realisasiOutput: safePlainText(5000).optional().nullable(),
+  dokumenPendukung: z
+    .union([safeDocumentUrlSchema, z.literal("")])
+    .transform((value) => value || null)
+    .optional()
+    .nullable(),
   persetujuan: z.enum(["Draft", "Disetujui", "Ditolak"]).default("Draft"),
-  disetujuiOleh: z.string().max(500).optional().nullable(),
+  disetujuiOleh: safePlainText(500).optional().nullable(),
 });
 
 export const updateRencanaPenangananSchema = createRencanaPenangananSchema.partial().omit({ identifikasiRisikoId: true });
 
 // Sasaran schemas
 export const createSasaranSchema = z.object({
-  nama: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  nama: safePlainText(500, "Nama harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
   unitKerjaId: optionalPositiveInt,
 });
 
@@ -84,8 +126,8 @@ export const updateSasaranSchema = createSasaranSchema.partial();
 
 // Kegiatan schemas
 export const createKegiatanSchema = z.object({
-  nama: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  nama: safePlainText(500, "Nama harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
   unitKerjaId: optionalPositiveInt,
   sasaranId: optionalPositiveInt,
 });
@@ -94,8 +136,8 @@ export const updateKegiatanSchema = createKegiatanSchema.partial();
 
 // ProsesBisnis schemas
 export const createProsesBisnisSchema = z.object({
-  nama: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  nama: safePlainText(500, "Nama harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
   kegiatanId: optionalPositiveInt,
 });
 
@@ -103,46 +145,74 @@ export const updateProsesBisnisSchema = createProsesBisnisSchema.partial();
 
 // UnitKerja schemas
 export const createUnitKerjaSchema = z.object({
-  nama: z.string().min(1).max(500),
-  kode: z.string().min(1).max(50),
+  nama: safePlainText(500, "Nama harus diisi"),
+  kode: safePlainText(50, "Kode harus diisi"),
 });
 
 export const updateUnitKerjaSchema = createUnitKerjaSchema.partial();
 
 // Reference data schemas (jenis-risiko, sumber-risiko, kategori-risiko, area-dampak, etc.)
 export const createReferenceSchema = z.object({
-  nama: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  nama: safePlainText(500, "Nama harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
 });
 
 export const updateReferenceSchema = createReferenceSchema.partial();
 
+export const createAreaDampakSchema = z.object({
+  kode: z.string().trim().toUpperCase().regex(/^D\d{2}$/, "Kode harus berformat D01-D99"),
+  nama: safePlainText(500, "Nama harus diisi"),
+});
+
+export const updateAreaDampakSchema = createAreaDampakSchema.partial();
+
 export const createFaqSchema = z.object({
-  question: z.string().min(1, "Pertanyaan harus diisi").max(5000),
-  answer: z.string().min(1, "Jawaban harus diisi").max(10000),
+  question: safeRichText(5000, "Pertanyaan harus diisi"),
+  answer: safeRichText(10000, "Jawaban harus diisi"),
   order: z.number().int().nonnegative().optional(),
 });
 
 export const updateFaqSchema = createFaqSchema.partial();
 
+export const createRepositoriSchema = z
+  .object({
+    title: safePlainText(500, "Judul dokumen harus diisi"),
+    url: safeDocumentUrlSchema,
+    category: z.enum(["pedoman", "bukti_dukung", "laporan"]),
+    tahun: z.number().int().min(2020).max(2035),
+    uploader: safePlainText(500, "Uploader harus diisi"),
+  })
+  .strict();
+
+export const updateRepositoriSchema = createRepositoriSchema
+  .omit({ uploader: true })
+  .partial()
+  .strict();
+
+export const createDokumenPendukungSchema = documentReferenceSchema.extend({
+  rencanaPenangananId: positiveInt,
+});
+
+export const updateDokumenPendukungSchema = documentReferenceSchema.partial().strict();
+
 // Level schemas
 export const createLevelKemungkinanSchema = z.object({
-  nama: z.string().min(1).max(500),
+  nama: safePlainText(500, "Nama harus diisi"),
   skala: z.number().int().min(1).max(5),
 });
 
 export const createLevelDampakSchema = z.object({
   nama: z.string().min(1).max(500),
   skala: z.number().int().min(1).max(5),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  deskripsi: safePlainText(5000).optional().nullable(),
 });
 
 export const createLevelRisikoSchema = z.object({
-  nama: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
-  rentang: z.string().max(50).optional().nullable(),
-  tindakan: z.string().max(5000).optional().nullable(),
-  warna: z.string().max(50).optional().nullable(),
+  nama: safePlainText(500, "Nama harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
+  rentang: safePlainText(50).optional().nullable(),
+  tindakan: safePlainText(5000).optional().nullable(),
+  warna: safePlainText(50).optional().nullable(),
 });
 
 // Matrix schemas
@@ -156,7 +226,7 @@ export const createMatriksAnalisisRisikoSchema = z.object({
 export const createSeleraRisikoSchema = z.object({
   kategoriRisikoId: positiveInt,
   besaranRisikoMinimum: z.number().int().min(0).max(25),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  deskripsi: safePlainText(5000).optional().nullable(),
 });
 
 export const updateSeleraRisikoSchema = createSeleraRisikoSchema.partial();
@@ -169,15 +239,15 @@ export const updateSeleraRisikoGlobalSchema = createSeleraRisikoGlobalSchema.par
 
 // KRI schemas
 export const createKRISchema = z.object({
-  namaIndikator: z.string().min(1).max(500),
-  deskripsi: z.string().max(5000).optional().nullable(),
+  namaIndikator: safePlainText(500, "Nama indikator harus diisi"),
+  deskripsi: safePlainText(5000).optional().nullable(),
   batasHijau: z.number().optional().nullable(),
   batasKuning: z.number().optional().nullable(),
   batasMerah: z.number().optional().nullable(),
   nilaiAktual: z.number().optional().nullable(),
-  frekuensiPemantauan: z.string().max(100).optional().nullable(),
+  frekuensiPemantauan: safePlainText(100).optional().nullable(),
   identifikasiRisikoId: optionalPositiveInt,
-  penanggungJawab: z.string().max(500).optional().nullable(),
+  penanggungJawab: safePlainText(500).optional().nullable(),
   targetNilaiHarapan: z.number().optional().nullable(),
 });
 

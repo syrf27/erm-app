@@ -106,8 +106,8 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
     { key: "deskripsi", label: "Deskripsi", type: "text" },
   ],
   "area-dampak": [
-    { key: "nama", label: "Nama", type: "text", required: true },
-    { key: "deskripsi", label: "Deskripsi", type: "text" },
+    { key: "kode", label: "Kode", type: "text", required: true },
+    { key: "nama", label: "Dampak", type: "text", required: true },
   ],
   "level-kemungkinan": [
     { key: "nama", label: "Nama", type: "text", required: true },
@@ -311,10 +311,9 @@ export function CrudTable({ resource }: CrudTableProps) {
       </Group>
 
       <ScrollArea type="auto">
-        <Table striped highlightOnHover withTableBorder miw={Math.max(520, fields.length * 180 + 180)}>
+        <Table striped highlightOnHover withTableBorder miw={Math.max(520, fields.length * 180 + 120)}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>ID</Table.Th>
               {fields.map((f) => (
                 <Table.Th key={f.key}>{f.label}</Table.Th>
               ))}
@@ -324,13 +323,13 @@ export function CrudTable({ resource }: CrudTableProps) {
           <Table.Tbody>
             {isLoading ? (
               <Table.Tr>
-                <Table.Td colSpan={fields.length + 2} ta="center">
+                <Table.Td colSpan={fields.length + 1} ta="center">
                   <Loader size="sm" />
                 </Table.Td>
               </Table.Tr>
             ) : data.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={fields.length + 2}>
+                <Table.Td colSpan={fields.length + 1}>
                   <Group justify="center" c="dimmed" py="md">
                     Belum ada data
                   </Group>
@@ -339,7 +338,6 @@ export function CrudTable({ resource }: CrudTableProps) {
             ) : (
               data.map((item: any) => (
                 <Table.Tr key={item.id}>
-                  <Table.Td>{item.id}</Table.Td>
                   {fields.map((f) => (
                     <Table.Td key={f.key}>
                       {f.key === "warna" ? (

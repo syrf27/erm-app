@@ -1,5 +1,7 @@
 import { prisma } from "../src/lib/prisma";
 import { hashPassword } from "../src/lib/password-utils";
+import { DEFAULT_PROSES_BISNIS } from "./proses-bisnis-data";
+import { DEFAULT_AREA_DAMPAK } from "./area-dampak-data";
 
 const defaultFaqs = [
   {
@@ -491,6 +493,14 @@ async function main() {
   }
   console.log("Seeded Kegiatan");
 
+  for (const nama of DEFAULT_PROSES_BISNIS) {
+    const existing = await prisma.prosesBisnis.findFirst({ where: { nama } });
+    if (!existing) {
+      await prisma.prosesBisnis.create({ data: { nama } });
+    }
+  }
+  console.log("Seeded ProsesBisnis");
+
 
   // 4. Seed LevelKemungkinan (1-5)
   const levelKemungkinanData = [
@@ -579,18 +589,28 @@ async function main() {
   console.log("Seeded MatriksAnalisisRisiko");
 
   // 7. Seed AreaDampak / KriteriaDampak Kategori
-  const areaDampakData = [
-    { nama: "Penurunan Reputasi" },
-    { nama: "Gangguan Terhadap Layanan Organisasi" },
-    { nama: "Kecelakaan Kerja" },
-    { nama: "Sanksi Pidana, Perdata, dan /atau Administratif" },
-    { nama: "Fraud" }
-  ];
+  for (const item of DEFAULT_AREA_DAMPAK) {
+    const existing = await prisma.areaDampak.findFirst({
+      where: {
+        OR: [
+          { kode: item.kode },
+          { nama: { in: [...item.aliases], mode: "insensitive" } },
+        ],
+      },
+    });
 
-  for (const item of areaDampakData) {
-    const existing = await prisma.areaDampak.findFirst({ where: { nama: item.nama } });
-    if (!existing) {
-      await prisma.areaDampak.create({ data: item });
+    if (
+      existing &&
+      (existing.kode !== item.kode || existing.nama !== item.nama)
+    ) {
+      await prisma.areaDampak.update({
+        where: { id: existing.id },
+        data: { kode: item.kode, nama: item.nama },
+      });
+    } else if (!existing) {
+      await prisma.areaDampak.create({
+        data: { kode: item.kode, nama: item.nama },
+      });
     }
   }
   console.log("Seeded AreaDampak");

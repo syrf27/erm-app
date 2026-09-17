@@ -17,6 +17,7 @@ import {
   updateProsesBisnisSchema,
   updateUnitKerjaSchema,
   updateReferenceSchema,
+  updateAreaDampakSchema,
   updateFaqSchema,
   updateUserSchema,
   updateRoleSchema,
@@ -26,6 +27,9 @@ import {
   updateKRISchema,
   updateSeleraRisikoSchema,
   updateSeleraRisikoGlobalSchema,
+  updateRepositoriSchema,
+  updateDokumenPendukungSchema,
+  documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
 
@@ -119,12 +123,14 @@ export async function PATCH(
         case "jenis-risiko":
         case "sumber-risiko":
         case "kategori-risiko":
-        case "area-dampak":
         case "opsi-penanganan":
         case "kriteria-dampak":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
           validatedData = updateReferenceSchema.parse(body);
+          break;
+        case "area-dampak":
+          validatedData = updateAreaDampakSchema.parse(body);
           break;
         case "matriks-risiko":
           validatedData = updateSeleraRisikoSchema.parse(body);
@@ -164,6 +170,15 @@ export async function PATCH(
           break;
         case "rencana-penanganan":
           validatedData = updateRencanaPenangananSchema.parse(body);
+          if (body.dokumenPendukungs !== undefined) {
+            documentReferenceSchema.array().max(20).parse(body.dokumenPendukungs);
+          }
+          break;
+        case "repositori":
+          validatedData = updateRepositoriSchema.parse(body);
+          break;
+        case "dokumen-pendukung":
+          validatedData = updateDokumenPendukungSchema.parse(body);
           break;
         default:
           validatedData = body;
@@ -252,20 +267,24 @@ export async function PATCH(
     } else if (resource === "rencana-penanganan") {
       const { dokumenPendukungs, ...rest } = body;
       const validatedRtp = updateRencanaPenangananSchema.parse(rest);
+      const validatedDocuments =
+        dokumenPendukungs === undefined
+          ? undefined
+          : documentReferenceSchema.array().max(20).parse(dokumenPendukungs);
       const existingDocs = await prisma.dokumenPendukung.findMany({
         where: { rencanaPenangananId: Number(id) },
         select: { id: true, url: true },
       });
       const nextDocUrls = new Set(
-        Array.isArray(dokumenPendukungs)
-          ? dokumenPendukungs.map((d: any) => d?.url).filter((url: any): url is string => typeof url === "string")
+        validatedDocuments
+          ? validatedDocuments.map((document) => document.url)
           : []
       );
       const updateData: any = { ...validatedRtp };
-      if (dokumenPendukungs !== undefined && Array.isArray(dokumenPendukungs)) {
+      if (validatedDocuments !== undefined) {
         updateData.dokumenPendukungs = {
           deleteMany: {},
-          create: dokumenPendukungs.map((d: any) => ({
+          create: validatedDocuments.map((d) => ({
             title: d.title,
             url: d.url,
           })),
@@ -276,7 +295,7 @@ export async function PATCH(
         data: updateData,
       });
       await cleanupStoredFiles(existingDocs.map((doc) => doc.url).filter((url) => !nextDocUrls.has(url)));
-      if (dokumenPendukungs !== undefined && Array.isArray(dokumenPendukungs)) {
+      if (validatedDocuments !== undefined) {
         await Promise.all(existingDocs.map((doc) => deleteDocumentEmbedding("bukti", doc.id)));
       }
     } else {

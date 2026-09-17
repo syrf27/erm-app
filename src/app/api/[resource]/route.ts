@@ -18,6 +18,7 @@ import {
   createProsesBisnisSchema,
   createUnitKerjaSchema,
   createReferenceSchema,
+  createAreaDampakSchema,
   createFaqSchema,
   createLevelKemungkinanSchema,
   createLevelDampakSchema,
@@ -33,6 +34,9 @@ import {
   createEvaluasiRisikoSchema,
   createRencanaPenangananSchema,
   createAuditLogSchema,
+  createRepositoriSchema,
+  createDokumenPendukungSchema,
+  documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
 
@@ -302,13 +306,15 @@ export async function POST(
         case "jenis-risiko":
         case "sumber-risiko":
         case "kategori-risiko":
-        case "area-dampak":
         case "level-risiko":
         case "opsi-penanganan":
         case "kriteria-dampak":
         case "pemangku-kepentingan":
         case "peraturan-perundangan":
           validatedData = createReferenceSchema.parse(body);
+          break;
+        case "area-dampak":
+          validatedData = createAreaDampakSchema.parse(body);
           break;
         case "matriks-risiko":
           validatedData = createSeleraRisikoSchema.parse(body);
@@ -351,6 +357,15 @@ export async function POST(
           break;
         case "rencana-penanganan":
           validatedData = createRencanaPenangananSchema.parse(body);
+          if (body.dokumenPendukungs !== undefined) {
+            documentReferenceSchema.array().max(20).parse(body.dokumenPendukungs);
+          }
+          break;
+        case "repositori":
+          validatedData = createRepositoriSchema.parse(body);
+          break;
+        case "dokumen-pendukung":
+          validatedData = createDokumenPendukungSchema.parse(body);
           break;
         case "audit-logs":
           validatedData = createAuditLogSchema.parse(body);
@@ -390,10 +405,14 @@ export async function POST(
     } else if (resource === "rencana-penanganan") {
       const { dokumenPendukungs, ...rest } = body;
       const validatedRtp = createRencanaPenangananSchema.parse(rest);
+      const validatedDocuments =
+        dokumenPendukungs === undefined
+          ? undefined
+          : documentReferenceSchema.array().max(20).parse(dokumenPendukungs);
       const createData: any = { ...validatedRtp };
-      if (dokumenPendukungs && Array.isArray(dokumenPendukungs)) {
+      if (validatedDocuments?.length) {
         createData.dokumenPendukungs = {
-          create: dokumenPendukungs.map((d: any) => ({
+          create: validatedDocuments.map((d) => ({
             title: d.title,
             url: d.url,
           })),

@@ -20,13 +20,49 @@ export function sanitizeHtml(dirty: string): string {
 export function escapeHtml(text: string): string {
   if (!text) return "";
   const map: Record<string, string> = {
-    "&": "&",
-    "<": "<",
-    ">": ">",
-    '"': '"',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
     "'": "&#039;",
   };
   return text.replace(/[&<>"']/g, (char) => map[char]);
+}
+
+/**
+ * Sanitize rich text produced by the FAQ editor.
+ * Formatting is preserved, while scripts, event handlers, styles, embeds,
+ * and unsafe link protocols are removed by DOMPurify.
+ */
+export function sanitizeRichText(dirty: string): string {
+  if (!dirty) return "";
+
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: [
+      "p",
+      "br",
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "s",
+      "h1",
+      "h2",
+      "h3",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "code",
+      "pre",
+      "a",
+    ],
+    ALLOWED_ATTR: ["href", "title"],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "svg", "math"],
+    FORBID_ATTR: ["style"],
+  });
 }
 
 /**

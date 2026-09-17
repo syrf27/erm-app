@@ -32,6 +32,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
+import { getSafeDocumentHref } from "@/lib/safe-url";
 import {
   IconDashboard,
   IconLogout,
@@ -239,21 +240,33 @@ function SidebarIcon({
   icon,
   active,
   compact,
+  tone = "default",
 }: {
   icon?: React.ReactNode;
   active: boolean;
   compact?: boolean;
+  tone?: "default" | "danger";
 }) {
   const size = compact ? sidebarTheme.iconSizeChild : sidebarTheme.iconSize;
+  const isDanger = tone === "danger";
 
   return (
     <Box
+      className="risk-sidebar-icon"
       style={{
         width: size,
         height: size,
         borderRadius: sidebarTheme.iconRadius,
-        backgroundColor: active ? sidebarTheme.activeIconBg : sidebarTheme.idleIconBg,
-        color: active ? sidebarTheme.activeIconColor : sidebarTheme.idleIconColor,
+        backgroundColor: isDanger
+          ? "var(--mantine-color-red-light)"
+          : active
+            ? sidebarTheme.activeIconBg
+            : sidebarTheme.idleIconBg,
+        color: isDanger
+          ? "var(--mantine-color-red-filled)"
+          : active
+            ? sidebarTheme.activeIconColor
+            : sidebarTheme.idleIconColor,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
@@ -312,6 +325,7 @@ function SidebarItem({
           component={Link}
           href={item.href}
           data-tour={item.dataTour}
+          className="risk-sidebar-item"
           style={itemStyles}
         >
           <SidebarIcon icon={item.icon} active={isActive} compact={isCompact} />
@@ -350,6 +364,7 @@ function SidebarItem({
         <UnstyledButton
           data-tour={item.dataTour}
           onClick={hasChildren && !selfActive ? () => toggleOpen(key) : undefined}
+          className="risk-sidebar-item"
           style={itemStyles}
         >
           <SidebarIcon icon={item.icon} active={isActive} compact={isCompact} />
@@ -476,6 +491,40 @@ function SidebarNavList({
         />
       ))}
     </Stack>
+  );
+}
+
+function SidebarLogoutItem({ onClick }: { onClick: () => void }) {
+  return (
+    <UnstyledButton
+      onClick={onClick}
+      aria-label="Logout"
+      className="risk-sidebar-item risk-sidebar-item--danger"
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: `${sidebarTheme.itemPaddingY}px ${sidebarTheme.itemPaddingX}px`,
+        color: "var(--mantine-color-red-filled)",
+        transition: "color 150ms ease",
+        textAlign: "left",
+      }}
+    >
+      <SidebarIcon
+        icon={<IconLogout size={18} />}
+        active={false}
+        tone="danger"
+      />
+      <Text
+        size="sm"
+        fw={500}
+        c="var(--mantine-color-red-filled)"
+        style={{ lineHeight: 1.2 }}
+      >
+        Logout
+      </Text>
+    </UnstyledButton>
   );
 }
 
@@ -910,8 +959,9 @@ function LayoutContent({ children }: PropsWithChildren) {
                                   </div>
                                   <div style={{ flex: 1, minWidth: 0 }} onClick={() => {
                                     markAsRead(notif.id);
-                                    if (notif.url) {
-                                      window.location.href = notif.url;
+                                    const safeUrl = getSafeDocumentHref(notif.url);
+                                    if (safeUrl) {
+                                      window.location.assign(safeUrl);
                                     }
                                   }}>
                                     <Text size="xs" fw={700} lineClamp={1}>{notif.title}</Text>
@@ -1097,17 +1147,7 @@ function LayoutContent({ children }: PropsWithChildren) {
               Lihat Panduan
             </Button>
             {desktopOpened ? (
-              <Button
-                variant="subtle"
-                color="red"
-                leftSection={<IconLogout size={18} />}
-                onClick={openLogout}
-                fullWidth
-                justify="flex-start"
-                style={{ fontWeight: 500 }}
-              >
-                Logout
-              </Button>
+              <SidebarLogoutItem onClick={openLogout} />
             ) : (
               <Tooltip label="Logout" position="right">
                 <ActionIcon
@@ -1205,6 +1245,59 @@ function LayoutContent({ children }: PropsWithChildren) {
           </Group>
         </Stack>
       </Modal>
+      <style jsx global>{`
+        .risk-sidebar-item {
+          border-radius: ${sidebarTheme.iconRadius}px;
+          transition:
+            background-color 160ms ease,
+            transform 160ms ease;
+        }
+
+        .risk-sidebar-item:hover {
+          background-color: var(--mantine-color-blue-light);
+          transform: translateX(2px);
+        }
+
+        .risk-sidebar-item .risk-sidebar-icon {
+          transition:
+            transform 160ms ease,
+            box-shadow 160ms ease;
+        }
+
+        .risk-sidebar-item:hover .risk-sidebar-icon {
+          box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-blue-filled) 18%, transparent);
+          transform: translateY(-1px);
+        }
+
+        .risk-sidebar-item--danger:hover {
+          background-color: var(--mantine-color-red-light);
+        }
+
+        .risk-sidebar-item--danger:hover .risk-sidebar-icon {
+          box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-red-filled) 18%, transparent);
+        }
+
+        .risk-sidebar-item:focus-visible {
+          outline: 2px solid var(--mantine-color-blue-filled);
+          outline-offset: 2px;
+        }
+
+        .risk-sidebar-item--danger:focus-visible {
+          outline-color: var(--mantine-color-red-filled);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .risk-sidebar-item,
+          .risk-sidebar-item .risk-sidebar-icon {
+            transition: none;
+          }
+
+          .risk-sidebar-item:hover,
+          .risk-sidebar-item:hover .risk-sidebar-icon {
+            transform: none;
+          }
+        }
+      `}</style>
     </AppShell>
   );
 }

@@ -26,6 +26,7 @@ import { RichTextEditor, Link } from "@mantine/tiptap";
 import { IconPlus, IconEdit, IconTrash, IconSearch } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
 import { hasClientPermission } from "@/lib/client-permissions";
+import { sanitizeRichText } from "@/lib/sanitize";
 
 interface FaqItem {
   id: number;
@@ -75,7 +76,13 @@ export default function FaqPage() {
       const res = await fetch("/api/faq?_start=0&_end=1000&_sort=order&_order=asc");
       if (!res.ok) throw new Error("Gagal mengambil data FAQ");
       const data = await res.json();
-      setFaqs(data || []);
+      setFaqs(
+        (data || []).map((faq: FaqItem) => ({
+          ...faq,
+          question: sanitizeRichText(faq.question),
+          answer: sanitizeRichText(faq.answer),
+        }))
+      );
     } catch (err: any) {
       notifications.show({
         title: "Gagal",
@@ -92,8 +99,8 @@ export default function FaqPage() {
   }, [isIdentityLoading]);
 
   const resetEditorContent = (question: string, answer: string) => {
-    if (questionEditor) questionEditor.commands.setContent(question || "");
-    if (answerEditor) answerEditor.commands.setContent(answer || "");
+    if (questionEditor) questionEditor.commands.setContent(sanitizeRichText(question || ""));
+    if (answerEditor) answerEditor.commands.setContent(sanitizeRichText(answer || ""));
   };
 
   const openCreate = () => {
@@ -121,7 +128,10 @@ export default function FaqPage() {
 
     setSaving(true);
     try {
-      const body = { question: questionHtml, answer: answerHtml };
+      const body = {
+        question: sanitizeRichText(questionHtml),
+        answer: sanitizeRichText(answerHtml),
+      };
       const url = editingItem ? `/api/faq/${editingItem.id}` : "/api/faq";
       const method = editingItem ? "PATCH" : "POST";
 

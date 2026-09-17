@@ -9,15 +9,17 @@ import { createWorker } from "tesseract.js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// B.AI Messages API configuration. Keep these configurable for local and deployment environments.
-const BAI_API_BASE_URL = (process.env.BAI_API_BASE_URL || "https://api.b.ai/v1").replace(/\/+$/, "");
-const BAI_API_URL = `${BAI_API_BASE_URL}/messages`;
-const SUMMARY_MODEL = process.env.BAI_SUMMARY_MODEL || "qwen3.8-flash";
-const SUMMARY_MAX_TOKENS = getPositiveIntegerEnv("BAI_SUMMARY_MAX_TOKENS", 2048);
+// Groq exposes an OpenAI-compatible Chat Completions API.
+const GROQ_API_BASE_URL = (
+  process.env.GROQ_API_BASE_URL || "https://api.groq.com/openai/v1"
+).replace(/\/+$/, "");
+const GROQ_API_URL = `${GROQ_API_BASE_URL}/chat/completions`;
+const SUMMARY_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const SUMMARY_MAX_TOKENS = getPositiveIntegerEnv("GROQ_SUMMARY_MAX_TOKENS", 900);
 const DIRECT_SUMMARY_CHAR_LIMIT = 12000;
-const CHUNK_SIZE = 9000;
-const CHUNK_OVERLAP = 700;
-const MAX_CHUNKS = 8;
+const CHUNK_SIZE = getPositiveIntegerEnv("GROQ_SUMMARY_CHUNK_SIZE", 4500);
+const CHUNK_OVERLAP = Math.min(300, Math.floor(CHUNK_SIZE / 4));
+const MAX_CHUNKS = Math.max(2, getPositiveIntegerEnv("GROQ_SUMMARY_MAX_CHUNKS", 3));
 const OCR_MAX_PAGES = getPositiveIntegerEnv("OCR_MAX_PAGES", 3);
 const OCR_RENDER_WIDTH = getPositiveIntegerEnv("OCR_RENDER_WIDTH", 1400);
 let pdfWorkerConfigured = false;
@@ -266,12 +268,7 @@ async function extractTextWithOcr(parser: any, pageCount?: number) {
 }
 
 async function requestSummary(messages: { role: "system" | "user"; content: string }[], apiKey: string) {
-  const systemMessage = messages.find((message) => message.role === "system")?.content;
-  const userMessages = messages
-    .filter((message) => message.role !== "system")
-    .map(({ role, content }) => ({ role, content }));
-
-  const response = await fetch(BAI_API_URL, {
+  const response = await fetch(GROQ_API_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
@@ -279,31 +276,26 @@ async function requestSummary(messages: { role: "system" | "user"; content: stri
     },
     body: JSON.stringify({
       model: SUMMARY_MODEL,
-      max_tokens: SUMMARY_MAX_TOKENS,
-      ...(systemMessage ? { system: systemMessage } : {}),
-      messages: userMessages,
+      max_completion_tokens: SUMMARY_MAX_TOKENS,
+      messages,
       temperature: 0.3,
+      ...(SUMMARY_MODEL.startsWith("openai/gpt-oss-")
+        ? { reasoning_effort: "low" }
+        : {}),
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("B.AI API failure details:", errorText);
-    throw new Error(`B.AI API returned status: ${response.status}`);
+    console.error("Groq API failure details:", errorText.slice(0, 2000));
+    throw new Error(`Groq API returned status: ${response.status}`);
   }
 
   const data = await response.json();
-  const summary = Array.isArray(data.content)
-    ? data.content
-        .filter((block: any) => block?.type === "text" && typeof block.text === "string")
-        .map((block: any) => block.text)
-        .join("\n")
-    : typeof data.content === "string"
-    ? data.content
-    : "";
+  const summary = data?.choices?.[0]?.message?.content;
 
-  if (!summary || summary.trim().length === 0) {
-    throw new Error("Empty summary received from B.AI");
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    throw new Error("Empty summary received from Groq");
   }
 
   return summary.trim();
@@ -346,9 +338,11 @@ async function summarizeDocument(documentTitle: string, extracted: ExtractedDocu
       ? "Catatan: teks bagian ini berasal dari OCR dokumen scan, jadi ringkas hanya informasi yang terbaca jelas.\n"
       : "";
 
-  const chunkSummaries = await Promise.all(
-    chunks.map((chunk, index) =>
-      requestSummary(
+  const chunkSummaries: string[] = [];
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
+    chunkSummaries.push(
+      await requestSummary(
         [
           { role: "system", content: systemPrompt },
           {
@@ -361,8 +355,8 @@ async function summarizeDocument(documentTitle: string, extracted: ExtractedDocu
         ],
         apiKey
       )
-    )
-  );
+    );
+  }
 
   return requestSummary(
     [
@@ -541,17 +535,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Request summary from B.AI with adaptive strategy when text is readable.
+    // 4. Request summary from Groq with adaptive strategy when text is readable.
     let summary: string;
     if (extractedDocument.isProbablyScanned || extractedDocument.charCount <= 50) {
       summary = buildUnreadableDocumentSummary(documentTitle, extractedDocument);
     } else {
-      const apiKey = process.env.BAI_API_KEY;
+      const apiKey = process.env.GROQ_API_KEY;
       if (!apiKey) {
-        return NextResponse.json({ error: "BAI_API_KEY is not configured in .env.local or deployment environment" }, { status: 500 });
+        return NextResponse.json({ error: "GROQ_API_KEY is not configured in .env.local or deployment environment" }, { status: 500 });
       }
 
-      console.log(`[summarize-debug] Sending request to B.AI (${SUMMARY_MODEL}) with adaptive summary strategy...`);
+      console.log(`[summarize-debug] Sending request to Groq (${SUMMARY_MODEL}) with adaptive summary strategy...`);
       summary = await summarizeDocument(documentTitle, extractedDocument, apiKey);
     }
 

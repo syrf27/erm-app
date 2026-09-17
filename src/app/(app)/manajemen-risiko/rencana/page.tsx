@@ -25,6 +25,7 @@ import {
   applyProgressiveCascade,
   handleProgressiveBeforeChange,
   getSafeRowData,
+  hasPersistedRowId,
   isColumnUnlockedForRow,
   isProgressiveColumn,
   openUnlockedDropdownOnMouseDown,
@@ -47,6 +48,8 @@ const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
   11: [5, 12, 13, 14],
   12: [5, 13, 14],
 };
+const shouldEnforceRencanaProgression = (rowData: unknown[]) =>
+  !hasPersistedRowId(rowData, 1);
 
 function computeBesaran(kemungkinanSkala?: number, dampakSkala?: number) {
   if (kemungkinanSkala == null || dampakSkala == null) return "";
@@ -313,8 +316,9 @@ export default function RencanaPenangananPage() {
       const identId = parseInt(row[0] as string, 10);
       const rencanaId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const isExistingRow = Number.isInteger(rencanaId) && rencanaId > 0;
       const canUseColumn = (col: number) =>
-        isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
+        isExistingRow || isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
 
       const residualLKId = canUseColumn(11)
         ? findId(kemungkinanData, (row[11] as string) ?? "")
@@ -520,6 +524,7 @@ export default function RencanaPenangananPage() {
     const isEmptySourceRow = identId == null;
     const isLocked =
       !isEmptySourceRow &&
+      shouldEnforceRencanaProgression(rowData) &&
       isProgressiveColumn(RENCANA_INPUT_COLUMNS, col) &&
       !isColumnUnlockedForRow(rowData, RENCANA_INPUT_COLUMNS, col);
 
@@ -543,7 +548,13 @@ export default function RencanaPenangananPage() {
     (changes: (Handsontable.CellChange | null)[] | null, source?: Handsontable.ChangeSource) => {
       const hot = hotRef.current?.hotInstance;
       if (!hot) return;
-      handleProgressiveBeforeChange(hot, changes, RENCANA_INPUT_COLUMNS, source);
+      handleProgressiveBeforeChange(
+        hot,
+        changes,
+        RENCANA_INPUT_COLUMNS,
+        source,
+        shouldEnforceRencanaProgression
+      );
     },
     []
   );
@@ -631,7 +642,14 @@ export default function RencanaPenangananPage() {
           if (!changes) return;
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
-          applyProgressiveCascade(hot, changes, RENCANA_INPUT_COLUMNS, RENCANA_RESET_COLUMNS, source);
+          applyProgressiveCascade(
+            hot,
+            changes,
+            RENCANA_INPUT_COLUMNS,
+            RENCANA_RESET_COLUMNS,
+            source,
+            shouldEnforceRencanaProgression
+          );
           for (const [row, col] of changes) {
             if (col === 11 || col === 12) {
               recalcRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
@@ -656,8 +674,20 @@ export default function RencanaPenangananPage() {
         cells={getCellMeta}
         beforeChange={handleBeforeChange}
         beforeOnCellMouseDown={(event, coords) => {
-          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, RENCANA_INPUT_COLUMNS);
-          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, RENCANA_INPUT_COLUMNS);
+          preventLockedCellMouseDown(
+            event,
+            coords,
+            hotRef.current?.hotInstance,
+            RENCANA_INPUT_COLUMNS,
+            shouldEnforceRencanaProgression
+          );
+          openUnlockedDropdownOnMouseDown(
+            event,
+            hotRef.current?.hotInstance,
+            coords,
+            RENCANA_INPUT_COLUMNS,
+            shouldEnforceRencanaProgression
+          );
         }}
       />
       <style jsx global>{progressiveLockedCellStyles}</style>

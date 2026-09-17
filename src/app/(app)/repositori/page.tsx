@@ -38,6 +38,7 @@ import {
 import { useYear } from "@/lib/year-context";
 import { FileDropUpload } from "@/components/file-drop-upload";
 import { Pagination } from "@/components/pagination";
+import { getSafeDocumentHref, isSafeAppUrl } from "@/lib/safe-url";
 
 interface RepositoryFile {
   id: string; // e.g. "manual-1" or "bukti-12"
@@ -221,6 +222,15 @@ export default function RepositoryPage() {
     const docUrl = uploadDocType === "upload" ? uploadedFile?.url : uploadDocLink;
     if (!docUrl) {
       notifications.show({ title: "Validasi Gagal", message: "Dokumen atau tautan harus disediakan", color: "orange" });
+      return;
+    }
+
+    if (!isSafeAppUrl(docUrl)) {
+      notifications.show({
+        title: "Tautan Tidak Aman",
+        message: "Gunakan tautan http://, https://, atau berkas internal aplikasi.",
+        color: "orange",
+      });
       return;
     }
 
@@ -591,7 +601,7 @@ export default function RepositoryPage() {
                           <Group gap="xs" justify="center" wrap="nowrap">
                             <ActionIcon
                               component="a"
-                              href={file.url.startsWith("/uploads/") ? file.url.replace("/uploads/", "/api/uploads/") : file.url}
+                              href={getSafeDocumentHref(file.url) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               color="blue"
@@ -678,9 +688,7 @@ export default function RepositoryPage() {
                     : file.category === "bukti_dukung"
                     ? "Mitigasi"
                     : "Laporan";
-                const documentUrl = file.url.startsWith("/uploads/")
-                  ? file.url.replace("/uploads/", "/api/uploads/")
-                  : file.url;
+                const documentUrl = getSafeDocumentHref(file.url);
                 const isCreator = file.id.startsWith("manual-") && (
                   file.uploader === identity?.name ||
                   file.uploader === identity?.email ||
@@ -754,7 +762,7 @@ export default function RepositoryPage() {
                       <Group gap="xs">
                         <Button
                           component="a"
-                          href={documentUrl}
+                          href={documentUrl ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           variant="light"
@@ -912,7 +920,7 @@ export default function RepositoryPage() {
               <Group gap="xs" grow>
                 <Button
                   component="a"
-                  href={selectedSearchFile.url.startsWith("/uploads/") ? selectedSearchFile.url.replace("/uploads/", "/api/uploads/") : selectedSearchFile.url}
+                  href={getSafeDocumentHref(selectedSearchFile.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   variant="light"

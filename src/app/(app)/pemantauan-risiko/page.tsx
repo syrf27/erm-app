@@ -30,6 +30,7 @@ import {
 import { Pagination } from "@/components/pagination";
 import { FileDropUpload } from "@/components/file-drop-upload";
 import { useYear } from "@/lib/year-context";
+import { getSafeDocumentHref, isSafeAppUrl } from "@/lib/safe-url";
 
 interface RiskRow {
   identId: number;
@@ -356,6 +357,15 @@ export default function PemantauanRisikoPage() {
         url: d.url.trim(),
       }));
 
+    if (docList.some((document) => !isSafeAppUrl(document.url))) {
+      notifications.show({
+        title: "Tautan Tidak Aman",
+        message: "Tautan dokumen harus menggunakan http://, https://, atau berkas internal aplikasi.",
+        color: "orange",
+      });
+      return;
+    }
+
     const payload = {
       keterjadiRisiko: modalKeterjadian || null,
       realisasiWaktu: convertToDisplayDate(modalWaktu) || null,
@@ -592,11 +602,7 @@ export default function PemantauanRisikoPage() {
                             <IconFileText size={16} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
                             <Text
                               component="a"
-                              href={
-                                doc.url.startsWith("/uploads/")
-                                  ? doc.url.replace("/uploads/", "/api/uploads/")
-                                  : doc.url
-                              }
+                              href={getSafeDocumentHref(doc.url) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               size="xs"
@@ -882,7 +888,7 @@ export default function PemantauanRisikoPage() {
                               c="blue"
                               fw={500}
                               component="a"
-                              href={doc.url}
+                              href={getSafeDocumentHref(doc.url) ?? undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ display: "inline-flex", alignItems: "center", gap: 4 }}

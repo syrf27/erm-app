@@ -31,6 +31,7 @@ import { registerAllModules } from "handsontable/registry";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
   getSafeRowData,
+  hasPersistedRowId,
   openUnlockedDropdownOnMouseDown,
   preventLockedCellMouseDown,
 } from "@/lib/handsontable-progressive-lock";
@@ -42,6 +43,8 @@ if (typeof window !== "undefined") {
 const PROGRESSIVE_INPUT_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const FIRST_PROGRESSIVE_COLUMN = PROGRESSIVE_INPUT_COLUMNS[0];
 const SYSTEM_CHANGE_SOURCES = new Set(["loadData", "auto", "saveAll", "progressive-reset"]);
+const shouldEnforceIdentifikasiProgression = (rowData: unknown[]) =>
+  !hasPersistedRowId(rowData, 0);
 
 const isFilledCellValue = (value: unknown) =>
   value !== null && value !== undefined && String(value).trim() !== "";
@@ -874,6 +877,7 @@ export default function IdentifikasiRisikoPage() {
         if (typeof row !== "number" || typeof col !== "number") continue;
         if (!isProgressiveColumn(col)) continue;
         if (oldValue === newValue) continue;
+        if (!shouldEnforceIdentifikasiProgression(hot.getDataAtRow(row) as unknown[])) continue;
 
         const changedCols = changedColsByRow.get(row);
         for (const downstreamCol of getColumnsAfter(col)) {
@@ -930,6 +934,11 @@ export default function IdentifikasiRisikoPage() {
           if (typeof row !== "number" || typeof col !== "number") return;
 
           const shadowRow = getShadowRow(row);
+          if (!shouldEnforceIdentifikasiProgression(shadowRow)) {
+            shadowRow[col] = newValue;
+            return;
+          }
+
           const isAllowed = isColumnUnlockedForRow(shadowRow, col);
 
           if (!isAllowed) {
@@ -946,7 +955,10 @@ export default function IdentifikasiRisikoPage() {
   const getCellMeta = useCallback(
     (row: number, col: number) => {
       const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
-      const isLocked = isProgressiveColumn(col) && !isColumnUnlockedForRow(rowData, col);
+      const isLocked =
+        shouldEnforceIdentifikasiProgression(rowData) &&
+        isProgressiveColumn(col) &&
+        !isColumnUnlockedForRow(rowData, col);
       const isSystemColumn = col === 0 || col === 11;
 
       return {
@@ -1098,8 +1110,20 @@ export default function IdentifikasiRisikoPage() {
         }}
         beforeChange={handleBeforeChange}
         beforeOnCellMouseDown={(event, coords) => {
-          preventLockedCellMouseDown(event, coords, hotRef.current?.hotInstance, PROGRESSIVE_INPUT_COLUMNS);
-          openUnlockedDropdownOnMouseDown(event, hotRef.current?.hotInstance, coords, PROGRESSIVE_INPUT_COLUMNS);
+          preventLockedCellMouseDown(
+            event,
+            coords,
+            hotRef.current?.hotInstance,
+            PROGRESSIVE_INPUT_COLUMNS,
+            shouldEnforceIdentifikasiProgression
+          );
+          openUnlockedDropdownOnMouseDown(
+            event,
+            hotRef.current?.hotInstance,
+            coords,
+            PROGRESSIVE_INPUT_COLUMNS,
+            shouldEnforceIdentifikasiProgression
+          );
         }}
         rowHeaders={true}
         height="auto"
