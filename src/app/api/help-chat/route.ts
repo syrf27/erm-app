@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeHtml } from "@/lib/server-sanitize";
 import {
   createConversationalHelpAnswer,
   getHelpSuggestions,

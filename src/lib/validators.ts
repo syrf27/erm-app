@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sanitizeHtml, sanitizeRichText } from "@/lib/sanitize";
+import { sanitizeHtml, sanitizeRichText } from "@/lib/server-sanitize";
 import { isSafeAppUrl } from "@/lib/safe-url";
 
 /**

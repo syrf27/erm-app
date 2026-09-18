@@ -1,4 +1,4 @@
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeHtml } from "@/lib/server-sanitize";
 
 export interface HelpFaq {
   id: number;
