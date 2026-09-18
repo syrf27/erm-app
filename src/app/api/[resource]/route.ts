@@ -36,6 +36,7 @@ import {
   createAuditLogSchema,
   createRepositoriSchema,
   createDokumenPendukungSchema,
+  createTeamSchema,
   documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
@@ -302,6 +303,9 @@ export async function POST(
           break;
         case "unit-kerja":
           validatedData = createUnitKerjaSchema.parse(body);
+          break;
+        case "teams":
+          validatedData = createTeamSchema.parse(body);
           break;
         case "jenis-risiko":
         case "sumber-risiko":

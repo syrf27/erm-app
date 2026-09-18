@@ -115,6 +115,16 @@ export const createRencanaPenangananSchema = z.object({
 
 export const updateRencanaPenangananSchema = createRencanaPenangananSchema.partial().omit({ identifikasiRisikoId: true });
 
+// Team schemas
+export const createTeamSchema = z.object({
+  kode: safePlainText(100, "Kode harus diisi"),
+  nama: safePlainText(500, "Nama tim harus diisi"),
+  tahun: z.number().int().min(2020).max(2035).default(new Date().getFullYear()),
+  ketuaTim: safePlainText(500).optional().nullable(),
+});
+
+export const updateTeamSchema = createTeamSchema.partial();
+
 // Sasaran schemas
 export const createSasaranSchema = z.object({
   nama: safePlainText(500, "Nama harus diisi"),

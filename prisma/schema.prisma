@@ -469,10 +469,14 @@ model Team {
   id                 Int                  @id @default(autoincrement())
   nama               String               @unique
   kode               String               @unique
+  tahun              Int                  @default(2026)
+  ketuaTim           String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   identifikasiRisiko IdentifikasiRisiko[]
   users              UserTeam[]
+
+  @@index([tahun])
 }
 
 model UserTeam {

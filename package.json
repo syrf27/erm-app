@@ -12,6 +12,7 @@
     "lint": "next lint",
     "refine": "refine",
     "prisma:seed": "npx tsx prisma/seed.ts",
+    "prisma:seed-team-2026": "tsx scripts/seed-team-2026.ts",
     "prisma:seed-proses-bisnis": "cross-env DOTENV_CONFIG_PATH=.env.local tsx scripts/seed-proses-bisnis.ts",
     "prisma:seed-area-dampak": "cross-env DOTENV_CONFIG_PATH=.env.local tsx scripts/seed-area-dampak.ts",
     "test:security": "tsx --test src/lib/security.test.ts",

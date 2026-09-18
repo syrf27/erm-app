@@ -29,6 +29,7 @@ import {
   updateSeleraRisikoGlobalSchema,
   updateRepositoriSchema,
   updateDokumenPendukungSchema,
+  updateTeamSchema,
   documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
@@ -119,6 +120,9 @@ export async function PATCH(
           break;
         case "unit-kerja":
           validatedData = updateUnitKerjaSchema.parse(body);
+          break;
+        case "teams":
+          validatedData = updateTeamSchema.parse(body);
           break;
         case "jenis-risiko":
         case "sumber-risiko":

@@ -2,6 +2,7 @@ import { prisma } from "../src/lib/prisma";
 import { hashPassword } from "../src/lib/password-utils";
 import { DEFAULT_PROSES_BISNIS } from "./proses-bisnis-data";
 import { DEFAULT_AREA_DAMPAK } from "./area-dampak-data";
+import { TEAM_2026_DATA } from "./team-2026-data";
 
 const defaultFaqs = [
   {
@@ -254,19 +255,12 @@ async function main() {
   console.log("Seeded UnitKerja");
 
   // Seed Team
-  const teamData = [
-    { nama: "Tim Keuangan", kode: "TIM_KEU" },
-    { nama: "Tim Perencanaan", kode: "TIM_PERENCANAAN" },
-    { nama: "Tim Kepegawaian & Umum", kode: "TIM_KEPEGAWAIAN" },
-    { nama: "Tim Teknologi Informasi", kode: "TIM_TI" },
-    { nama: "Tim Penyelenggaraan Pelatihan", kode: "TIM_PELATIHAN" },
-    { nama: "Tim Kurikulum & Pembelajaran", kode: "TIM_KURIKULUM" },
-  ];
+  const teamData = TEAM_2026_DATA;
 
   for (const t of teamData) {
     await prisma.team.upsert({
       where: { kode: t.kode },
-      update: {},
+      update: t,
       create: t,
     });
   }

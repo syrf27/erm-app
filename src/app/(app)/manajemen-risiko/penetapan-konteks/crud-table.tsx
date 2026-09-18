@@ -37,6 +37,7 @@ interface FieldConfig {
   relationResource?: string;
   relationField?: string;
   relationLabelField?: string;
+  defaultValue?: string | number;
 }
 
 interface CrudTableProps {
@@ -74,6 +75,8 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
   teams: [
     { key: "kode", label: "Kode", type: "text", required: true },
     { key: "nama", label: "Tim Kerja", type: "text", required: true },
+    { key: "tahun", label: "Tahun", type: "number", required: true, defaultValue: 2026 },
+    { key: "ketuaTim", label: "Ketua Tim", type: "text" },
   ],
   kegiatan: [
     { key: "nama", label: "Kegiatan", type: "text", required: true },
@@ -473,7 +476,7 @@ function CrudModal({
       if (f.type === "select") {
         initial[f.key] = editingItem ? String(editingItem[f.key] ?? "") : "";
       } else {
-        initial[f.key] = editingItem?.[f.key] ?? "";
+        initial[f.key] = editingItem?.[f.key] ?? f.defaultValue ?? "";
       }
     }
     return initial;
