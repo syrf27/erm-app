@@ -4,14 +4,20 @@ import { notifications } from "@mantine/notifications";
 
 export const useFcm = (identity: any) => {
   const [fcmToken, setFcmToken] = useState<string | null>(null);
-  const [permissionStatus, setPermissionStatus] = useState<string>(
-    typeof window !== "undefined" ? Notification.permission : "default"
-  );
+  const [permissionStatus, setPermissionStatus] = useState<string>("default");
+
+  useEffect(() => {
+    setPermissionStatus(
+      typeof window !== "undefined" && "Notification" in window
+        ? window.Notification.permission
+        : "unsupported"
+    );
+  }, []);
 
   const enableNotifications = async () => {
     if (!isFcmSupported()) return;
     try {
-      const permission = await Notification.requestPermission();
+      const permission = await window.Notification.requestPermission();
       setPermissionStatus(permission);
       if (permission === "granted") {
         const token = await getFcmToken();
@@ -44,7 +50,7 @@ export const useFcm = (identity: any) => {
     if (!isFcmSupported() || !identity) return;
 
     // Automatically register if permission is already granted
-    if (Notification.permission === "granted") {
+    if (window.Notification.permission === "granted") {
       const initializeFCM = async () => {
         try {
           const token = await getFcmToken();

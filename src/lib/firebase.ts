@@ -14,6 +14,7 @@ const firebaseConfig = {
 export const isFcmSupported = () => {
   return (
     typeof window !== "undefined" &&
+    "Notification" in window &&
     "serviceWorker" in navigator &&
     "PushManager" in window &&
     !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY

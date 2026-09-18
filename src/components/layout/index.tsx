@@ -913,6 +913,10 @@ function LayoutContent({ children }: PropsWithChildren) {
                             <Badge color="green" variant="light">
                               Aktif
                             </Badge>
+                          ) : permissionStatus === "unsupported" ? (
+                            <Badge color="gray" variant="light">
+                              Tidak didukung
+                            </Badge>
                           ) : permissionStatus === "denied" ? (
                             <Badge color="red" variant="light">
                               Diblokir
