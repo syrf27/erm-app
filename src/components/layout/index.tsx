@@ -69,6 +69,7 @@ import { YearProvider, useYear } from "@/lib/year-context";
 import { useFcm } from "@/hooks/useFcm";
 import { WelcomeTour } from "@/components/tour/WelcomeTour";
 import { HelpChatWidget } from "@/components/help-chat-widget";
+import { RiskAiWidget } from "@/components/risk-ai-widget";
 import { hasClientPermission } from "@/lib/client-permissions";
 
 interface MenuItem {
@@ -1175,6 +1176,7 @@ function LayoutContent({ children }: PropsWithChildren) {
       </AppShell.Main>
 
       <HelpChatWidget />
+      <RiskAiWidget />
       <WelcomeTour onBeforeStart={handleTourBeforeStart} />
 
       <Modal

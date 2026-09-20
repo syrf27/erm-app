@@ -11,6 +11,8 @@ import {
   Stack,
   Text,
   TextInput,
+  Textarea,
+  Select,
   Modal,
   Badge,
   Table,
@@ -18,9 +20,10 @@ import {
   Tooltip,
   FileButton,
   ScrollArea,
+  Box,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconSearch, IconDatabase, IconPlus, IconDownload, IconUpload } from "@tabler/icons-react";
+import { IconSearch, IconDatabase, IconPlus, IconDownload, IconUpload, IconSparkles } from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -42,7 +45,7 @@ if (typeof window !== "undefined") {
 
 const PROGRESSIVE_INPUT_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const FIRST_PROGRESSIVE_COLUMN = PROGRESSIVE_INPUT_COLUMNS[0];
-const SYSTEM_CHANGE_SOURCES = new Set(["loadData", "auto", "saveAll", "progressive-reset"]);
+const SYSTEM_CHANGE_SOURCES = new Set(["loadData", "auto", "saveAll", "progressive-reset", "ai-assist"]);
 const shouldEnforceIdentifikasiProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 0);
 
@@ -289,6 +292,17 @@ export default function IdentifikasiRisikoPage() {
 
   const [bankOpened, { open: openBank, close: closeBank }] = useDisclosure(false);
   const [importing, setImporting] = useState(false);
+  const [assistOpened, setAssistOpened] = useState(false);
+  const [assistDescription, setAssistDescription] = useState("");
+  const [assistSuggestion, setAssistSuggestion] = useState<any>(null);
+  const [assistLoading, setAssistLoading] = useState(false);
+  const [assistWorkflowLoading, setAssistWorkflowLoading] = useState(false);
+  const [assistStep, setAssistStep] = useState<1 | 2>(1);
+  const [assistControl, setAssistControl] = useState("");
+  const [assistEffectiveness, setAssistEffectiveness] = useState<string | null>(null);
+  const [assistLikelihood, setAssistLikelihood] = useState("");
+  const [assistImpactLevel, setAssistImpactLevel] = useState("");
+  const [assistResponse, setAssistResponse] = useState("mengurangi");
   const [importResult, setImportResult] = useState<{
     total: number;
     created: number;
@@ -371,6 +385,8 @@ export default function IdentifikasiRisikoPage() {
     resource: "proses-bisnis",
     pagination: { mode: "off" },
   });
+  const levelKemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
+  const levelDampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
 
   const loading =
     (listQuery?.isPending ?? false) ||
@@ -490,6 +506,160 @@ export default function IdentifikasiRisikoPage() {
     () => prosesBisnisList?.result?.data ?? [],
     [prosesBisnisList?.result?.data]
   );
+  const levelKemungkinanData = useMemo(() => levelKemungkinanList.result?.data ?? [], [levelKemungkinanList.result?.data]);
+  const levelDampakData = useMemo(() => levelDampakList.result?.data ?? [], [levelDampakList.result?.data]);
+
+  const assistantLists = useMemo(() => ({
+    sasaran: sasaranData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    kegiatan: kegiatanData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    prosesBisnis: prosesBisnisData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    jenisRisiko: jenisData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    sumberRisiko: sumberData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    kategori: kategoriData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    areaDampak: areaData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    levelKemungkinan: levelKemungkinanData.map((item: any) => ({ id: item.id, nama: item.nama })),
+    levelDampak: levelDampakData.map((item: any) => ({ id: item.id, nama: item.nama })),
+  }), [sasaranData, kegiatanData, prosesBisnisData, jenisData, sumberData, kategoriData, areaData, levelKemungkinanData, levelDampakData]);
+
+  const requestRiskAssist = useCallback(async () => {
+    if (!assistDescription.trim()) return;
+    setAssistLoading(true);
+    try {
+      const response = await fetch("/api/ai/risk-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: assistDescription, lists: assistantLists }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Gagal membuat saran");
+      setAssistSuggestion(data.suggestion);
+      setAssistLikelihood(data.suggestion?.levelKemungkinan || "");
+      setAssistImpactLevel(data.suggestion?.levelDampak || "");
+      setAssistResponse(data.suggestion?.responRisiko || "mengurangi");
+      setAssistStep(1);
+    } catch (error: any) {
+      notifications.show({ title: "Asisten AI", message: error?.message || "Gagal membuat saran", color: "red" });
+    } finally {
+      setAssistLoading(false);
+    }
+  }, [assistDescription, assistantLists]);
+
+  const applyRiskSuggestion = useCallback(() => {
+    const hot = hotRef.current?.hotInstance;
+    if (!hot || !assistSuggestion) return;
+    const rows = hot.getData() as any[][];
+    const rowIndex = rows.findIndex((row) => !hasPersistedRowId(row, 0) && !isFilledCellValue(row[4]));
+    if (rowIndex < 0) {
+      notifications.show({ title: "Tidak ada baris kosong", message: "Tambahkan baris baru terlebih dahulu", color: "orange" });
+      return;
+    }
+    const resolveCandidateName = (value: unknown, items: any[]) => {
+      if (value === null || value === undefined) return "";
+      const raw = String(value).trim();
+      if (!raw) return "";
+      const numericId = Number(raw);
+      const byId = Number.isInteger(numericId)
+        ? items.find((item: any) => item.id === numericId)
+        : null;
+      if (byId?.nama) return byId.nama;
+      const byPrefixedId = raw.match(/^(\d+)\s*:\s*(.*)$/);
+      if (byPrefixedId) {
+        const prefixed = items.find((item: any) => item.id === Number(byPrefixedId[1]));
+        if (prefixed?.nama) return prefixed.nama;
+      }
+      const byName = items.find((item: any) => item.nama === raw);
+      return byName?.nama ?? raw;
+    };
+    const values = [
+      resolveCandidateName(assistSuggestion.sasaran, sasaranData),
+      resolveCandidateName(assistSuggestion.kegiatan, kegiatanData),
+      resolveCandidateName(assistSuggestion.prosesBisnis, prosesBisnisData),
+      assistSuggestion.risiko || "",
+      resolveCandidateName(assistSuggestion.jenisRisiko, jenisData),
+      resolveCandidateName(assistSuggestion.sumberRisiko, sumberData),
+      resolveCandidateName(assistSuggestion.kategori, kategoriData),
+      resolveCandidateName(assistSuggestion.areaDampak, areaData),
+      assistSuggestion.penyebab || "",
+      assistSuggestion.dampak || "",
+    ];
+    // Keep Handsontable and React state in sync. Using only setDataAtCell on a
+    // spare row can be discarded by the controlled `data` prop on rerender.
+    const nextData = rows.map((row) => [...row]);
+    nextData[rowIndex].splice(1, values.length, ...values);
+    setLocalData(nextData);
+    hot.loadData(nextData, "ai-assist");
+    hot.scrollViewportTo(rowIndex, 1);
+    hot.selectCell(rowIndex, 1);
+    hot.render();
+    setAssistOpened(false);
+    notifications.show({ title: "Draf AI diterapkan", message: `Periksa baris ${rowIndex + 1} sebelum menyimpan`, color: "blue" });
+  }, [assistSuggestion, sasaranData, kegiatanData, prosesBisnisData, jenisData, sumberData, kategoriData, areaData]);
+
+  const createRiskThroughEvaluation = useCallback(async () => {
+    if (!assistSuggestion) return;
+    const resolveCandidate = (value: unknown, items: any[]) => {
+      const raw = String(value ?? "").trim();
+      const numericId = Number(raw);
+      return items.find((item: any) => item.id === numericId) ?? items.find((item: any) => item.nama === raw);
+    };
+    const selectedSasaran = resolveCandidate(assistSuggestion.sasaran, sasaranData);
+    const selectedKegiatan = resolveCandidate(assistSuggestion.kegiatan, kegiatanData);
+    const selectedProses = resolveCandidate(assistSuggestion.prosesBisnis, prosesBisnisData);
+    const jenis = resolveCandidate(assistSuggestion.jenisRisiko, jenisData);
+    const sumber = resolveCandidate(assistSuggestion.sumberRisiko, sumberData);
+    const kategori = resolveCandidate(assistSuggestion.kategori, kategoriData);
+    const area = resolveCandidate(assistSuggestion.areaDampak, areaData);
+    const kemungkinan = resolveCandidate(assistLikelihood, levelKemungkinanData);
+    const dampakLevel = resolveCandidate(assistImpactLevel, levelDampakData);
+    if (!jenis || !sumber || !kategori || !area || !kemungkinan || !dampakLevel || !assistSuggestion.risiko) {
+      notifications.show({ title: "Draf belum lengkap", message: "Periksa klasifikasi dan level risiko pada saran AI terlebih dahulu", color: "orange" });
+      return;
+    }
+    setAssistWorkflowLoading(true);
+    try {
+      const identificationPayload = {
+        risiko: assistSuggestion.risiko,
+        penyebab: assistSuggestion.penyebab || null,
+        dampak: assistSuggestion.dampak || null,
+        jenisRisikoId: jenis.id,
+        sumberRisikoId: sumber.id,
+        kategoriRisikoId: kategori.id,
+        areaDampakId: area.id,
+        ...(selectedSasaran && { sasaranId: selectedSasaran.id }),
+        ...(selectedKegiatan && { kegiatanId: selectedKegiatan.id }),
+        ...(selectedProses && { prosesBisnisId: selectedProses.id }),
+        tahun: tahunDari,
+      };
+      const identificationResponse = await fetch("/api/identifikasi-risiko", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(identificationPayload),
+      });
+      const identification = await identificationResponse.json().catch(() => ({}));
+      if (!identificationResponse.ok || !identification?.id) throw new Error(identification?.error || "Gagal menyimpan identifikasi risiko");
+
+      const analysisResponse = await fetch("/api/analisis-risiko", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifikasiRisikoId: identification.id, levelKemungkinanId: kemungkinan.id, levelDampakId: dampakLevel.id, pengendalianUraian: assistControl || null, pengendalianEfektivitas: assistEffectiveness || null }),
+      });
+      const analysis = await analysisResponse.json().catch(() => ({}));
+      if (!analysisResponse.ok) throw new Error(analysis?.error || "Gagal menyimpan analisis risiko");
+
+      const evaluationResponse = await fetch("/api/evaluasi-risiko", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifikasiRisikoId: identification.id, responRisiko: assistResponse || "mengurangi" }),
+      });
+      const evaluation = await evaluationResponse.json().catch(() => ({}));
+      if (!evaluationResponse.ok) throw new Error(evaluation?.error || "Gagal menyimpan evaluasi risiko");
+
+      await refetchQuery?.();
+      setAssistOpened(false);
+      setAssistSuggestion(null);
+      notifications.show({ title: "Alur risiko dibuat", message: "Identifikasi, analisis, dan evaluasi sudah dibuat. Periksa kembali sebelum melanjutkan ke rencana penanganan.", color: "green" });
+    } catch (error: any) {
+      notifications.show({ title: "Gagal membuat alur risiko", message: error?.message || "Silakan coba lagi", color: "red" });
+    } finally {
+      setAssistWorkflowLoading(false);
+    }
+  }, [assistSuggestion, sasaranData, kegiatanData, prosesBisnisData, jenisData, sumberData, kategoriData, areaData, levelKemungkinanData, levelDampakData, tahunDari, refetchQuery, assistControl, assistEffectiveness, assistLikelihood, assistImpactLevel, assistResponse]);
 
   const jenisNamaList = useMemo(
     () => (jenisData || []).map((o: any) => o.nama),
@@ -527,6 +697,18 @@ export default function IdentifikasiRisikoPage() {
     () => (prosesBisnisData || []).map((o: any) => o.nama),
     [prosesBisnisData]
   );
+
+  useEffect(() => {
+    const openAssistant = () => {
+      setAssistSuggestion(null);
+      setAssistStep(1);
+      setAssistControl("");
+      setAssistEffectiveness(null);
+      setAssistOpened(true);
+    };
+    window.addEventListener("open-risk-ai-assistant", openAssistant);
+    return () => window.removeEventListener("open-risk-ai-assistant", openAssistant);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -983,6 +1165,22 @@ export default function IdentifikasiRisikoPage() {
         <Title order={3}>Identifikasi Risiko</Title>
         <Group>
           <Button
+            variant="gradient"
+            gradient={{ from: "violet", to: "blue", deg: 100 }}
+            color="violet"
+            size="sm"
+            leftSection={<IconSparkles size={16} />}
+            onClick={() => {
+              setAssistSuggestion(null);
+              setAssistStep(1);
+              setAssistControl("");
+              setAssistEffectiveness(null);
+              setAssistOpened(true);
+            }}
+          >
+            Bantu Isi dengan AI
+          </Button>
+          <Button
             variant="light"
             leftSection={<IconDatabase size={16} />}
             onClick={openBank}
@@ -1171,6 +1369,68 @@ export default function IdentifikasiRisikoPage() {
         tahun={tahunDari}
         onImport={() => refetchQuery?.()}
       />
+
+      <Modal
+        opened={assistOpened}
+        onClose={() => setAssistOpened(false)}
+        title="Bantu Isi Identifikasi Risiko"
+        size="lg"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Jelaskan risiko dengan bahasa sehari-hari. AI hanya membuat draf; Anda tetap wajib memeriksa konteks, klasifikasi, penyebab, dan dampaknya sebelum menyimpan.
+          </Text>
+          <TextInput
+            label="Deskripsi risiko"
+            placeholder="Contoh: data survei terlambat dikumpulkan sehingga laporan statistik terlambat diterbitkan"
+            value={assistDescription}
+            onChange={(event) => setAssistDescription(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") requestRiskAssist();
+            }}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setAssistOpened(false)}>Batal</Button>
+            <Button leftSection={<IconSparkles size={16} />} onClick={requestRiskAssist} loading={assistLoading}>
+              Buat Draf
+            </Button>
+          </Group>
+          {assistSuggestion && (
+            <Stack gap="xs">
+              <Text fw={600}>{assistStep === 1 ? "Langkah 1 dari 2: Periksa identifikasi" : "Langkah 2 dari 2: Lengkapi kondisi nyata"}</Text>
+              <Text size="sm"><b>Risiko:</b> {assistSuggestion.risiko || "-"}</Text>
+              <Text size="sm"><b>Penyebab:</b> {assistSuggestion.penyebab || "-"}</Text>
+              <Text size="sm"><b>Dampak:</b> {assistSuggestion.dampak || "-"}</Text>
+              {assistStep === 1 ? (
+                <>
+                  <Text size="sm"><b>Saran awal:</b> {assistSuggestion.levelKemungkinan || "-"} kemungkinan, {assistSuggestion.levelDampak || "-"} dampak, respons {assistSuggestion.responRisiko || "-"}</Text>
+                  <Text size="xs" c="dimmed">{assistSuggestion.catatan || "Periksa saran ini dengan konteks organisasi sebelum melanjutkan."}</Text>
+                  <Group justify="flex-end" mt="xs">
+                    <Button variant="light" onClick={requestRiskAssist} loading={assistLoading}>Buat Ulang</Button>
+                    <Button color="violet" onClick={applyRiskSuggestion}>Terapkan ke Baris Baru</Button>
+                    <Button color="green" onClick={() => setAssistStep(2)}>Lanjutkan Pengisian</Button>
+                  </Group>
+                </>
+              ) : (
+                <>
+                  <Text size="sm" c="dimmed">AI tidak mengisi bagian ini karena Anda yang paling mengetahui kondisi sebenarnya.</Text>
+                  <Textarea label="Pengendalian yang sudah dilakukan" placeholder="Contoh: pemeriksaan kelengkapan dilakukan oleh ketua tim sebelum data dikirim" value={assistControl} onChange={(event) => setAssistControl(event.currentTarget.value)} autosize minRows={2} />
+                  <Select label="Efektivitas pengendalian" placeholder="Pilih jika sudah diketahui" value={assistEffectiveness} onChange={setAssistEffectiveness} data={[{ value: "efektif", label: "Efektif" }, { value: "cukup_efektif", label: "Cukup efektif" }, { value: "kurang_efektif", label: "Kurang efektif" }, { value: "tidak_efektif", label: "Tidak efektif" }]} clearable />
+                  <Group grow>
+                    <Select label="Kemungkinan aktual" value={assistLikelihood} onChange={(value) => setAssistLikelihood(value || "")} data={levelKemungkinanData.map((item: any) => ({ value: item.nama, label: item.nama }))} searchable />
+                    <Select label="Dampak aktual" value={assistImpactLevel} onChange={(value) => setAssistImpactLevel(value || "")} data={levelDampakData.map((item: any) => ({ value: item.nama, label: item.nama }))} searchable />
+                  </Group>
+                  <Select label="Respons risiko" value={assistResponse} onChange={(value) => setAssistResponse(value || "mengurangi")} data={[{ value: "mengurangi", label: "Mengurangi Risiko" }, { value: "menerima", label: "Menerima Risiko" }, { value: "menghindari", label: "Menghindari Risiko" }, { value: "mentransfer", label: "Mengalihkan Risiko" }]} />
+                  <Group justify="flex-end" mt="xs">
+                    <Button variant="default" onClick={() => setAssistStep(1)}>Kembali</Button>
+                    <Button color="green" onClick={createRiskThroughEvaluation} loading={assistWorkflowLoading}>Simpan sampai Evaluasi</Button>
+                  </Group>
+                </>
+              )}
+            </Stack>
+          )}
+        </Stack>
+      </Modal>
 
       <Modal
         opened={importResult !== null}

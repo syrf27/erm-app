@@ -96,6 +96,8 @@ export async function GET(
           rencanaPenanganan: {
             include: {
               dokumenPendukungs: true,
+              residualLevelKemungkinan: { select: { id: true, nama: true } },
+              residualLevelDampak: { select: { id: true, nama: true } },
             },
           },
         },

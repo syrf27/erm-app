@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useCreate, useUpdate, useCustom } from "@refinedev/core";
+import { useCreate, useUpdate, useCustom, useList } from "@refinedev/core";
 import {
   Title,
   Button,
@@ -19,6 +19,7 @@ import {
   ActionIcon,
   SegmentedControl,
   Select,
+  Collapse,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -44,6 +45,10 @@ interface RiskRow {
   keterjadiRisiko: string;
   realisasiWaktu: string;
   realisasiOutput: string;
+  residualLevelKemungkinanId: number | null;
+  residualLevelDampakId: number | null;
+  residualLevelKemungkinan: string;
+  residualLevelDampak: string;
   dokumenPendukung: string;
   dokumenPendukungs: Array<{ id: number; title: string; url: string }>;
 }
@@ -73,6 +78,8 @@ export default function PemantauanRisikoPage() {
   const [modalWaktu, setModalWaktu] = useState("");
   const [modalOutput, setModalOutput] = useState("");
   const [modalKeterjadian, setModalKeterjadian] = useState("");
+  const [modalResidualKemungkinan, setModalResidualKemungkinan] = useState("");
+  const [modalResidualDampak, setModalResidualDampak] = useState("");
   const [uploading, setUploading] = useState(false);
   const [meetingKeyword, setMeetingKeyword] = useState("");
   const [meetingSearching, setMeetingSearching] = useState(false);
@@ -86,6 +93,7 @@ export default function PemantauanRisikoPage() {
     docType: "link" | "upload";
     uploadedName: string;
   }>>([]);
+  const [officeSourceOpened, setOfficeSourceOpened] = useState(false);
 
   const result = useCustom({
     url: "/api/custom-pemantauan-risiko",
@@ -97,6 +105,10 @@ export default function PemantauanRisikoPage() {
       },
     },
   });
+  const kemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
+  const dampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
+  const kemungkinanOptions = (kemungkinanList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
+  const dampakOptions = (dampakList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
 
   const customData = result.result;
   const isLoading = result.query.isLoading;
@@ -139,6 +151,10 @@ export default function PemantauanRisikoPage() {
         keterjadiRisiko: rp?.keterjadiRisiko ?? "",
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
+        residualLevelKemungkinanId: rp?.residualLevelKemungkinanId ?? null,
+        residualLevelDampakId: rp?.residualLevelDampakId ?? null,
+        residualLevelKemungkinan: rp?.residualLevelKemungkinan?.nama ?? "",
+        residualLevelDampak: rp?.residualLevelDampak?.nama ?? "",
         dokumenPendukung: rp?.dokumenPendukung ?? "",
         dokumenPendukungs: rp?.dokumenPendukungs ?? [],
       };
@@ -191,6 +207,8 @@ export default function PemantauanRisikoPage() {
     setModalWaktu(convertToInputDate(row.realisasiWaktu));
     setModalOutput(row.realisasiOutput);
     setModalKeterjadian(row.keterjadiRisiko);
+    setModalResidualKemungkinan(row.residualLevelKemungkinanId ? String(row.residualLevelKemungkinanId) : "");
+    setModalResidualDampak(row.residualLevelDampakId ? String(row.residualLevelDampakId) : "");
 
     // Map existing documents list to form state
     const docs = (row.dokumenPendukungs || []).map((d) => {
@@ -370,6 +388,8 @@ export default function PemantauanRisikoPage() {
       keterjadiRisiko: modalKeterjadian || null,
       realisasiWaktu: convertToDisplayDate(modalWaktu) || null,
       realisasiOutput: modalOutput || null,
+      residualLevelKemungkinanId: modalResidualKemungkinan ? Number(modalResidualKemungkinan) : null,
+      residualLevelDampakId: modalResidualDampak ? Number(modalResidualDampak) : null,
       dokumenPendukung: docList.length > 0 ? docList[0].url : null, // legacy field fallback
       dokumenPendukungs: docList,
     };
@@ -486,12 +506,14 @@ export default function PemantauanRisikoPage() {
       </div>
 
       <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
+        <div className="monitoring-table-scroll">
         <Table
           striped
           highlightOnHover
           withTableBorder
           withColumnBorders
-          style={{ fontSize: 13, borderCollapse: "collapse", width: "100%" }}
+          className="monitoring-table"
+          style={{ fontSize: 13, borderCollapse: "collapse", width: "100%", minWidth: 1320 }}
         >
           <Table.Thead>
             {/* First Row of headers */}
@@ -511,7 +533,10 @@ export default function PemantauanRisikoPage() {
               <Table.Th colSpan={4} style={{ textAlign: "center" }}>
                 Realisasi
               </Table.Th>
-              <Table.Th rowSpan={2} style={{ textAlign: "center", width: 70 }}>
+              <Table.Th colSpan={2} style={{ textAlign: "center" }}>
+                Risiko Residual
+              </Table.Th>
+              <Table.Th rowSpan={2} className="monitoring-sticky-action" style={{ textAlign: "center", width: 70 }}>
                 Aksi
               </Table.Th>
             </Table.Tr>
@@ -535,6 +560,12 @@ export default function PemantauanRisikoPage() {
               <Table.Th style={{ textAlign: "center" }}>
                 Dokumen Pendukung
               </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 150 }}>
+                Level Kemungkinan
+              </Table.Th>
+              <Table.Th style={{ textAlign: "center", width: 150 }}>
+                Level Dampak
+              </Table.Th>
             </Table.Tr>
           </Table.Thead>
 
@@ -542,7 +573,7 @@ export default function PemantauanRisikoPage() {
             {tableRows.length === 0 ? (
               <Table.Tr>
                 <Table.Td
-                  colSpan={10}
+                  colSpan={12}
                   align="center"
                   style={{
                     color: "var(--mantine-color-gray-5)",
@@ -625,6 +656,12 @@ export default function PemantauanRisikoPage() {
                     )}
                   </Table.Td>
                   <Table.Td align="center">
+                    {row.residualLevelKemungkinan || "-"}
+                  </Table.Td>
+                  <Table.Td align="center">
+                    {row.residualLevelDampak || "-"}
+                  </Table.Td>
+                  <Table.Td align="center" className="monitoring-sticky-action">
                     <ActionIcon
                       variant="filled"
                       color="gray"
@@ -639,7 +676,49 @@ export default function PemantauanRisikoPage() {
             )}
           </Table.Tbody>
         </Table>
+        </div>
       </Card>
+
+      <style jsx global>{`
+        .monitoring-table-scroll {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+        }
+
+        .monitoring-table {
+          table-layout: fixed;
+        }
+
+        .monitoring-table th,
+        .monitoring-table td {
+          overflow-wrap: anywhere;
+          vertical-align: middle;
+        }
+
+        .monitoring-table .monitoring-sticky-action {
+          position: sticky;
+          right: 0;
+          z-index: 3;
+          min-width: 76px;
+          background: var(--mantine-color-body);
+          box-shadow: -6px 0 10px -10px var(--mantine-color-dark-9);
+        }
+
+        .monitoring-table thead .monitoring-sticky-action {
+          z-index: 5;
+          background: var(--mantine-color-dark-7);
+        }
+
+        @media (max-width: 768px) {
+          .monitoring-table {
+            min-width: 1180px !important;
+          }
+        }
+      `}</style>
 
       {totalRows > 0 && (
         <Pagination
@@ -660,6 +739,7 @@ export default function PemantauanRisikoPage() {
         title="Input Realisasi Pemantauan Risiko"
         size="md"
         radius="md"
+        styles={{ body: { maxHeight: "75vh", overflowY: "auto" } }}
       >
         <Stack gap="md">
           {selectedRow && (
@@ -700,30 +780,39 @@ export default function PemantauanRisikoPage() {
             onChange={(e) => setModalOutput(e.currentTarget.value)}
           />
 
+          <Select label="Risiko Residual - Level Kemungkinan" placeholder="Pilih level kemungkinan residual" value={modalResidualKemungkinan} onChange={(value) => setModalResidualKemungkinan(value || "")} data={kemungkinanOptions} searchable clearable />
+          <Select label="Risiko Residual - Level Dampak" placeholder="Pilih level dampak residual" value={modalResidualDampak} onChange={(value) => setModalResidualDampak(value || "")} data={dampakOptions} searchable clearable />
+
           <Stack gap="xs" mt="xs">
             <Group justify="space-between" align="center">
               <Text size="sm" fw={600}>
                 Dokumen Pendukung ({modalDocs.length})
               </Text>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() =>
-                  setModalDocs((prev) => [
-                    ...prev,
-                    { title: "", url: "", docType: "link", uploadedName: "" },
-                  ])
-                }
-              >
-                + Tambah Dokumen
-              </Button>
+              <Group gap="xs">
+                <Button variant="outline" size="xs" onClick={() => setModalDocs((prev) => [...prev, { title: "", url: "", docType: "link", uploadedName: "" }])}>
+                  + Tambah Link
+                </Button>
+                <Button variant="outline" size="xs" onClick={() => setModalDocs((prev) => [...prev, { title: "", url: "", docType: "upload", uploadedName: "" }])}>
+                  + Upload File
+                </Button>
+              </Group>
             </Group>
+            <Text size="xs" c="dimmed">
+              Bukti pendukung dapat berasal dari tautan apa pun yang aman atau berkas yang Anda unggah. GOJAGS Office hanya opsi tambahan untuk mengambil daftar hadir rapat.
+            </Text>
 
-            <Card withBorder padding="xs" radius="sm">
-              <Stack gap="xs">
-                <Text size="xs" fw={700}>
-                  Ambil Daftar Hadir dari GOJAGS Office
-                </Text>
+            <Card withBorder padding="xs" radius="sm" style={{ background: "var(--mantine-color-default-hover)" }}>
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="xs" fw={700}>Opsi tambahan: GOJAGS Office</Text>
+                  <Text size="xs" c="dimmed">Gunakan jika bukti berupa daftar hadir rapat.</Text>
+                </div>
+                <Button size="xs" variant="subtle" onClick={() => setOfficeSourceOpened((opened) => !opened)}>
+                  {officeSourceOpened ? "Tutup" : "Buka opsi"}
+                </Button>
+              </Group>
+              <Collapse in={officeSourceOpened}>
+              <Stack gap="xs" mt="sm">
                 <Group gap="xs" align="flex-end">
                   <TextInput
                     label="Cari Rapat"
@@ -795,6 +884,7 @@ export default function PemantauanRisikoPage() {
                   </Stack>
                 )}
               </Stack>
+              </Collapse>
             </Card>
 
             {modalDocs.length === 0 ? (

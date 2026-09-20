@@ -28,12 +28,12 @@ if (typeof window !== "undefined") {
   registerAllModules();
 }
 
-const ANALISIS_INPUT_COLUMNS = [3, 4, 7, 8];
+const ANALISIS_INPUT_COLUMNS = [3, 4, 5, 6];
 const ANALISIS_RESET_COLUMNS: Record<number, number[]> = {
-  3: [4, 5, 6, 7, 8],
-  4: [5, 6, 7, 8],
-  7: [8],
-  8: [],
+  3: [4, 5, 6],
+  4: [5, 6],
+  5: [6],
+  6: [],
 };
 const shouldEnforceAnalisisProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
@@ -140,12 +140,16 @@ export default function AnalisisRisikoPage() {
         r.id,
         a?.id ?? null,
         r.risiko,
+        a?.pengendalianUraian ?? "",
+        a?.pengendalianEfektivitas === "kurang efektif"
+          ? "kurang_efektif"
+          : a?.pengendalianEfektivitas === "cukup efektif"
+          ? "cukup_efektif"
+          : a?.pengendalianEfektivitas ?? "",
         lk?.nama ?? "",
         ld?.nama ?? "",
         lrNama,
         besaran,
-        a?.pengendalianUraian ?? "",
-        a?.pengendalianEfektivitas ?? "",
       ];
     });
     const padded = [...mapped];
@@ -177,20 +181,22 @@ export default function AnalisisRisikoPage() {
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, ANALISIS_INPUT_COLUMNS, col);
 
-      const levelKemungkinanId = findId(kemungkinanData, (row[3] as string) ?? "");
-      const levelDampakId = canUseColumn(4)
-        ? findId(dampakData, (row[4] as string) ?? "")
+      const levelKemungkinanId = canUseColumn(5)
+        ? findId(kemungkinanData, (row[5] as string) ?? "")
         : NaN;
-      const levelRisikoId = canUseColumn(4)
-        ? findId(risikoData, (row[5] as string) ?? "")
+      const levelDampakId = canUseColumn(6)
+        ? findId(dampakData, (row[6] as string) ?? "")
+        : NaN;
+      const levelRisikoId = canUseColumn(6)
+        ? findId(risikoData, (row[7] as string) ?? "")
         : NaN;
 
       const payload: Record<string, any> = {};
       if (!isNaN(levelKemungkinanId)) payload.levelKemungkinanId = levelKemungkinanId;
       if (!isNaN(levelDampakId)) payload.levelDampakId = levelDampakId;
       if (!isNaN(levelRisikoId)) payload.levelRisikoId = levelRisikoId;
-      payload.pengendalianUraian = canUseColumn(7) ? (row[7] as string) || null : null;
-      payload.pengendalianEfektivitas = canUseColumn(8) ? (row[8] as string) || null : null;
+      payload.pengendalianUraian = canUseColumn(3) ? (row[3] as string) || null : null;
+      payload.pengendalianEfektivitas = canUseColumn(4) ? (row[4] as string) || null : null;
 
       if (isNaN(analisisId) || analisisId === 0) {
         newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
@@ -257,9 +263,18 @@ export default function AnalisisRisikoPage() {
     { title: "Ident ID", data: 0, type: "numeric", width: 1 },
     { title: "Analisis ID", data: 1, type: "numeric", width: 1 },
     { title: "Risiko", data: 2, type: "text", width: 250, readOnly: true },
+    { title: "Uraian", data: 3, type: "text", width: 250 },
+    {
+      title: "Keefektifan",
+      data: 4,
+      type: "dropdown",
+      source: ["efektif", "cukup_efektif", "kurang_efektif", "tidak_efektif"],
+      width: 160,
+      strict: false,
+    },
     {
       title: "Level Kemungkinan",
-      data: 3,
+      data: 5,
       type: "dropdown",
       source: kemungkinanNamaList,
       width: 180,
@@ -267,7 +282,7 @@ export default function AnalisisRisikoPage() {
     },
     {
       title: "Level Dampak",
-      data: 4,
+      data: 6,
       type: "dropdown",
       source: dampakNamaList,
       width: 180,
@@ -275,23 +290,14 @@ export default function AnalisisRisikoPage() {
     },
     {
       title: "Level Risiko",
-      data: 5,
+      data: 7,
       type: "dropdown",
       source: risikoNamaList,
       width: 180,
       strict: true,
       readOnly: true,
     },
-    { title: "Besaran Risiko", data: 6, type: "text", width: 130, readOnly: true },
-    { title: "Uraian", data: 7, type: "text", width: 250 },
-    {
-      title: "Keefektifan",
-      data: 8,
-      type: "dropdown",
-      source: ["efektif", "kurang efektif", "tidak efektif"],
-      width: 160,
-      strict: false,
-    },
+    { title: "Besaran Risiko", data: 8, type: "text", width: 130, readOnly: true },
   ];
 
   const getCellMeta = useCallback((row: number, col: number) => {
@@ -304,8 +310,8 @@ export default function AnalisisRisikoPage() {
       isProgressiveColumn(ANALISIS_INPUT_COLUMNS, col) &&
       !isColumnUnlockedForRow(rowData, ANALISIS_INPUT_COLUMNS, col);
 
-    return {
-      readOnly: isEmptySourceRow || col === 0 || col === 1 || col === 2 || col === 5 || col === 6 || isLocked,
+      return {
+      readOnly: isEmptySourceRow || col === 0 || col === 1 || col === 2 || col === 7 || col === 8 || isLocked,
       className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
     };
   }, [localData]);
@@ -361,12 +367,12 @@ export default function AnalisisRisikoPage() {
           "Ident ID",
           "Analisis ID",
           "Risiko",
+          "Uraian",
+          "Keefektifan",
           "Level Kemungkinan",
           "Level Dampak",
           "Level Risiko",
           "Besaran Risiko",
-          "Uraian",
-          "Keefektifan",
         ]}
         hiddenColumns={{
           columns: [0, 1],
@@ -377,16 +383,16 @@ export default function AnalisisRisikoPage() {
             { label: "Ident ID", colspan: 1, rowspan: 2 },
             { label: "Analisis ID", colspan: 1, rowspan: 2 },
             { label: "Risiko", colspan: 1, rowspan: 2 },
-            { label: "Risiko Aktual", colspan: 4 },
             { label: "Pengendalian yang Pernah Dilakukan", colspan: 2 },
+            { label: "Risiko Aktual", colspan: 4 },
           ],
           [
+            "Uraian",
+            "Keefektifan",
             "Level Kemungkinan",
             "Level Dampak",
             "Level Risiko",
             "Besaran Risiko",
-            "Uraian",
-            "Keefektifan",
           ],
         ]}
         rowHeaders={true}
@@ -434,7 +440,7 @@ export default function AnalisisRisikoPage() {
             shouldEnforceAnalisisProgression
           );
           for (const [row, col] of changes) {
-            if (col === 3 || col === 4) {
+            if (col === 5 || col === 6) {
               recalcAnalisisRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
             }
           }
@@ -463,18 +469,18 @@ function recalcAnalisisRow(
   dampakData: any[],
   matriksData: any[]
 ) {
-  const lkNama = hot.getDataAtCell(row, 3) as string;
-  const ldNama = hot.getDataAtCell(row, 4) as string;
+  const lkNama = hot.getDataAtCell(row, 5) as string;
+  const ldNama = hot.getDataAtCell(row, 6) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   
   if (!lk || !ld) return;
 
   const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
-  hot.setDataAtCell(row, 6, besaran, "recalc");
+  hot.setDataAtCell(row, 8, besaran, "recalc");
 
   if (besaran !== "") {
     const lrNama = getLevelRisikoFromBesaran(besaran);
-    hot.setDataAtCell(row, 5, lrNama, "recalc");
+    hot.setDataAtCell(row, 7, lrNama, "recalc");
   }
 }

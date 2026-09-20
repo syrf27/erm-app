@@ -66,6 +66,12 @@ function getLevelRisikoFromBesaran(besaran: number | string): string {
   return "Sangat Tinggi"; // 20 - 25
 }
 
+function getJenisPenangananLabel(value: unknown) {
+  if (value === "pencegahan" || value === "Pencegahan" || value === "mengurangi") return "Pencegahan";
+  if (value === "perbaikan" || value === "Perbaikan" || value) return "Perbaikan";
+  return "";
+}
+
 export default function RencanaPenangananPage() {
   const hotRef = useRef<HotTableRef>(null);
   const [localData, setLocalData] = useState<any[][]>([]);
@@ -231,32 +237,24 @@ export default function RencanaPenangananPage() {
     const dampakById = new Map(dampakData.map((d: any) => [d.id, d]));
 
     const mapped = filtered.map((r: Record<string, any>) => {
+      const ev = evaluasiById.get(r.id);
       const an = analisisById.get(r.id);
       const rp = rencanaById.get(r.id);
 
       const lk = an ? kemungkinanById.get(an.levelKemungkinanId) : undefined;
       const ld = an ? dampakById.get(an.levelDampakId) : undefined;
-
-      const residualLK = rp?.residualLevelKemungkinanId
-        ? kemungkinanById.get(rp.residualLevelKemungkinanId)
-        : undefined;
-      const residualLD = rp?.residualLevelDampakId
-        ? dampakById.get(rp.residualLevelDampakId)
-        : undefined;
+      const residualLK = rp?.residualLevelKemungkinanId ? kemungkinanById.get(rp.residualLevelKemungkinanId) : undefined;
+      const residualLD = rp?.residualLevelDampakId ? dampakById.get(rp.residualLevelDampakId) : undefined;
 
       return [
         r.id,
         rp?.id ?? null,
-        an?.levelRisiko?.nama ?? "",
+        ev?.prioritasRisiko ?? "",
         r.risiko,
         computeBesaran(lk?.skala, ld?.skala),
         computeBesaran(residualLK?.skala, residualLD?.skala),
         rp?.rencanaTidakPenanganan ?? "",
-        rp?.jenisPenanganan === "mengurangi" ? "Mengurangi Risiko" :
-        rp?.jenisPenanganan === "mentransfer" ? "Mengalihkan Risiko" :
-        rp?.jenisPenanganan === "menghindari" ? "Menghindari Risiko" :
-        rp?.jenisPenanganan === "menerima" ? "Menerima Risiko" :
-        (rp?.jenisPenanganan ?? ""),
+        getJenisPenangananLabel(rp?.jenisPenanganan),
         rp?.targetOutput ?? "",
         rp?.targetWaktu ?? "",
         rp?.penanggungJawab ?? "",
@@ -265,6 +263,23 @@ export default function RencanaPenangananPage() {
         getLevelRisikoFromBesaran(computeBesaran(residualLK?.skala, residualLD?.skala)),
         computeBesaran(residualLK?.skala, residualLD?.skala),
       ];
+    });
+    const actualRiskRank = [...mapped]
+      .sort((a, b) => Number(b[4] || 0) - Number(a[4] || 0))
+      .reduce((ranks, row, index) => ranks.set(Number(row[0]), index + 1), new Map<number, number>());
+    mapped.forEach((row) => {
+      if (!Number.isFinite(Number(row[2])) || Number(row[2]) <= 0) {
+        row[2] = actualRiskRank.get(Number(row[0])) ?? "";
+      }
+    });
+    mapped.sort((a, b) => {
+      const aPriority = Number(a[2]);
+      const bPriority = Number(b[2]);
+      const aHasPriority = Number.isFinite(aPriority) && aPriority > 0;
+      const bHasPriority = Number.isFinite(bPriority) && bPriority > 0;
+      if (aHasPriority !== bHasPriority) return aHasPriority ? -1 : 1;
+      if (aHasPriority && aPriority !== bPriority) return aPriority - bPriority;
+      return Number(a[0]) - Number(b[0]);
     });
     const padded = [...mapped];
     while (padded.length < 30) {
@@ -320,13 +335,6 @@ export default function RencanaPenangananPage() {
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
 
-      const residualLKId = canUseColumn(11)
-        ? findId(kemungkinanData, (row[11] as string) ?? "")
-        : NaN;
-      const residualLDId = canUseColumn(12)
-        ? findId(dampakData, (row[12] as string) ?? "")
-        : NaN;
-
       const rtp = (row[6] as string) || "";
       const jenis = canUseColumn(7) ? (row[7] as string) || "" : "";
       const out = canUseColumn(8) ? (row[8] as string) || "" : "";
@@ -335,27 +343,19 @@ export default function RencanaPenangananPage() {
 
       // Skip new rows that have no inputs entered
       if ((isNaN(rencanaId) || rencanaId === 0) &&
-          !rtp && !jenis && !out && !waktu && !pic &&
-          isNaN(residualLKId) && isNaN(residualLDId)) {
+          !rtp && !jenis && !out && !waktu && !pic) {
         return;
       }
 
       const payload: Record<string, any> = {};
       const jenisPen = jenis;
       payload.rencanaTidakPenanganan = rtp || null;
-      payload.jenisPenanganan = jenisPen === "Mengurangi Risiko" ? "mengurangi" :
-                                jenisPen === "Mengalihkan Risiko" ? "mentransfer" :
-                                jenisPen === "Menghindari Risiko" ? "menghindari" :
-                                jenisPen === "Menerima Risiko" ? "menerima" :
+      payload.jenisPenanganan = jenisPen === "Pencegahan" ? "pencegahan" :
+                                jenisPen === "Perbaikan" ? "perbaikan" :
                                 (jenisPen || null);
       payload.targetOutput = out || null;
       payload.targetWaktu = waktu || null;
       payload.penanggungJawab = pic || null;
-      if (!isNaN(residualLKId))
-        payload.residualLevelKemungkinanId = residualLKId;
-      else payload.residualLevelKemungkinanId = null;
-      if (!isNaN(residualLDId)) payload.residualLevelDampakId = residualLDId;
-      else payload.residualLevelDampakId = null;
 
       if (isNaN(rencanaId) || rencanaId === 0) {
         newRows.push({
@@ -461,10 +461,8 @@ export default function RencanaPenangananPage() {
       data: 7,
       type: "dropdown",
       source: [
-        "Mengurangi Risiko",
-        "Mengalihkan Risiko",
-        "Menghindari Risiko",
-        "Menerima Risiko",
+        "Pencegahan",
+        "Perbaikan",
       ],
       width: 180,
       strict: true,
@@ -611,7 +609,7 @@ export default function RencanaPenangananPage() {
           "Besaran Risiko",
         ]}
         hiddenColumns={{
-          columns: [0, 1],
+          columns: [0, 1, 11, 12, 13, 14],
           indicators: false,
         }}
         nestedHeaders={[
@@ -622,11 +620,11 @@ export default function RencanaPenangananPage() {
             { label: "Risiko", colspan: 1, rowspan: 2 },
             { label: "Besaran Risiko", colspan: 2 },
             { label: "Rencana Penanganan Risiko", colspan: 5 },
-            { label: "Risiko Residual Harapan", colspan: 4 },
+            { label: "Risiko Residual", colspan: 4 },
           ],
           [
             "Aktual",
-            "Residual Harapan",
+            "Residual",
             "Rencana Tindak Penanganan",
             "Jenis Penanganan",
             "Target Output",

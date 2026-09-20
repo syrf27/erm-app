@@ -84,9 +84,9 @@ export const createEvaluasiRisikoSchema = z.object({
   identifikasiRisikoId: positiveInt,
   responRisiko: z.enum(["menerima", "menghindari", "mengurangi", "mentransfer"]).optional().nullable(),
   prioritasRisiko: z.number().int().positive().optional().nullable(),
-  residualLevelKemungkinanId: optionalPositiveInt,
-  residualLevelDampakId: optionalPositiveInt,
-  residualLevelRisikoId: optionalPositiveInt,
+  residualLevelKemungkinanId: optionalPositiveInt.nullable(),
+  residualLevelDampakId: optionalPositiveInt.nullable(),
+  residualLevelRisikoId: optionalPositiveInt.nullable(),
 });
 
 export const updateEvaluasiRisikoSchema = createEvaluasiRisikoSchema.partial().omit({ identifikasiRisikoId: true });
@@ -94,13 +94,13 @@ export const updateEvaluasiRisikoSchema = createEvaluasiRisikoSchema.partial().o
 // Risk treatment schemas
 export const createRencanaPenangananSchema = z.object({
   identifikasiRisikoId: positiveInt,
-  jenisPenanganan: z.enum(["mengurangi", "menerima", "mentransfer", "menghindari"]).optional().nullable(),
+  jenisPenanganan: z.enum(["pencegahan", "perbaikan"]).optional().nullable(),
   rencanaTidakPenanganan: safePlainText(5000).optional().nullable(),
   targetOutput: safePlainText(5000).optional().nullable(),
   targetWaktu: safePlainText(500).optional().nullable(),
   penanggungJawab: safePlainText(500).optional().nullable(),
-  residualLevelKemungkinanId: optionalPositiveInt,
-  residualLevelDampakId: optionalPositiveInt,
+  residualLevelKemungkinanId: optionalPositiveInt.nullable(),
+  residualLevelDampakId: optionalPositiveInt.nullable(),
   keterjadiRisiko: z.enum(["Terjadi", "Tidak Terjadi"]).optional().nullable(),
   realisasiWaktu: safePlainText(500).optional().nullable(),
   realisasiOutput: safePlainText(5000).optional().nullable(),
