@@ -5,6 +5,7 @@ import { sanitizeHtml } from "@/lib/server-sanitize";
 import {
   createConversationalHelpAnswer,
   getHelpSuggestions,
+  isHelpRelatedQuery,
   searchHelpFaqs,
 } from "@/lib/help-search";
 
@@ -78,6 +79,15 @@ export async function POST(request: NextRequest) {
         { error: "Pertanyaan terlalu panjang. Ringkas menjadi maksimal 500 karakter." },
         { status: 400 }
       );
+    }
+
+    if (!isHelpRelatedQuery(message)) {
+      return NextResponse.json({
+        answer:
+          "Saya hanya dapat membantu pertanyaan tentang penggunaan gojags risk dan proses manajemen risiko. Silakan tanyakan tentang menu, pengisian risiko, rencana penanganan, pemantauan, pelaporan, dokumen, atau hak akses aplikasi.",
+        confidence: "none",
+        suggestions: [],
+      });
     }
 
     const faqs = await getFaqs();

@@ -109,6 +109,44 @@ const PAGE_CONTEXTS = [
   },
 ];
 
+const HELP_CONTEXT_TERMS = new Set([
+  "aplikasi",
+  "bantuan",
+  "dashboard",
+  "dokumen",
+  "evaluasi",
+  "faq",
+  "gojags",
+  "identifikasi",
+  "laporan",
+  "login",
+  "manajemen",
+  "matriks",
+  "mitigasi",
+  "notifikasi",
+  "pelaporan",
+  "pemantauan",
+  "pengguna",
+  "penanganan",
+  "penetapan",
+  "permission",
+  "prioritas",
+  "proses",
+  "realisasi",
+  "repositori",
+  "respon",
+  "residual",
+  "risiko",
+  "role",
+  "rtp",
+  "sasaran",
+  "simpan",
+  "tim",
+  "upload",
+  "unduh",
+  "user",
+]);
+
 function normalizeText(value: string) {
   return value
     .toLowerCase()
@@ -155,6 +193,16 @@ function tokenize(value: string) {
 function getPageTerms(pathname?: string) {
   if (!pathname) return [];
   return PAGE_CONTEXTS.find((context) => pathname.startsWith(context.path))?.terms ?? [];
+}
+
+export function isHelpRelatedQuery(query: string) {
+  const normalized = normalizeText(query);
+  if (!normalized) return false;
+  if (normalized.includes("gojags") || normalized.includes("manajemen risiko")) {
+    return true;
+  }
+
+  return tokenize(query).some((token) => HELP_CONTEXT_TERMS.has(token));
 }
 
 function scoreFaq(faq: HelpFaq, query: string, pathname?: string) {
