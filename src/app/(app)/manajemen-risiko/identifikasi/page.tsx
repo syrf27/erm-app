@@ -281,6 +281,7 @@ const BankRisikoModal = memo(function BankRisikoModal({
 });
 
 export default function IdentifikasiRisikoPage() {
+  const autoOpenAssistHandledRef = useRef(false);
   const hotRef = useRef<HotTableRef>(null);
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
@@ -698,17 +699,27 @@ export default function IdentifikasiRisikoPage() {
     [prosesBisnisData]
   );
 
+  const openRiskAssistant = useCallback(() => {
+    setAssistSuggestion(null);
+    setAssistStep(1);
+    setAssistControl("");
+    setAssistEffectiveness(null);
+    setAssistOpened(true);
+  }, []);
+
   useEffect(() => {
-    const openAssistant = () => {
-      setAssistSuggestion(null);
-      setAssistStep(1);
-      setAssistControl("");
-      setAssistEffectiveness(null);
-      setAssistOpened(true);
-    };
+    const openAssistant = () => openRiskAssistant();
     window.addEventListener("open-risk-ai-assistant", openAssistant);
     return () => window.removeEventListener("open-risk-ai-assistant", openAssistant);
-  }, []);
+  }, [openRiskAssistant]);
+
+  useEffect(() => {
+    if (autoOpenAssistHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openAiAssist") !== "1") return;
+    autoOpenAssistHandledRef.current = true;
+    openRiskAssistant();
+  }, [openRiskAssistant]);
 
   useEffect(() => {
     if (loading) return;

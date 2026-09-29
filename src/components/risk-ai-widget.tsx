@@ -10,7 +10,7 @@ export function RiskAiWidget() {
     if (pathname === "/manajemen-risiko/identifikasi") {
       window.dispatchEvent(new CustomEvent("open-risk-ai-assistant"));
     } else {
-      router.push("/manajemen-risiko/identifikasi");
+      router.push("/manajemen-risiko/identifikasi?openAiAssist=1");
     }
   };
   return <Box style={{ position: "fixed", right: 24, bottom: 152, zIndex: 220 }}>
