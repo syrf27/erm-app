@@ -663,8 +663,13 @@ export default function PemantauanRisikoPage() {
                   </Table.Td>
                   <Table.Td align="center" className="monitoring-sticky-action">
                     <ActionIcon
-                      variant="filled"
-                      color="gray"
+                      variant="light"
+                      color="blue"
+                      size="sm"
+                      style={{
+                        backgroundColor: "var(--mantine-color-blue-light)",
+                        color: "var(--mantine-color-blue-filled)",
+                      }}
                       onClick={() => openEditModal(row)}
                       title="Update Realisasi"
                     >
@@ -710,7 +715,7 @@ export default function PemantauanRisikoPage() {
 
         .monitoring-table thead .monitoring-sticky-action {
           z-index: 5;
-          background: var(--mantine-color-dark-7);
+          background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-7));
         }
 
         @media (max-width: 768px) {

@@ -129,11 +129,6 @@ const menuItems: MenuItem[] = [
         icon: <IconFileCheck size={16} />,
         href: "/manajemen-risiko/rencana",
       },
-      {
-        label: "Matriks Risiko",
-        icon: <IconHeartRateMonitor size={16} />,
-        href: "/manajemen-risiko/matriks-risiko",
-      },
     ],
   },
   {
@@ -146,6 +141,11 @@ const menuItems: MenuItem[] = [
     label: "Pelaporan Risiko",
     icon: <IconTargetArrow size={18} />,
     href: "/pelaporan-risiko",
+  },
+  {
+    label: "Matriks Risiko",
+    icon: <IconHeartRateMonitor size={18} />,
+    href: "/manajemen-risiko/matriks-risiko",
   },
   {
     label: "Bank Risiko",

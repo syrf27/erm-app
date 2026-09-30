@@ -212,44 +212,23 @@ export default function AnalisisRisikoPage() {
     }
 
     try {
-      if (newRows.length > 0) {
-        const results = await Promise.all(
-          newRows.map(({ index, identId, payload }) =>
-            fetch("/api/analisis-risiko", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            }).then(async (res) => {
-              if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err?.error ?? `Gagal menyimpan baris ${index + 1}`);
-              }
-              return res.json().then((data) => ({ index, identId, data }));
-            })
-          )
-        );
-        results.forEach(({ index, data }) => {
-          if (data?.id && hot) {
-            hot.setDataAtCell(index, 1, data.id, "saveAll");
-          }
-        });
+      const res = await fetch("/api/analisis-risiko/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creates: newRows.map(({ payload }) => ({ data: payload })),
+          updates: updateRows.map(({ id, payload }) => ({ id, data: payload })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Gagal menyimpan perubahan");
       }
-      if (updateRows.length > 0) {
-        await Promise.all(
-          updateRows.map(({ id, payload }) =>
-            fetch(`/api/analisis-risiko/${id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            }).then(async (res) => {
-              if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err?.error ?? `Gagal memperbarui ID ${id}`);
-              }
-            })
-          )
-        );
-      }
+      const result = await res.json();
+      result.created?.forEach((item: any, index: number) => {
+        const row = newRows[index]?.index;
+        if (item?.id && row !== undefined) hot.setDataAtCell(row, 1, item.id, "saveAll");
+      });
       notifications.show({ title: "Tersimpan", message: "Semua data berhasil disimpan", color: "green" });
       if (refetchQuery) refetchQuery();
     } catch (e: any) {

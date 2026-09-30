@@ -246,7 +246,6 @@ export default async function RootLayout({
                       list: "/manajemen-risiko/matriks-risiko",
                       meta: {
                         label: "Matriks Risiko",
-                        parent: "manajemen-risiko",
                       },
                     },
                     {

@@ -72,17 +72,15 @@ export async function getOrSet<T>(
     } catch {
       // fall through to fetcher
     }
-  } else if (process.env.NODE_ENV !== "production") {
-    // In-memory caching is safe for the single local development process.
-    // In production, separate serverless instances cannot invalidate each
-    // other's memory, so bypass this cache when Redis is not configured.
+  } else {
+    // Keep a short-lived per-instance fallback when Redis is unavailable.
+    // This removes repeated queries on warm serverless instances while the
+    // TTL limits how long another instance can serve stale data.
     const now = Date.now();
     const cached = memoryCache.get(key);
     if (cached && cached.expiry > now) {
       return cached.value as T;
     }
-  } else {
-    return fetcher();
   }
 
   const data = await fetcher();
@@ -93,8 +91,8 @@ export async function getOrSet<T>(
     } catch {
       // non-critical
     }
-  } else if (process.env.NODE_ENV !== "production") {
-    // Cache in memory for warmed up serverless instances
+  } else {
+    // Cache in memory for warmed up local and serverless instances.
     memoryCache.set(key, {
       value: data,
       expiry: Date.now() + ttlSeconds * 1000,
