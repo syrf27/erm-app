@@ -224,7 +224,9 @@ export default function EvaluasiRisikoPage() {
         areaDampakId,
         kategoriRisikoId,
       };
-    });
+    }).filter((item) =>
+      seleraRisikoNilai !== null && item.residualBesaran > seleraRisikoNilai
+    );
 
     const autoPriorityByIdentId = new Map<number, number>();
     withSort
