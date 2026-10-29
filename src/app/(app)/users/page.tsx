@@ -67,6 +67,7 @@ interface DBUser {
   id: number;
   email: string;
   name: string;
+  whatsappNumber?: string | null;
   roleId: number;
   role: DBRole;
   permissions?: UserPermissionOverride[];
@@ -120,6 +121,7 @@ export default function UserManagementPage() {
   // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [roleId, setRoleId] = useState<string>("0");
   const [password, setPassword] = useState("");
   const [teamIds, setTeamIds] = useState<string[]>([]);
@@ -198,6 +200,7 @@ export default function UserManagementPage() {
   const handleOpenAdd = () => {
     setName("");
     setEmail("");
+    setWhatsappNumber("");
     setRoleId(dbRoles[0]?.id?.toString() || "0");
     setPassword("");
     setTeamIds([]);
@@ -216,6 +219,7 @@ export default function UserManagementPage() {
         body: JSON.stringify({
           name,
           email,
+          whatsappNumber: whatsappNumber || null,
           roleId: Number(roleId),
           password,
           teamIds: teamIds.map(Number),
@@ -247,6 +251,7 @@ export default function UserManagementPage() {
     setSelectedUser(user);
     setName(user.name);
     setEmail(user.email);
+    setWhatsappNumber(user.whatsappNumber || "");
     setRoleId(user.roleId.toString());
     setPassword(""); // Keep blank unless updating
     setTeamIds(user.teams ? user.teams.map((t) => t.team.id.toString()) : []);
@@ -264,6 +269,7 @@ export default function UserManagementPage() {
       const payload: any = {
         name,
         email,
+        whatsappNumber: whatsappNumber || null,
         roleId: Number(roleId),
         teamIds: teamIds.map(Number),
       };
@@ -530,6 +536,13 @@ export default function UserManagementPage() {
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
           />
+          <TextInput
+            label="Nomor WhatsApp"
+            placeholder="6281234567890"
+            description="Gunakan format internasional tanpa spasi, misalnya 6281234567890."
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.currentTarget.value)}
+          />
           <Select
             label="Role"
             required
@@ -577,6 +590,13 @@ export default function UserManagementPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
+          />
+          <TextInput
+            label="Nomor WhatsApp"
+            placeholder="6281234567890"
+            description="Gunakan format internasional tanpa spasi, misalnya 6281234567890."
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.currentTarget.value)}
           />
           <Select
             label="Role"

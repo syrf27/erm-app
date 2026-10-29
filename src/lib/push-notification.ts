@@ -76,15 +76,51 @@ export async function sendRtpPushNotification(rtpId: number) {
       },
     });
 
-    const title = "gojags risk - Pembaruan RTP";
-    const body = `RTP "${rtp.rencanaTidakPenanganan || "Tanpa Nama"}" pada Risiko "${rtp.identifikasiRisiko.risiko}" (Tim: ${team.nama}) telah diperbarui.`;
+    const recipients = [...userTeams] as Array<{
+      userId: number;
+      user: { fcmTokens: Array<{ token: string }> };
+    }>;
+    if (team.ketuaTim) {
+      const ketua = await prisma.user.findFirst({
+        where: {
+          OR: [{ email: team.ketuaTim }, { name: team.ketuaTim }],
+        },
+        include: { fcmTokens: true },
+      });
+      if (ketua && !recipients.some((recipient) => recipient.userId === ketua.id)) {
+        recipients.push({ userId: ketua.id, user: ketua });
+      }
+    }
+
+    const title = "gojags risk - Pengingat Penanganan Risiko";
+    const evidenceUrl =
+      process.env.EVIDENCE_DRIVE_URL ||
+      "https://drive.google.com/drive/my-drive";
+    const targetWaktu = rtp.targetWaktu || "belum ditentukan";
+    const rencana = rtp.rencanaTidakPenanganan || "belum diisi";
+    const ketuaTim = team.ketuaTim || "Ketua Tim";
+    const body = [
+      `Yth. Tim ${team.nama},`,
+      "",
+      "Mohon menindaklanjuti rencana penanganan risiko berikut:",
+      `Risiko: ${rtp.identifikasiRisiko.risiko}`,
+      `Rencana penanganan: ${rencana}`,
+      `Target waktu: ${targetWaktu}`,
+      `Ketua Tim: ${ketuaTim}`,
+      "",
+      "Setelah penanganan dilaksanakan, mohon lengkapi realisasi dan unggah bukti pendukung melalui tautan berikut:",
+      evidenceUrl,
+      "",
+      "Terima kasih atas tindak lanjutnya.",
+      "gojags risk",
+    ].join("\n");
     const url = `/pemantauan-risiko`;
 
     // 3. Create in-app notifications in the database
-    if (userTeams.length > 0) {
+    if (recipients.length > 0) {
       try {
         await prisma.notification.createMany({
-          data: userTeams.map((ut) => ({
+          data: recipients.map((ut) => ({
             userId: ut.userId,
             title,
             body,
@@ -92,7 +128,7 @@ export async function sendRtpPushNotification(rtpId: number) {
             isRead: false,
           })),
         });
-        console.log(`In-app notifications saved to database for ${userTeams.length} users.`);
+        console.log(`In-app notifications saved to database for ${recipients.length} users.`);
       } catch (dbErr) {
         console.error("Error creating database notifications:", dbErr);
       }
@@ -100,7 +136,7 @@ export async function sendRtpPushNotification(rtpId: number) {
 
     // 4. Extract active tokens for push notifications
     const tokens: string[] = [];
-    userTeams.forEach((ut) => {
+    recipients.forEach((ut) => {
       if (ut.user && ut.user.fcmTokens) {
         ut.user.fcmTokens.forEach((fcm) => {
           if (fcm.token) {
@@ -121,7 +157,7 @@ export async function sendRtpPushNotification(rtpId: number) {
       return;
     }
 
-    console.log(`Sending push notifications to ${tokens.length} tokens for team ${team.nama}...`);
+    console.log(`Sending push notifications to ${tokens.length} recipients for team ${team.nama}...`);
 
     for (const token of tokens) {
       try {

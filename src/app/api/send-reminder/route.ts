@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkPermission } from "@/lib/access-control";
 import { sendRtpPushNotification } from "@/lib/push-notification";
+import { sendRtpWhatsAppReminder } from "@/lib/whatsapp-notification";
 
 export async function POST(req: Request) {
   try {
@@ -14,9 +15,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing rtpId" }, { status: 400 });
     }
 
-    await sendRtpPushNotification(Number(rtpId));
+    const id = Number(rtpId);
+    await sendRtpPushNotification(id);
+    const whatsapp = await sendRtpWhatsAppReminder(id);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, whatsapp });
   } catch (error: any) {
     console.error("Error sending reminder:", error);
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });

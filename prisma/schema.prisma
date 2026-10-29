@@ -385,6 +385,7 @@ model User {
   id              Int              @id @default(autoincrement())
   email           String           @unique
   name            String
+  whatsappNumber  String?          @unique
   roleId          Int
   password        String           @default("password")
   tourCompletedAt DateTime?

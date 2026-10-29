@@ -267,6 +267,7 @@ export const updateKRISchema = createKRISchema.partial();
 export const createUserSchema = z.object({
   email: z.string().email("Format email tidak valid"),
   name: z.string().min(1).max(500),
+  whatsappNumber: z.string().regex(/^\+?[1-9]\d{7,14}$/, "Nomor WhatsApp harus menggunakan format internasional").optional().nullable(),
   password: z.string().min(8, "Password minimal 8 karakter").max(100),
   roleId: positiveInt,
   teamIds: z.array(z.number()).optional(),
@@ -275,6 +276,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   name: z.string().min(1).max(500).optional(),
+  whatsappNumber: z.string().regex(/^\+?[1-9]\d{7,14}$/, "Nomor WhatsApp harus menggunakan format internasional").optional().nullable(),
   roleId: optionalPositiveInt,
   password: z.string().min(8, "Password minimal 8 karakter").max(100).optional(),
   teamIds: z.array(z.number()).optional(),

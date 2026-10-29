@@ -51,10 +51,16 @@ export default function NotificationCenterPage() {
         throw new Error("Gagal mengirim pengingat");
       }
 
+      const result = await res.json();
+      const whatsapp = result.whatsapp;
+
       if (!silent) {
+        const whatsappMessage = !whatsapp?.configured
+          ? "WhatsApp belum dikirim karena konfigurasi belum tersedia."
+          : `WhatsApp dikirim ke ${whatsapp.sent} penerima${whatsapp.skipped ? `; ${whatsapp.skipped} pengguna belum memiliki nomor WhatsApp.` : "."}`;
         notifications.show({
           title: "Berhasil",
-          message: "Notifikasi pengingat berhasil dikirim ke seluruh anggota Tim",
+          message: `Notifikasi aplikasi berhasil dikirim. ${whatsappMessage}`,
           color: "green",
         });
       }
