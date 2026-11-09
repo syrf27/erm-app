@@ -28,10 +28,13 @@ if (typeof window !== "undefined") {
   registerAllModules();
 }
 
-const EVALUASI_INPUT_COLUMNS = [5, 6];
+// Residual saat ini adalah hasil pengendalian existing. Respon baru dipilih
+// setelah nilai residual lengkap; residual setelah RTP dicatat di Pemantauan.
+const EVALUASI_INPUT_COLUMNS = [4, 5, 9];
 const EVALUASI_RESET_COLUMNS: Record<number, number[]> = {
-  5: [6],
-  6: [],
+  4: [5, 9, 10],
+  5: [9, 10],
+  9: [10],
 };
 const shouldEnforceEvaluasiProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
@@ -141,8 +144,8 @@ export default function EvaluasiRisikoPage() {
       const candidates = rows
         .map((row, index) => {
           const identId = Number(row[0]);
-          const residualBesaran = Number(row[3]);
-          const response = row[5];
+          const residualBesaran = Number(row[7]);
+          const response = row[9];
           const needsPriority =
             Number.isFinite(identId) &&
             Number.isFinite(residualBesaran) &&
@@ -169,15 +172,15 @@ export default function EvaluasiRisikoPage() {
         if (!Number.isFinite(identId)) return;
 
         const autoPriority = autoPriorityByIdentId.get(identId);
-        const currentPriority = toPositiveInteger(row[6]);
+        const currentPriority = toPositiveInteger(row[10]);
 
         if (!autoPriority) {
-          if (row[6] !== "") hot.setDataAtCell(index, 6, "", "priority-auto");
+          if (row[10] !== "") hot.setDataAtCell(index, 10, "", "priority-auto");
           return;
         }
 
         if (currentPriority === null) {
-          hot.setDataAtCell(index, 6, autoPriority, "priority-auto");
+          hot.setDataAtCell(index, 10, autoPriority, "priority-auto");
         }
       });
     },
@@ -195,8 +198,12 @@ export default function EvaluasiRisikoPage() {
       const analysis = analisisById.get(r.id);
       const actualLK = kemungkinanData.find((o: any) => o.id === analysis?.levelKemungkinanId);
       const actualLD = dampakData.find((o: any) => o.id === analysis?.levelDampakId);
-      const resBesaran = actualLK?.skala != null && actualLD?.skala != null ? actualLK.skala * actualLD.skala : "";
-      const residualBesaran = typeof resBesaran === "number" ? resBesaran : 0;
+      const residualLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
+      const residualLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
+      const actualBesaran = actualLK?.skala != null && actualLD?.skala != null ? actualLK.skala * actualLD.skala : "";
+      const residualBesaran = residualLK?.skala != null && residualLD?.skala != null
+        ? residualLK.skala * residualLD.skala
+        : 0;
       const responseLabel =
         ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
         ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
@@ -213,7 +220,11 @@ export default function EvaluasiRisikoPage() {
           r.id,
           ev?.id ?? null,
           r.risiko,
-          resBesaran,
+          actualBesaran,
+          residualLK?.nama ?? "",
+          residualLD?.nama ?? "",
+          ev?.residualLevelRisiko?.nama ?? "",
+          residualBesaran || "",
           seleraRisikoNilai ?? "",
           responseLabel,
           "",
@@ -224,9 +235,7 @@ export default function EvaluasiRisikoPage() {
         areaDampakId,
         kategoriRisikoId,
       };
-    }).filter((item) =>
-      seleraRisikoNilai !== null && item.residualBesaran > seleraRisikoNilai
-    );
+    });
 
     const autoPriorityByIdentId = new Map<number, number>();
     withSort
@@ -247,13 +256,13 @@ export default function EvaluasiRisikoPage() {
 
     for (const item of withSort) {
       const autoPriority = autoPriorityByIdentId.get(item.id);
-      item.row[6] = item.needsPriority ? item.savedPriority ?? autoPriority ?? "" : "";
+      item.row[10] = item.needsPriority ? item.savedPriority ?? autoPriority ?? "" : "";
     }
 
     withSort.sort((a, b) => {
       if (a.needsPriority !== b.needsPriority) return a.needsPriority ? -1 : 1;
-      const aPriority = toPositiveInteger(a.row[6]) ?? Number.MAX_SAFE_INTEGER;
-      const bPriority = toPositiveInteger(b.row[6]) ?? Number.MAX_SAFE_INTEGER;
+      const aPriority = toPositiveInteger(a.row[10]) ?? Number.MAX_SAFE_INTEGER;
+      const bPriority = toPositiveInteger(b.row[10]) ?? Number.MAX_SAFE_INTEGER;
       if (aPriority !== bPriority) return aPriority - bPriority;
       if (b.residualBesaran !== a.residualBesaran) return b.residualBesaran - a.residualBesaran;
       return b.id - a.id;
@@ -262,7 +271,7 @@ export default function EvaluasiRisikoPage() {
     const mapped = withSort.map(m => m.row);
     const padded = [...mapped];
     while (padded.length < 30) {
-      padded.push([null, null, "", "", "", "", "", "", ""]);
+      padded.push([null, null, "", "", "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
   }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, kemungkinanData, dampakData, seleraRisikoNilai]);
@@ -288,17 +297,30 @@ export default function EvaluasiRisikoPage() {
       const isExistingRow = Number.isInteger(evaluasiId) && evaluasiId > 0;
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, EVALUASI_INPUT_COLUMNS, col);
-      const respon = canUseColumn(5) ? (row[5] as string) ?? "" : "";
-      const residualBesaran = Number(row[3]);
+      const residualKemungkinan = canUseColumn(4) ? (row[4] as string) ?? "" : "";
+      const residualDampak = canUseColumn(5) ? (row[5] as string) ?? "" : "";
+      const respon = canUseColumn(9) ? (row[9] as string) ?? "" : "";
+      const residualBesaran = Number(row[7]);
       const autoPriority = autoPriorityByIdentIdRef.current.get(identId);
       const savedPriority = savedPriorityByIdentIdRef.current.get(identId);
-      const currentPriority = toPositiveInteger(row[6]);
+      const currentPriority = toPositiveInteger(row[10]);
       const needsPriority =
         seleraRisikoNilai !== null &&
         Number.isFinite(residualBesaran) &&
         residualBesaran > seleraRisikoNilai &&
         isReducingResponse(respon);
-      if (!respon) return;
+      // Risiko yang belum memiliki residual belum dapat dievaluasi. Ini tidak
+      // dianggap error agar pengguna dapat menyimpan baris lain terlebih dulu.
+      if (!residualKemungkinan || !residualDampak || !respon) return;
+
+      const residualKemungkinanId = findId(kemungkinanData, residualKemungkinan);
+      const residualDampakId = findId(dampakData, residualDampak);
+      const residualLevelRisikoId = matriksData.find(
+        (item: any) =>
+          item.levelKemungkinanId === residualKemungkinanId &&
+          item.levelDampakId === residualDampakId
+      )?.levelRisikoId ?? null;
+      if (!residualKemungkinanId || !residualDampakId || !residualLevelRisikoId) return;
 
       const payload: Record<string, any> = {
         responRisiko: respon === "Mengurangi Risiko" ? "mengurangi" :
@@ -306,11 +328,9 @@ export default function EvaluasiRisikoPage() {
                       respon === "Menghindari Risiko" ? "menghindari" :
                       respon === "Menerima Risiko" ? "menerima" :
         (respon || null),
-        // Residual risk is maintained in Rencana Penanganan now. Keep the
-        // legacy Evaluasi columns present but explicitly empty.
-        residualLevelKemungkinanId: null,
-        residualLevelDampakId: null,
-        residualLevelRisikoId: null,
+        residualLevelKemungkinanId: residualKemungkinanId,
+        residualLevelDampakId: residualDampakId,
+        residualLevelRisikoId,
       };
       if (needsPriority && currentPriority !== null && currentPriority !== autoPriority) {
         payload.prioritasRisiko = currentPriority;
@@ -356,31 +376,49 @@ export default function EvaluasiRisikoPage() {
     } finally {
       setSaving(false);
     }
-  }, [refetchQuery, kemungkinanData, dampakData, risikoData, seleraRisikoNilai]);
+  }, [refetchQuery, kemungkinanData, dampakData, matriksData, seleraRisikoNilai]);
 
   const columns: Handsontable.ColumnSettings[] = [
     { title: "Ident ID", data: 0, type: "numeric", width: 1 },
     { title: "Evaluasi ID", data: 1, type: "numeric", width: 1 },
     { title: "Risiko", data: 2, type: "text", width: 300, readOnly: true },
-    { title: "Besaran Risiko", data: 3, type: "text", width: 160, readOnly: true },
-    { title: "Selera Risiko", data: 4, type: "text", width: 160, readOnly: true },
+    { title: "Besaran Risiko Aktual", data: 3, type: "text", width: 150, readOnly: true },
+    {
+      title: "Residual: Level Kemungkinan",
+      data: 4,
+      type: "dropdown",
+      source: kemungkinanNamaList,
+      width: 200,
+      strict: true,
+    },
+    {
+      title: "Residual: Level Dampak",
+      data: 5,
+      type: "dropdown",
+      source: dampakNamaList,
+      width: 180,
+      strict: true,
+    },
+    { title: "Level Risiko Residual", data: 6, type: "text", width: 170, readOnly: true },
+    { title: "Besaran Risiko Residual", data: 7, type: "text", width: 160, readOnly: true },
+    { title: "Selera Risiko", data: 8, type: "text", width: 140, readOnly: true },
     {
       title: "Respon Risiko",
-      data: 5,
+      data: 9,
       type: "dropdown",
       source: RESPON_OPTIONS,
       width: 250,
       strict: true,
     },
-    { title: "Prioritas Risiko", data: 6, type: "numeric", width: 200, allowInvalid: false },
+    { title: "Prioritas Risiko", data: 10, type: "numeric", width: 170, allowInvalid: false },
   ];
 
   const getCellMeta = useCallback((row: number, col: number) => {
     const rowData = getSafeRowData(hotRef.current?.hotInstance, localData, row);
     const identId = rowData[0];
     const isEmptySourceRow = identId == null;
-    const residualBesaran = Number(rowData[3]);
-    const isPriorityColumn = col === 6;
+    const residualBesaran = Number(rowData[7]);
+    const isPriorityColumn = col === 10;
     const isPriorityEditable =
       isPriorityColumn &&
       seleraRisikoNilai !== null &&
@@ -395,12 +433,7 @@ export default function EvaluasiRisikoPage() {
 
     return {
       readOnly:
-        isEmptySourceRow ||
-        col === 0 ||
-        col === 1 ||
-        col === 2 ||
-        col === 3 ||
-        col === 4 ||
+      isEmptySourceRow || [0, 1, 2, 3, 6, 7, 8].includes(col) ||
         (isPriorityColumn && !isPriorityEditable) ||
         isLocked,
       className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
@@ -423,18 +456,18 @@ export default function EvaluasiRisikoPage() {
       for (const change of changes) {
         if (!change) continue;
         const [row, col] = change;
-        if (typeof row !== "number" || col !== 6) continue;
+        if (typeof row !== "number" || col !== 10) continue;
 
         const rowData = hot.getDataAtRow(row) as unknown[];
-        const residualBesaran = Number(rowData[3]);
+        const residualBesaran = Number(rowData[7]);
         const canEditPriority =
           seleraRisikoNilai !== null &&
           Number.isFinite(residualBesaran) &&
           residualBesaran > seleraRisikoNilai &&
-          isReducingResponse(rowData[5]);
+          isReducingResponse(rowData[9]);
 
         if (!canEditPriority) {
-          change[3] = hot.getDataAtCell(row, 6);
+          change[3] = hot.getDataAtCell(row, 10);
         }
       }
     },
@@ -467,23 +500,13 @@ export default function EvaluasiRisikoPage() {
         </Group>
       </Group>
       <Text size="sm" c="dimmed">
-        Tetapkan Respon Risiko untuk setiap risiko. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel.
+        Isi risiko residual berdasarkan pengendalian yang telah dilaksanakan. RTP hanya diperlukan bila residual masih melampaui selera risiko.
       </Text>
       <HotTable
         ref={hotRef}
         data={localData}
         columns={columns}
-        colHeaders={[
-          "Ident ID",
-          "Evaluasi ID",
-          "Risiko",
-          "Level Kemungkinan",
-          "Level Dampak",
-          "Level Risiko",
-          "Besaran Risiko",
-          "Respon Risiko",
-          "Prioritas Risiko",
-        ]}
+        colHeaders={true}
         hiddenColumns={{
           columns: [0, 1],
           indicators: false,
@@ -536,7 +559,12 @@ export default function EvaluasiRisikoPage() {
           for (const [row, col] of changes) {
             void row;
           }
-          if (changes.some(([, col]) => col === 5)) {
+          for (const [row, col] of changes) {
+            if (col === 4 || col === 5) {
+              recalcResidualRow(hot, row, kemungkinanData, dampakData, matriksData);
+            }
+          }
+          if (changes.some(([, col]) => col === 4 || col === 5 || col === 9)) {
             window.setTimeout(() => recomputeVisiblePriorities(hot), 0);
           }
           hot.render();
@@ -554,19 +582,19 @@ function recalcResidualRow(
   dampakData: any[],
   matriksData: any[]
 ) {
-  const lkNama = hot.getDataAtCell(row, 3) as string;
-  const ldNama = hot.getDataAtCell(row, 4) as string;
+  const lkNama = hot.getDataAtCell(row, 4) as string;
+  const ldNama = hot.getDataAtCell(row, 5) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   if (!lk || !ld) return;
   const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
-  hot.setDataAtCell(row, 6, besaran, "recalc");
+  hot.setDataAtCell(row, 7, besaran, "recalc");
   const match = matriksData.find(
     (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
   );
   if (!match) return;
   const lrNama = match.levelRisiko?.nama;
   if (lrNama) {
-    hot.setDataAtCell(row, 5, lrNama, "recalc");
+    hot.setDataAtCell(row, 6, lrNama, "recalc");
   }
 }

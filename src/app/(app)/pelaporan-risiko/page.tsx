@@ -213,8 +213,10 @@ export default function PelaporanRisikoPage() {
       const ldAktual = an ? ldById.get(an.levelDampakId) : null;
 
       // Find likelihood & impact scales for residual
-      const lkResidual = rp ? lkById.get(rp.residualLevelKemungkinanId) : null;
-      const ldResidual = rp ? ldById.get(rp.residualLevelDampakId) : null;
+      // Residual di laporan adalah hasil pengendalian yang telah dilaksanakan.
+      // Nilai residual setelah RTP sendiri dikelola pada Pemantauan Risiko.
+      const lkResidual = ev ? lkById.get(ev.residualLevelKemungkinanId) : null;
+      const ldResidual = ev ? ldById.get(ev.residualLevelDampakId) : null;
 
       let bAktual = 0;
       let levAktual = "-";

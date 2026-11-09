@@ -145,8 +145,10 @@ export default function PelaporanRisikoPage() {
       const ldAktual = an ? ldById.get(an.levelDampakId) : null;
 
       // Find likelihood & impact scales for residual
-      const lkResidual = rp ? lkById.get(rp.residualLevelKemungkinanId) : null;
-      const ldResidual = rp ? ldById.get(rp.residualLevelDampakId) : null;
+      // Residual pada pelaporan adalah hasil pengendalian yang sudah berjalan
+      // (tahap evaluasi). Residual pasca-RTP tercatat pada pemantauan.
+      const lkResidual = ev ? lkById.get(ev.residualLevelKemungkinanId) : null;
+      const ldResidual = ev ? ldById.get(ev.residualLevelDampakId) : null;
 
       let bAktual = 0;
       let levAktual = "-";

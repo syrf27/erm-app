@@ -38,15 +38,13 @@ if (typeof window !== "undefined") {
   registerAllModules();
 }
 
-const RENCANA_INPUT_COLUMNS = [6, 7, 8, 9, 10, 11, 12];
+const RENCANA_INPUT_COLUMNS = [5, 6, 7, 8, 9];
 const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
-  6: [5, 7, 8, 9, 10, 11, 12, 13, 14],
-  7: [5, 8, 9, 10, 11, 12, 13, 14],
-  8: [5, 9, 10, 11, 12, 13, 14],
-  9: [5, 10, 11, 12, 13, 14],
-  10: [5, 11, 12, 13, 14],
-  11: [5, 12, 13, 14],
-  12: [5, 13, 14],
+  5: [6, 7, 8, 9],
+  6: [7, 8, 9],
+  7: [8, 9],
+  8: [9],
+  9: [],
 };
 const shouldEnforceRencanaProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
@@ -133,10 +131,7 @@ export default function RencanaPenangananPage() {
     resource: "level-dampak",
     pagination: { mode: "off" },
   });
-  const matriksList = useList({
-    resource: "matriks-analisis-risiko",
-    pagination: { mode: "off" },
-  });
+  const seleraResult = useList({ resource: "selera-risiko", pagination: { mode: "off" } });
   const teamList = useList({
     resource: "teams",
     pagination: { mode: "off" },
@@ -150,7 +145,7 @@ export default function RencanaPenangananPage() {
     (kemungkinanList.query?.isPending ?? false) ||
     (dampakList.query?.isPending ?? false) ||
     (teamList.query?.isPending ?? false) ||
-    (matriksList.query?.isPending ?? false);
+    (seleraResult.query?.isPending ?? false);
 
   const identifikasiData = useMemo(
     () => identResult.result?.data ?? [],
@@ -192,29 +187,12 @@ export default function RencanaPenangananPage() {
     () => dampakList.result?.data ?? [],
     [dampakList.result?.data]
   );
-  const matriksData = useMemo(
-    () => matriksList.result?.data ?? [],
-    [matriksList.result?.data]
-  );
-
-  const kemungkinanNamaList = useMemo(
-    () => kemungkinanData.map((o: any) => o.nama),
-    [kemungkinanData]
-  );
-  const dampakNamaList = useMemo(
-    () => dampakData.map((o: any) => o.nama),
-    [dampakData]
-  );
-
-  const kemungkinanDataRef = useRef(kemungkinanData);
-  const dampakDataRef = useRef(dampakData);
-  const matriksDataRef = useRef(matriksData);
-
-  useEffect(() => {
-    kemungkinanDataRef.current = kemungkinanData;
-    dampakDataRef.current = dampakData;
-    matriksDataRef.current = matriksData;
-  }, [kemungkinanData, dampakData, matriksData]);
+  const seleraRisikoNilai = useMemo(() => {
+    const rows = seleraResult.result?.data ?? [];
+    const latest = [...rows].sort((a: any, b: any) => Number(b.id) - Number(a.id))[0];
+    const value = Number((latest as any)?.nilai);
+    return Number.isFinite(value) ? value : null;
+  }, [seleraResult.result?.data]);
 
   useEffect(() => {
     if (loading) return;
@@ -228,40 +206,38 @@ export default function RencanaPenangananPage() {
       rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
     );
 
-    const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
-      const ev = evaluasiById.get(r.id);
-      return ev?.responRisiko === "mengurangi" || ev?.responRisiko === "Mengurangi Risiko";
-    });
-
     const kemungkinanById = new Map(kemungkinanData.map((k: any) => [k.id, k]));
     const dampakById = new Map(dampakData.map((d: any) => [d.id, d]));
 
+    const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
+      const ev = evaluasiById.get(r.id);
+      const residualLk = kemungkinanById.get(ev?.residualLevelKemungkinanId);
+      const residualLd = dampakById.get(ev?.residualLevelDampakId);
+      const residual = Number(residualLk?.skala ?? 0) * Number(residualLd?.skala ?? 0);
+      return (
+        (ev?.responRisiko === "mengurangi" || ev?.responRisiko === "Mengurangi Risiko") &&
+        seleraRisikoNilai !== null &&
+        residual > seleraRisikoNilai
+      );
+    });
+
     const mapped = filtered.map((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
-      const an = analisisById.get(r.id);
       const rp = rencanaById.get(r.id);
-
-      const lk = an ? kemungkinanById.get(an.levelKemungkinanId) : undefined;
-      const ld = an ? dampakById.get(an.levelDampakId) : undefined;
-      const residualLK = rp?.residualLevelKemungkinanId ? kemungkinanById.get(rp.residualLevelKemungkinanId) : undefined;
-      const residualLD = rp?.residualLevelDampakId ? dampakById.get(rp.residualLevelDampakId) : undefined;
+      const residualLK = ev?.residualLevelKemungkinanId ? kemungkinanById.get(ev.residualLevelKemungkinanId) : undefined;
+      const residualLD = ev?.residualLevelDampakId ? dampakById.get(ev.residualLevelDampakId) : undefined;
 
       return [
         r.id,
         rp?.id ?? null,
         ev?.prioritasRisiko ?? "",
         r.risiko,
-        computeBesaran(lk?.skala, ld?.skala),
         computeBesaran(residualLK?.skala, residualLD?.skala),
         rp?.rencanaTidakPenanganan ?? "",
         getJenisPenangananLabel(rp?.jenisPenanganan),
         rp?.targetOutput ?? "",
         rp?.targetWaktu ?? "",
         rp?.penanggungJawab ?? "",
-        residualLK?.nama ?? "",
-        residualLD?.nama ?? "",
-        getLevelRisikoFromBesaran(computeBesaran(residualLK?.skala, residualLD?.skala)),
-        computeBesaran(residualLK?.skala, residualLD?.skala),
       ];
     });
     const actualRiskRank = [...mapped]
@@ -294,11 +270,6 @@ export default function RencanaPenangananPage() {
         "",
         "",
         "",
-        "",
-        "",
-        "",
-        "",
-        "",
       ]);
     }
     setLocalData(padded);
@@ -310,7 +281,7 @@ export default function RencanaPenangananPage() {
     rencanaData,
     kemungkinanData,
     dampakData,
-    matriksData,
+    seleraRisikoNilai,
   ]);
 
   const saveAll = useCallback(async () => {
@@ -335,11 +306,11 @@ export default function RencanaPenangananPage() {
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
 
-      const rtp = (row[6] as string) || "";
-      const jenis = canUseColumn(7) ? (row[7] as string) || "" : "";
-      const out = canUseColumn(8) ? (row[8] as string) || "" : "";
-      const waktu = canUseColumn(9) ? (row[9] as string) || "" : "";
-      const pic = canUseColumn(10) ? (row[10] as string) || "" : "";
+      const rtp = (row[5] as string) || "";
+      const jenis = canUseColumn(6) ? (row[6] as string) || "" : "";
+      const out = canUseColumn(7) ? (row[7] as string) || "" : "";
+      const waktu = canUseColumn(8) ? (row[8] as string) || "" : "";
+      const pic = canUseColumn(9) ? (row[9] as string) || "" : "";
 
       // Skip new rows that have no inputs entered
       if ((isNaN(rencanaId) || rencanaId === 0) &&
@@ -419,23 +390,16 @@ export default function RencanaPenangananPage() {
     { title: "Prioritas", data: 2, type: "text", width: 130, readOnly: true },
     { title: "Risiko", data: 3, type: "text", width: 220, readOnly: true },
     {
-      title: "Besaran Risiko Aktual",
+      title: "Besaran Risiko Residual Saat Ini",
       data: 4,
       type: "text",
       width: 120,
       readOnly: true,
     },
-    {
-      title: "Besaran Risiko Residual",
-      data: 5,
-      type: "text",
-      width: 120,
-      readOnly: true,
-    },
-    { title: "Rencana Tindak Penanganan", data: 6, type: "text", width: 240 },
+    { title: "Rencana Tindak Penanganan", data: 5, type: "text", width: 240 },
     {
       title: "Jenis Penanganan",
-      data: 7,
+      data: 6,
       type: "dropdown",
       source: [
         "Pencegahan",
@@ -444,10 +408,10 @@ export default function RencanaPenangananPage() {
       width: 180,
       strict: true,
     },
-    { title: "Target Output", data: 8, type: "text", width: 180 },
+    { title: "Target Output", data: 7, type: "text", width: 180 },
     {
       title: "Target Waktu",
-      data: 9,
+      data: 8,
       type: "date",
       dateFormat: "DD-MM-YYYY",
       correctFormat: true,
@@ -455,41 +419,11 @@ export default function RencanaPenangananPage() {
     },
     {
       title: "Penanggung Jawab",
-      data: 10,
+      data: 9,
       type: "dropdown",
       source: teamNamaList,
       width: 180,
       strict: true,
-    },
-    {
-      title: "Level Kemungkinan",
-      data: 11,
-      type: "dropdown",
-      source: kemungkinanNamaList,
-      width: 170,
-      strict: true,
-    },
-    {
-      title: "Level Dampak",
-      data: 12,
-      type: "dropdown",
-      source: dampakNamaList,
-      width: 150,
-      strict: true,
-    },
-    {
-      title: "Level Risiko",
-      data: 13,
-      type: "text",
-      width: 140,
-      readOnly: true,
-    },
-    {
-      title: "Besaran Risiko",
-      data: 14,
-      type: "text",
-      width: 130,
-      readOnly: true,
     },
   ];
 
@@ -511,9 +445,6 @@ export default function RencanaPenangananPage() {
         col === 2 ||
         col === 3 ||
         col === 4 ||
-        col === 5 ||
-        col === 13 ||
-        col === 14 ||
         isLocked,
       className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
     };
@@ -560,59 +491,17 @@ export default function RencanaPenangananPage() {
         </Group>
       </Group>
       <Text size="sm" c="dimmed">
-        Hanya menampilkan risiko dengan Respon Risiko &quot;Mengurangi
-        Risiko&quot;. Seret kolom untuk memindahkan, tarik sudut sel untuk
-        autofill, gunakan Ctrl+C/V untuk salin-tempel.
+        Menampilkan risiko dengan respons Mengurangi Risiko dan residual di atas selera risiko. Risiko lain cukup dipantau.
       </Text>
       <HotTable
         ref={hotRef}
         data={localData}
         columns={columns}
-        colHeaders={[
-          "Ident ID",
-          "Rencana ID",
-          "Prioritas",
-          "Risiko",
-          "Besaran Risiko Aktual",
-          "Besaran Risiko Residual",
-          "Rencana Tindak Penanganan",
-          "Jenis Penanganan",
-          "Target Output",
-          "Target Waktu",
-          "Penanggung Jawab",
-          "Level Kemungkinan",
-          "Level Dampak",
-          "Level Risiko",
-          "Besaran Risiko",
-        ]}
+        colHeaders={true}
         hiddenColumns={{
-          columns: [0, 1, 11, 12, 13, 14],
+          columns: [0, 1],
           indicators: false,
         }}
-        nestedHeaders={[
-          [
-            { label: "Ident ID", colspan: 1, rowspan: 2 },
-            { label: "Rencana ID", colspan: 1, rowspan: 2 },
-            { label: "Prioritas", colspan: 1, rowspan: 2 },
-            { label: "Risiko", colspan: 1, rowspan: 2 },
-            { label: "Besaran Risiko", colspan: 2 },
-            { label: "Rencana Penanganan Risiko", colspan: 5 },
-            { label: "Risiko Residual", colspan: 4 },
-          ],
-          [
-            "Aktual",
-            "Residual",
-            "Rencana Tindak Penanganan",
-            "Jenis Penanganan",
-            "Target Output",
-            "Target Waktu",
-            "Penanggung Jawab",
-            "Level Kemungkinan",
-            "Level Dampak",
-            "Level Risiko",
-            "Besaran Risiko",
-          ],
-        ]}
         afterChange={(changes, source) => {
           if (!changes) return;
           const hot = hotRef.current?.hotInstance;
@@ -625,11 +514,6 @@ export default function RencanaPenangananPage() {
             source,
             shouldEnforceRencanaProgression
           );
-          for (const [row, col] of changes) {
-            if (col === 11 || col === 12) {
-              recalcRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
-            }
-          }
           hot.render();
         }}
         rowHeaders={true}
