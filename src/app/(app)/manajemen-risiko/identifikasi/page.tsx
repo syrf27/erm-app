@@ -731,17 +731,20 @@ export default function IdentifikasiRisikoPage() {
       const ad = areaData.find((o: any) => o.id === r.areaDampakId);
       const uk = (unitKerjaData || []).find((o: any) => o.id === r.unitKerjaId);
       const tim = (teamData || []).find((o: any) => o.id === r.teamId);
-      const kg = (kegiatanData || []).find((o: any) => o.id === r.kegiatanId);
-      const sasaran = r.sasaranId
+      // Data identifikasi sudah membawa relasi dari API. Gunakan relasi ini
+      // terlebih dahulu agar nama konteks tetap tampil saat daftar referensi
+      // baru direvalidasi atau masih berada di cache browser.
+      const kg = r.kegiatan ?? (kegiatanData || []).find((o: any) => o.id === r.kegiatanId);
+      const sasaran = r.sasaran ?? (r.sasaranId
         ? (sasaranData || []).find((o: any) => o.id === r.sasaranId)
         : kg?.sasaranId
         ? (sasaranData || []).find((o: any) => o.id === kg.sasaranId)
-        : null;
-      const prosesBisnis = r.prosesBisnisId
+        : null);
+      const prosesBisnis = r.prosesBisnis ?? (r.prosesBisnisId
         ? (prosesBisnisData || []).find((o: any) => o.id === r.prosesBisnisId)
         : kg?.id
         ? (prosesBisnisData || []).find((o: any) => o.kegiatanId === kg.id)
-        : null;
+        : null);
       return [
         r.id,
         sasaran?.nama ?? "",
