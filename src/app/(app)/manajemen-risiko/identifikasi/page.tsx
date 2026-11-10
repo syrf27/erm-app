@@ -33,6 +33,8 @@ import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
+  applyHandsontableSearch,
+  focusNextHandsontableSearchResult,
   getSafeRowData,
   hasPersistedRowId,
   openUnlockedDropdownOnMouseDown,
@@ -322,14 +324,10 @@ export default function IdentifikasiRisikoPage() {
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      const hot = hotRef.current?.hotInstance;
-      if (hot) {
-        const searchPlugin = hot.getPlugin("search");
-        const query = searchInputRef.current?.value || "";
-        if (searchPlugin) {
-          (searchPlugin as any).query(query);
-        }
-      }
+      applyHandsontableSearch(
+        hotRef.current?.hotInstance,
+        searchInputRef.current?.value || ""
+      );
     }, 150);
   };
 
@@ -1204,6 +1202,15 @@ export default function IdentifikasiRisikoPage() {
             size="xs"
             ref={searchInputRef}
             onChange={handleSearchChange}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+              focusNextHandsontableSearchResult(
+                hotRef.current?.hotInstance,
+                searchInputRef.current?.value || ""
+              );
+            }}
             style={{ width: 220 }}
           />
           <Button onClick={saveAll} loading={saving}>

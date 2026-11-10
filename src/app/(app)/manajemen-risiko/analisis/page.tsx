@@ -12,7 +12,9 @@ import Handsontable from "handsontable";
 import "handsontable/styles/handsontable.min.css";
 import { registerAllModules } from "handsontable/registry";
 import {
+  applyHandsontableSearch,
   applyProgressiveCascade,
+  focusNextHandsontableSearchResult,
   handleProgressiveBeforeChange,
   getSafeRowData,
   hasPersistedRowId,
@@ -53,14 +55,7 @@ export default function AnalisisRisikoPage() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchVal(query);
-    const hot = hotRef.current?.hotInstance;
-    if (hot) {
-      const searchPlugin = hot.getPlugin("search");
-      if (searchPlugin) {
-        (searchPlugin as any).query(query);
-        hot.render();
-      }
-    }
+    applyHandsontableSearch(hotRef.current?.hotInstance, query);
   };
 
    const identResult = useList({
@@ -333,6 +328,11 @@ export default function AnalisisRisikoPage() {
             size="xs"
             value={searchVal}
             onChange={handleSearchChange}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+            }}
             style={{ width: 220 }}
           />
           <Button onClick={saveAll} loading={saving}>

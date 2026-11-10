@@ -112,6 +112,41 @@ export function getSafeRowData(
   return (fallbackData[row] as unknown[] | undefined) ?? [];
 }
 
+type HandsontableSearchResult = { row: number; col: number };
+
+export function applyHandsontableSearch(
+  hot: Handsontable.Core | null | undefined,
+  query: string
+): HandsontableSearchResult[] {
+  if (!hot) return [];
+  const searchPlugin = hot.getPlugin("search") as unknown as {
+    query: (value: string) => HandsontableSearchResult[];
+  };
+  const results = searchPlugin.query(query.trim()) ?? [];
+  hot.render();
+  return results;
+}
+
+export function focusNextHandsontableSearchResult(
+  hot: Handsontable.Core | null | undefined,
+  query: string
+) {
+  const results = applyHandsontableSearch(hot, query)
+    .filter((item) => item.row >= 0 && item.col >= 0)
+    .sort((a, b) => a.row - b.row || a.col - b.col);
+  if (!hot || results.length === 0) return false;
+
+  const selected = hot.getSelectedLast();
+  const currentIndex = results.findIndex(
+    (item) => item.row === selected?.[0] && item.col === selected?.[1]
+  );
+  const next = results[(currentIndex + 1) % results.length];
+  hot.selectCell(next.row, next.col);
+  hot.scrollViewportTo(next.row, next.col, true, true);
+  hot.render();
+  return true;
+}
+
 export function handleProgressiveBeforeChange(
   hot: Handsontable.Core,
   changes: (Handsontable.CellChange | null)[] | null,
