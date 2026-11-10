@@ -214,6 +214,9 @@ export default function RencanaPenangananPage() {
       const residualLk = kemungkinanById.get(ev?.residualLevelKemungkinanId);
       const residualLd = dampakById.get(ev?.residualLevelDampakId);
       const residual = Number(residualLk?.skala ?? 0) * Number(residualLd?.skala ?? 0);
+      // RTP yang sudah tercatat pada register resmi tetap harus ditampilkan.
+      // Filter otomatis hanya menentukan kandidat baru yang belum memiliki RTP.
+      if (rencanaById.has(r.id)) return true;
       return (
         (ev?.responRisiko === "mengurangi" || ev?.responRisiko === "Mengurangi Risiko") &&
         seleraRisikoNilai !== null &&
