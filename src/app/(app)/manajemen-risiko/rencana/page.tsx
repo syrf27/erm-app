@@ -117,7 +117,8 @@ export default function RencanaPenangananPage() {
   });
   const matriksList = useList({
     resource: "matriks-analisis-risiko",
-    pagination: { mode: "off" },
+    // Muat seluruh 25 kombinasi matriks, bukan hanya halaman awal.
+    pagination: { pageSize: 1000 },
   });
   const seleraResult = useList({ resource: "selera-risiko", pagination: { mode: "off" } });
   const teamList = useList({

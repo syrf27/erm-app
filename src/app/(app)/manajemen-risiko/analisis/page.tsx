@@ -84,7 +84,9 @@ export default function AnalisisRisikoPage() {
   const levelKemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const levelDampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
   const levelRisikoList = useList({ resource: "level-risiko", pagination: { mode: "off" } });
-  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  // Matriks berisi 25 kombinasi. pageSize eksplisit mencegah Refine hanya
+  // memuat halaman awal (10 kombinasi) sehingga besaran tampak kosong.
+  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 1000 } });
 
   const loading =
     (identResult.query?.isPending ?? false) ||
