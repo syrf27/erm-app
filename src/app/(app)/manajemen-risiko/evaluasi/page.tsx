@@ -146,14 +146,16 @@ export default function EvaluasiRisikoPage() {
           const identId = Number(row[0]);
           const residualBesaran = Number(row[7]);
           const response = row[9];
+          const savedPriority = savedPriorityByIdentIdRef.current.get(identId) ?? null;
           const needsPriority =
-            Number.isFinite(identId) &&
-            Number.isFinite(residualBesaran) &&
-            seleraRisikoNilai !== null &&
-            residualBesaran > seleraRisikoNilai &&
-            isReducingResponse(response);
+            savedPriority !== null ||
+            (Number.isFinite(identId) &&
+              Number.isFinite(residualBesaran) &&
+              seleraRisikoNilai !== null &&
+              residualBesaran > seleraRisikoNilai &&
+              isReducingResponse(response));
 
-          return { index, identId, residualBesaran, needsPriority };
+          return { index, identId, residualBesaran, savedPriority, needsPriority };
         })
         .filter((item) => item.needsPriority)
         .sort((a, b) => {
@@ -171,8 +173,16 @@ export default function EvaluasiRisikoPage() {
         const identId = Number(row[0]);
         if (!Number.isFinite(identId)) return;
 
+        const savedPriority = savedPriorityByIdentIdRef.current.get(identId) ?? null;
         const autoPriority = autoPriorityByIdentId.get(identId);
         const currentPriority = toPositiveInteger(row[10]);
+
+        if (savedPriority !== null) {
+          if (currentPriority !== savedPriority) {
+            hot.setDataAtCell(index, 10, savedPriority, "priority-auto");
+          }
+          return;
+        }
 
         if (!autoPriority) {
           if (row[10] !== "") hot.setDataAtCell(index, 10, "", "priority-auto");
@@ -214,10 +224,12 @@ export default function EvaluasiRisikoPage() {
         ev?.responRisiko === "menghindari" ? "Menghindari Risiko" :
         ev?.responRisiko === "menerima" ? "Menerima Risiko" :
         (ev?.responRisiko ?? "");
+      const savedPriority = toPositiveInteger(ev?.prioritasRisiko);
       const needsPriority =
-        seleraRisikoNilai !== null &&
-        residualBesaran > seleraRisikoNilai &&
-        isReducingResponse(responseLabel);
+        savedPriority !== null ||
+        (seleraRisikoNilai !== null &&
+          residualBesaran > seleraRisikoNilai &&
+          isReducingResponse(responseLabel));
       return {
         id: r.id,
         row: [
@@ -234,7 +246,7 @@ export default function EvaluasiRisikoPage() {
           "",
         ],
         residualBesaran,
-        savedPriority: toPositiveInteger(ev?.prioritasRisiko),
+        savedPriority,
         needsPriority,
         areaDampakId,
         kategoriRisikoId,
@@ -305,14 +317,8 @@ export default function EvaluasiRisikoPage() {
       const residualDampak = canUseColumn(5) ? (row[5] as string) ?? "" : "";
       const respon = canUseColumn(9) ? (row[9] as string) ?? "" : "";
       const residualBesaran = Number(row[7]);
-      const autoPriority = autoPriorityByIdentIdRef.current.get(identId);
       const savedPriority = savedPriorityByIdentIdRef.current.get(identId);
       const currentPriority = toPositiveInteger(row[10]);
-      const needsPriority =
-        seleraRisikoNilai !== null &&
-        Number.isFinite(residualBesaran) &&
-        residualBesaran > seleraRisikoNilai &&
-        isReducingResponse(respon);
       // Risiko yang belum memiliki residual belum dapat dievaluasi. Ini tidak
       // dianggap error agar pengguna dapat menyimpan baris lain terlebih dulu.
       if (!residualKemungkinan || !residualDampak || !respon) return;
@@ -336,7 +342,7 @@ export default function EvaluasiRisikoPage() {
         residualLevelDampakId: residualDampakId,
         residualLevelRisikoId,
       };
-      if (needsPriority && currentPriority !== null && currentPriority !== autoPriority) {
+      if (currentPriority !== null) {
         payload.prioritasRisiko = currentPriority;
       } else if (savedPriority !== undefined && savedPriority !== null) {
         payload.prioritasRisiko = null;
