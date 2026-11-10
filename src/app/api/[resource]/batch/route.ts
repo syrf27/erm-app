@@ -93,22 +93,29 @@ export async function POST(
       }
     }
 
-    // Gunakan sequential-operations transaction milik Prisma. Implementasi
-    // sebelumnya menjalankan hingga 200 query satu per satu di dalam
-    // interactive transaction (default timeout pendek), sehingga penyimpanan
-    // seluruh lembar sering gagal di Supabase/Vercel.
-    const delegate = (prisma as any)[modelName];
-    const operations = [
-      ...validatedCreates.map((data) => delegate.create({ data })),
-      ...validatedUpdates.map((item) =>
-        delegate.update({ where: { id: item.id }, data: item.data })
-      ),
-    ];
-    const transactionResult = await prisma.$transaction(operations);
-    const result = {
-      created: transactionResult.slice(0, validatedCreates.length),
-      updated: transactionResult.slice(validatedCreates.length),
-    };
+    // Penyimpanan satu lembar dapat berisi hingga 200 baris. Koneksi Supabase
+    // membutuhkan lebih dari timeout bawaan Prisma (5 detik), sehingga timeout
+    // transaksi harus ditetapkan secara eksplisit untuk batch besar.
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const txDelegate = (tx as any)[modelName];
+        const created = [];
+        const updated = [];
+        for (const data of validatedCreates) {
+          created.push(await txDelegate.create({ data }));
+        }
+        for (const item of validatedUpdates) {
+          updated.push(
+            await txDelegate.update({ where: { id: item.id }, data: item.data })
+          );
+        }
+        return { created, updated };
+      },
+      {
+        maxWait: 10_000,
+        timeout: 30_000,
+      }
+    );
 
     await logAudit({
       userId,
