@@ -28,12 +28,12 @@ if (typeof window !== "undefined") {
   registerAllModules();
 }
 
-const ANALISIS_INPUT_COLUMNS = [3, 4, 5, 6];
+const ANALISIS_INPUT_COLUMNS = [3, 4, 7, 8];
 const ANALISIS_RESET_COLUMNS: Record<number, number[]> = {
-  3: [4, 5, 6],
-  4: [5, 6],
-  5: [6],
-  6: [],
+  3: [4, 7, 8],
+  4: [7, 8],
+  7: [8],
+  8: [],
 };
 const shouldEnforceAnalisisProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
@@ -125,31 +125,30 @@ export default function AnalisisRisikoPage() {
   useEffect(() => {
     if (loading) return;
     const analisisById = new Map(analisisData.map((a: any) => [a.identifikasiRisikoId, a]));
-    console.log("useEffect load mapping - matriksData length:", matriksData.length);
-    if (matriksData.length > 0) {
-      console.log("matriksData first element:", matriksData[0]);
-    }
     const mapped = filteredIdentifikasiData.map((r: Record<string, any>) => {
       const a = analisisById.get(r.id);
       const lk = kemungkinanData.find((o: any) => o.id === a?.levelKemungkinanId);
       const ld = dampakData.find((o: any) => o.id === a?.levelDampakId);
-      const besaran = lk?.skala != null && ld?.skala != null ? lk.skala * ld.skala : "";
-      const lrNama = besaran !== "" ? getLevelRisikoFromBesaran(besaran) : "";
+      const matriks = matriksData.find(
+        (item: any) => item.levelKemungkinanId === lk?.id && item.levelDampakId === ld?.id
+      );
+      const besaran = matriks?.besaran ?? "";
+      const lrNama = matriks?.levelRisiko?.nama ?? risikoData.find((o: any) => o.id === a?.levelRisikoId)?.nama ?? "";
 
       return [
         r.id,
         a?.id ?? null,
         r.risiko,
+        lk?.nama ?? "",
+        ld?.nama ?? "",
+        lrNama,
+        besaran,
         a?.pengendalianUraian ?? "",
         a?.pengendalianEfektivitas === "kurang efektif"
           ? "kurang_efektif"
           : a?.pengendalianEfektivitas === "cukup efektif"
           ? "cukup_efektif"
           : a?.pengendalianEfektivitas ?? "",
-        lk?.nama ?? "",
-        ld?.nama ?? "",
-        lrNama,
-        besaran,
       ];
     });
     const padded = [...mapped];
@@ -181,22 +180,22 @@ export default function AnalisisRisikoPage() {
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, ANALISIS_INPUT_COLUMNS, col);
 
-      const levelKemungkinanId = canUseColumn(5)
-        ? findId(kemungkinanData, (row[5] as string) ?? "")
+      const levelKemungkinanId = canUseColumn(3)
+        ? findId(kemungkinanData, (row[3] as string) ?? "")
         : NaN;
-      const levelDampakId = canUseColumn(6)
-        ? findId(dampakData, (row[6] as string) ?? "")
+      const levelDampakId = canUseColumn(4)
+        ? findId(dampakData, (row[4] as string) ?? "")
         : NaN;
-      const levelRisikoId = canUseColumn(6)
-        ? findId(risikoData, (row[7] as string) ?? "")
+      const levelRisikoId = canUseColumn(4)
+        ? findId(risikoData, (row[5] as string) ?? "")
         : NaN;
 
       const payload: Record<string, any> = {};
       if (!isNaN(levelKemungkinanId)) payload.levelKemungkinanId = levelKemungkinanId;
       if (!isNaN(levelDampakId)) payload.levelDampakId = levelDampakId;
       if (!isNaN(levelRisikoId)) payload.levelRisikoId = levelRisikoId;
-      payload.pengendalianUraian = canUseColumn(3) ? (row[3] as string) || null : null;
-      payload.pengendalianEfektivitas = canUseColumn(4) ? (row[4] as string) || null : null;
+      payload.pengendalianUraian = canUseColumn(7) ? (row[7] as string) || null : null;
+      payload.pengendalianEfektivitas = canUseColumn(8) ? (row[8] as string) || null : null;
 
       if (isNaN(analisisId) || analisisId === 0) {
         newRows.push({ index: idx, identId, payload: { ...payload, identifikasiRisikoId: identId } });
@@ -242,18 +241,9 @@ export default function AnalisisRisikoPage() {
     { title: "Ident ID", data: 0, type: "numeric", width: 1 },
     { title: "Analisis ID", data: 1, type: "numeric", width: 1 },
     { title: "Risiko", data: 2, type: "text", width: 250, readOnly: true },
-    { title: "Uraian", data: 3, type: "text", width: 250 },
-    {
-      title: "Keefektifan",
-      data: 4,
-      type: "dropdown",
-      source: ["efektif", "cukup_efektif", "kurang_efektif", "tidak_efektif"],
-      width: 160,
-      strict: false,
-    },
     {
       title: "Level Kemungkinan",
-      data: 5,
+      data: 3,
       type: "dropdown",
       source: kemungkinanNamaList,
       width: 180,
@@ -261,7 +251,7 @@ export default function AnalisisRisikoPage() {
     },
     {
       title: "Level Dampak",
-      data: 6,
+      data: 4,
       type: "dropdown",
       source: dampakNamaList,
       width: 180,
@@ -269,14 +259,27 @@ export default function AnalisisRisikoPage() {
     },
     {
       title: "Level Risiko",
-      data: 7,
-      type: "dropdown",
-      source: risikoNamaList,
+      data: 5,
+      type: "text",
       width: 180,
-      strict: true,
       readOnly: true,
     },
-    { title: "Besaran Risiko", data: 8, type: "text", width: 130, readOnly: true },
+    {
+      title: "Besaran Risiko",
+      data: 6,
+      type: "text",
+      width: 130,
+      readOnly: true,
+    },
+    { title: "Uraian", data: 7, type: "text", width: 250 },
+    {
+      title: "Keefektifan",
+      data: 8,
+      type: "dropdown",
+      source: ["efektif", "cukup_efektif", "kurang_efektif", "tidak_efektif"],
+      width: 160,
+      strict: false,
+    },
   ];
 
   const getCellMeta = useCallback((row: number, col: number) => {
@@ -290,7 +293,7 @@ export default function AnalisisRisikoPage() {
       !isColumnUnlockedForRow(rowData, ANALISIS_INPUT_COLUMNS, col);
 
       return {
-      readOnly: isEmptySourceRow || col === 0 || col === 1 || col === 2 || col === 7 || col === 8 || isLocked,
+      readOnly: isEmptySourceRow || col === 0 || col === 1 || col === 2 || col === 5 || col === 6 || isLocked,
       className: isLocked ? PROGRESSIVE_LOCKED_CELL_CLASS : undefined,
     };
   }, [localData]);
@@ -346,12 +349,12 @@ export default function AnalisisRisikoPage() {
           "Ident ID",
           "Analisis ID",
           "Risiko",
-          "Uraian",
-          "Keefektifan",
           "Level Kemungkinan",
           "Level Dampak",
           "Level Risiko",
           "Besaran Risiko",
+          "Uraian",
+          "Keefektifan",
         ]}
         hiddenColumns={{
           columns: [0, 1],
@@ -362,16 +365,16 @@ export default function AnalisisRisikoPage() {
             { label: "Ident ID", colspan: 1, rowspan: 2 },
             { label: "Analisis ID", colspan: 1, rowspan: 2 },
             { label: "Risiko", colspan: 1, rowspan: 2 },
-            { label: "Pengendalian yang Pernah Dilakukan", colspan: 2 },
             { label: "Risiko Aktual", colspan: 4 },
+            { label: "Pengendalian yang Pernah Dilakukan", colspan: 2 },
           ],
           [
-            "Uraian",
-            "Keefektifan",
             "Level Kemungkinan",
             "Level Dampak",
             "Level Risiko",
             "Besaran Risiko",
+            "Uraian",
+            "Keefektifan",
           ],
         ]}
         rowHeaders={true}
@@ -419,7 +422,7 @@ export default function AnalisisRisikoPage() {
             shouldEnforceAnalisisProgression
           );
           for (const [row, col] of changes) {
-            if (col === 5 || col === 6) {
+            if (col === 3 || col === 4) {
               recalcAnalisisRow(hot, row, kemungkinanDataRef.current, dampakDataRef.current, matriksDataRef.current);
             }
           }
@@ -431,16 +434,6 @@ export default function AnalisisRisikoPage() {
   );
 }
 
-function getLevelRisikoFromBesaran(besaran: number | string): string {
-  const score = typeof besaran === "string" ? parseInt(besaran, 10) : besaran;
-  if (isNaN(score) || score <= 0) return "";
-  if (score >= 1 && score <= 5) return "Sangat Rendah";
-  if (score >= 6 && score <= 10) return "Rendah";
-  if (score >= 11 && score <= 14) return "Sedang";
-  if (score >= 15 && score <= 19) return "Tinggi";
-  return "Sangat Tinggi"; // 20 - 25
-}
-
 function recalcAnalisisRow(
   hot: Handsontable,
   row: number,
@@ -448,18 +441,16 @@ function recalcAnalisisRow(
   dampakData: any[],
   matriksData: any[]
 ) {
-  const lkNama = hot.getDataAtCell(row, 5) as string;
-  const ldNama = hot.getDataAtCell(row, 6) as string;
+  const lkNama = hot.getDataAtCell(row, 3) as string;
+  const ldNama = hot.getDataAtCell(row, 4) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   
   if (!lk || !ld) return;
 
-  const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
-  hot.setDataAtCell(row, 8, besaran, "recalc");
-
-  if (besaran !== "") {
-    const lrNama = getLevelRisikoFromBesaran(besaran);
-    hot.setDataAtCell(row, 7, lrNama, "recalc");
-  }
+  const matriks = matriksData.find(
+    (item: any) => item.levelKemungkinanId === lk.id && item.levelDampakId === ld.id
+  );
+  hot.setDataAtCell(row, 6, matriks?.besaran ?? "", "recalc");
+  hot.setDataAtCell(row, 5, matriks?.levelRisiko?.nama ?? "", "recalc");
 }

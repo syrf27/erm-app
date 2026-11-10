@@ -37,7 +37,6 @@ import {
 if (typeof window !== "undefined") {
   registerAllModules();
 }
-
 const RENCANA_INPUT_COLUMNS = [5, 6, 7, 8, 9];
 const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
   5: [6, 7, 8, 9],
@@ -48,21 +47,6 @@ const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
 };
 const shouldEnforceRencanaProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
-
-function computeBesaran(kemungkinanSkala?: number, dampakSkala?: number) {
-  if (kemungkinanSkala == null || dampakSkala == null) return "";
-  return String(kemungkinanSkala * dampakSkala);
-}
-
-function getLevelRisikoFromBesaran(besaran: number | string): string {
-  const score = typeof besaran === "string" ? parseInt(besaran, 10) : besaran;
-  if (isNaN(score) || score <= 0) return "";
-  if (score >= 1 && score <= 5) return "Sangat Rendah";
-  if (score >= 6 && score <= 10) return "Rendah";
-  if (score >= 11 && score <= 14) return "Sedang";
-  if (score >= 15 && score <= 19) return "Tinggi";
-  return "Sangat Tinggi"; // 20 - 25
-}
 
 function getJenisPenangananLabel(value: unknown) {
   if (value === "pencegahan" || value === "Pencegahan" || value === "mengurangi") return "Pencegahan";
@@ -131,6 +115,10 @@ export default function RencanaPenangananPage() {
     resource: "level-dampak",
     pagination: { mode: "off" },
   });
+  const matriksList = useList({
+    resource: "matriks-analisis-risiko",
+    pagination: { mode: "off" },
+  });
   const seleraResult = useList({ resource: "selera-risiko", pagination: { mode: "off" } });
   const teamList = useList({
     resource: "teams",
@@ -144,6 +132,7 @@ export default function RencanaPenangananPage() {
     (rencanaResult.query?.isPending ?? false) ||
     (kemungkinanList.query?.isPending ?? false) ||
     (dampakList.query?.isPending ?? false) ||
+    (matriksList.query?.isPending ?? false) ||
     (teamList.query?.isPending ?? false) ||
     (seleraResult.query?.isPending ?? false);
 
@@ -187,6 +176,10 @@ export default function RencanaPenangananPage() {
     () => dampakList.result?.data ?? [],
     [dampakList.result?.data]
   );
+  const matriksData = useMemo(
+    () => matriksList.result?.data ?? [],
+    [matriksList.result?.data]
+  );
   const seleraRisikoNilai = useMemo(() => {
     const rows = seleraResult.result?.data ?? [];
     const latest = [...rows].sort((a: any, b: any) => Number(b.id) - Number(a.id))[0];
@@ -213,7 +206,9 @@ export default function RencanaPenangananPage() {
       const ev = evaluasiById.get(r.id);
       const residualLk = kemungkinanById.get(ev?.residualLevelKemungkinanId);
       const residualLd = dampakById.get(ev?.residualLevelDampakId);
-      const residual = Number(residualLk?.skala ?? 0) * Number(residualLd?.skala ?? 0);
+      const residual = Number(matriksData.find(
+        (item: any) => item.levelKemungkinanId === residualLk?.id && item.levelDampakId === residualLd?.id
+      )?.besaran ?? 0);
       // RTP yang sudah tercatat pada register resmi tetap harus ditampilkan.
       // Filter otomatis hanya menentukan kandidat baru yang belum memiliki RTP.
       if (rencanaById.has(r.id)) return true;
@@ -235,7 +230,9 @@ export default function RencanaPenangananPage() {
         rp?.id ?? null,
         ev?.prioritasRisiko ?? "",
         r.risiko,
-        computeBesaran(residualLK?.skala, residualLD?.skala),
+        matriksData.find(
+          (item: any) => item.levelKemungkinanId === residualLK?.id && item.levelDampakId === residualLD?.id
+        )?.besaran ?? "",
         rp?.rencanaTidakPenanganan ?? "",
         getJenisPenangananLabel(rp?.jenisPenanganan),
         rp?.targetOutput ?? "",
@@ -284,6 +281,7 @@ export default function RencanaPenangananPage() {
     rencanaData,
     kemungkinanData,
     dampakData,
+    matriksData,
     seleraRisikoNilai,
   ]);
 
@@ -555,22 +553,4 @@ export default function RencanaPenangananPage() {
       <style jsx global>{progressiveLockedCellStyles}</style>
     </Stack>
   );
-}
-
-function recalcRow(
-  hot: Handsontable,
-  row: number,
-  kemungkinanData: any[],
-  dampakData: any[],
-  matriksData: any[]
-) {
-  const lkNama = hot.getDataAtCell(row, 11) as string;
-  const ldNama = hot.getDataAtCell(row, 12) as string;
-  const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
-  const ld = dampakData.find((o: any) => o.nama === ldNama);
-  const besaran = computeBesaran(lk?.skala, ld?.skala);
-  const levelRisiko = getLevelRisikoFromBesaran(besaran);
-  hot.setDataAtCell(row, 5, besaran, "recalc");
-  hot.setDataAtCell(row, 13, levelRisiko, "recalc");
-  hot.setDataAtCell(row, 14, besaran, "recalc");
 }

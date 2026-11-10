@@ -77,7 +77,7 @@ export async function GET(
       const tahunDari = parseInt(searchParams.get("tahunDari") || "0", 10);
       const tahunSampai = parseInt(searchParams.get("tahunSampai") || "9999", 10);
 
-      const [allRisksForYear, seleraRisiko] = await Promise.all([
+      const [allRisksForYear, matriks] = await Promise.all([
         prisma.identifikasiRisiko.findMany({
         where: {
           tahun: {
@@ -108,17 +108,21 @@ export async function GET(
           },
         },
         }),
-        prisma.seleraRisikoGlobal.findFirst({ orderBy: { id: "desc" } }),
+        prisma.matriksAnalisisRisiko.findMany({
+          select: { levelKemungkinanId: true, levelDampakId: true, besaran: true },
+        }),
       ]);
-      const nilaiSeleraRisiko = seleraRisiko?.nilai ?? null;
+      const matriksByPair = new Map(
+        matriks.map((item) => [`${item.levelKemungkinanId}-${item.levelDampakId}`, item.besaran])
+      );
 
       // RTP diprioritaskan berdasarkan residual setelah pengendalian existing,
       // bukan risiko aktual. Nilai residual setelah RTP tetap dicatat di
       // RencanaPenanganan/Pemantauan.
       const scoredRisks = allRisksForYear.map((r) => {
-        const lkSkala = r.evaluasiRisiko?.residualLevelKemungkinan?.skala ?? 0;
-        const ldSkala = r.evaluasiRisiko?.residualLevelDampak?.skala ?? 0;
-        const besaran = lkSkala * ldSkala;
+        const kemungkinanId = r.evaluasiRisiko?.residualLevelKemungkinan?.id;
+        const dampakId = r.evaluasiRisiko?.residualLevelDampak?.id;
+        const besaran = matriksByPair.get(`${kemungkinanId}-${dampakId}`) ?? 0;
         return {
           risk: r,
           besaran,
@@ -144,19 +148,10 @@ export async function GET(
         };
       });
 
-      // Hanya risiko yang masih di atas selera, berespons mengurangi, dan
-      // sudah memiliki RTP yang perlu ditampilkan untuk pemantauan.
+      // Setiap risiko dengan RTP perlu dipantau. Kelayakan RTP ditentukan pada
+      // Evaluasi Risiko; register resmi dapat mencatat RTP tambahan.
       const filteredRisks = rankedRisks.filter((r) => {
-        const respon = r.evaluasiRisiko?.responRisiko;
-        return (
-          r.rencanaPenanganan &&
-          nilaiSeleraRisiko !== null &&
-          r.priorityRank > 0 &&
-          r.evaluasiRisiko &&
-          (r.evaluasiRisiko.residualLevelKemungkinan?.skala ?? 0) *
-            (r.evaluasiRisiko.residualLevelDampak?.skala ?? 0) > nilaiSeleraRisiko &&
-          (respon === "mengurangi" || respon === "Mengurangi Risiko")
-        );
+        return r.rencanaPenanganan && r.evaluasiRisiko && r.priorityRank > 0;
       });
 
       return NextResponse.json(filteredRisks);

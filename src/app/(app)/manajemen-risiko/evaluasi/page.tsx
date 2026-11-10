@@ -200,10 +200,14 @@ export default function EvaluasiRisikoPage() {
       const actualLD = dampakData.find((o: any) => o.id === analysis?.levelDampakId);
       const residualLK = kemungkinanData.find((o: any) => o.id === ev?.residualLevelKemungkinanId);
       const residualLD = dampakData.find((o: any) => o.id === ev?.residualLevelDampakId);
-      const actualBesaran = actualLK?.skala != null && actualLD?.skala != null ? actualLK.skala * actualLD.skala : "";
-      const residualBesaran = residualLK?.skala != null && residualLD?.skala != null
-        ? residualLK.skala * residualLD.skala
-        : 0;
+      const actualMatriks = matriksData.find(
+        (item: any) => item.levelKemungkinanId === actualLK?.id && item.levelDampakId === actualLD?.id
+      );
+      const residualMatriks = matriksData.find(
+        (item: any) => item.levelKemungkinanId === residualLK?.id && item.levelDampakId === residualLD?.id
+      );
+      const actualBesaran = actualMatriks?.besaran ?? "";
+      const residualBesaran = residualMatriks?.besaran ?? 0;
       const responseLabel =
         ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
         ev?.responRisiko === "mentransfer" ? "Mengalihkan Risiko" :
@@ -274,7 +278,7 @@ export default function EvaluasiRisikoPage() {
       padded.push([null, null, "", "", "", "", "", "", "", "", ""]);
     }
     setLocalData(padded);
-  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, kemungkinanData, dampakData, seleraRisikoNilai]);
+  }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, kemungkinanData, dampakData, matriksData, seleraRisikoNilai]);
 
   const saveAll = useCallback(async () => {
     const hot = hotRef.current?.hotInstance;
@@ -587,12 +591,11 @@ function recalcResidualRow(
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
   if (!lk || !ld) return;
-  const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
-  hot.setDataAtCell(row, 7, besaran, "recalc");
   const match = matriksData.find(
     (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
   );
   if (!match) return;
+  hot.setDataAtCell(row, 7, match.besaran ?? "", "recalc");
   const lrNama = match.levelRisiko?.nama;
   if (lrNama) {
     hot.setDataAtCell(row, 6, lrNama, "recalc");
