@@ -41,6 +41,10 @@ export const progressiveLockedCellStyles = `
     cursor: pointer;
   }
 
+  .handsontable td.htAutocomplete:not(.${PROGRESSIVE_LOCKED_CELL_CLASS}) {
+    cursor: pointer;
+  }
+
   .handsontable td:not(.${PROGRESSIVE_LOCKED_CELL_CLASS}) {
     cursor: default;
   }
@@ -253,37 +257,22 @@ export function openUnlockedDropdownOnMouseDown(
     return;
   }
 
-  const target = event.target as HTMLElement | null;
-  const clickedNativeArrow = Boolean(target?.closest(".htAutocompleteArrow"));
-  const selected = hot.getSelectedLast();
-  const isSameSelectedCell =
-    selected?.[0] === coords.row &&
-    selected?.[1] === coords.col &&
-    selected?.[2] === coords.row &&
-    selected?.[3] === coords.col;
-  const cell = hot.getCell(coords.row, coords.col);
-  const cellRect = cell?.getBoundingClientRect();
-  const clickedSelectedCellArrowArea =
-    isSameSelectedCell && cellRect ? event.clientX >= cellRect.right - 32 : false;
-
-  if (!clickedNativeArrow && !clickedSelectedCellArrowArea) {
-    if (isSameSelectedCell) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-
-    return;
-  }
+  // Sel dropdown harus berperilaku seperti spreadsheet: satu klik di bagian
+  // mana pun pada sel langsung memilih sel sekaligus membuka pilihannya.
+  // Sebelumnya hanya area panah kecil pada sel yang sudah terpilih yang aktif.
+  if (event.button !== 0) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
 
   window.setTimeout(() => {
     hot.selectCell(coords.row, coords.col);
-    const editor = hot.getActiveEditor() as
-      | { beginEditing?: () => void; open?: () => void }
-      | undefined;
-    editor?.beginEditing?.();
-    editor?.open?.();
+    window.setTimeout(() => {
+      const editor = hot.getActiveEditor() as
+        | { beginEditing?: () => void; open?: () => void }
+        | undefined;
+      editor?.beginEditing?.();
+      editor?.open?.();
+    }, 0);
   }, 0);
 }
