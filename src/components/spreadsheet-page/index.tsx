@@ -29,7 +29,8 @@ interface SpreadsheetPageProps {
   dirtyCount: number;
   saving: boolean;
   onSave: () => void;
-  searchValue: string;
+  // Pencarian dibuat uncontrolled agar setiap ketikan tidak memicu re-render
+  // seluruh halaman (termasuk HotTable) yang membuat input terasa lambat.
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   // Aksi khusus halaman (mis. "Tambah Risiko" atau "Lanjutkan Data Belum Lengkap")
@@ -43,7 +44,6 @@ export function SpreadsheetPage({
   dirtyCount,
   saving,
   onSave,
-  searchValue,
   onSearchChange,
   onSearchKeyDown,
   actions,
@@ -93,7 +93,7 @@ export function SpreadsheetPage({
               placeholder="Cari & Tandai Sel..."
               size="xs"
               leftSection={<IconSearch size={14} />}
-              value={searchValue}
+              defaultValue=""
               onChange={onSearchChange}
               onKeyDown={onSearchKeyDown}
               style={{ width: 220 }}

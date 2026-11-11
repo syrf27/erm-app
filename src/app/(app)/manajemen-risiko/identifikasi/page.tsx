@@ -291,7 +291,6 @@ export default function IdentifikasiRisikoPage() {
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [searchVal, setSearchVal] = useState("");
   const [dirtyCount, setDirtyCount] = useState(0);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { tahunDari, tahunSampai } = useYear();
@@ -324,7 +323,6 @@ export default function IdentifikasiRisikoPage() {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.currentTarget.value;
-    setSearchVal(query);
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -338,7 +336,10 @@ export default function IdentifikasiRisikoPage() {
     if (event.key !== "Enter") return;
     event.preventDefault();
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+    focusNextHandsontableSearchResult(
+      hotRef.current?.hotInstance,
+      (event.target as HTMLInputElement).value
+    );
   };
 
   // Tambah risiko: baris kosong baru selalu di posisi paling atas selama sesi
@@ -1203,7 +1204,6 @@ export default function IdentifikasiRisikoPage() {
       dirtyCount={dirtyCount}
       saving={saving}
       onSave={saveAll}
-      searchValue={searchVal}
       onSearchChange={handleSearchChange}
       onSearchKeyDown={handleSearchKeyDown}
       actions={

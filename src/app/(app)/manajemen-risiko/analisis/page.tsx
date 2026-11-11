@@ -49,9 +49,9 @@ export default function AnalisisRisikoPage() {
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [searchVal, setSearchVal] = useState("");
   const [dirtyCount, setDirtyCount] = useState(0);
   const [incompleteCount, setIncompleteCount] = useState(0);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
@@ -83,10 +83,14 @@ export default function AnalisisRisikoPage() {
     }
   };
 
+  // Input pencarian uncontrolled + debounce: hot.render() pada tabel
+  // memanjang penuh berat, jadi jangan dijalankan pada setiap ketikan.
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
-    setSearchVal(query);
-    applyHandsontableSearch(hotRef.current?.hotInstance, query);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      applyHandsontableSearch(hotRef.current?.hotInstance, query);
+    }, 150);
   };
 
    const identResult = useList({
@@ -368,12 +372,15 @@ export default function AnalisisRisikoPage() {
       dirtyCount={dirtyCount}
       saving={saving}
       onSave={saveAll}
-      searchValue={searchVal}
       onSearchChange={handleSearchChange}
       onSearchKeyDown={(event) => {
         if (event.key !== "Enter") return;
         event.preventDefault();
-        focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        focusNextHandsontableSearchResult(
+          hotRef.current?.hotInstance,
+          (event.target as HTMLInputElement).value
+        );
       }}
       actions={
         <Button
