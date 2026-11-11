@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ActionIcon, Box, Stack, Tooltip } from "@mantine/core";
-import { IconMessageCircleQuestion, IconSparkles, IconTools, IconX } from "@tabler/icons-react";
+import { IconMessageCircleQuestion, IconRobot, IconSparkles, IconX } from "@tabler/icons-react";
 
 export function FloatingToolsMenu() {
   const [opened, setOpened] = useState(false);
@@ -34,17 +34,25 @@ export function FloatingToolsMenu() {
         </Stack>
       )}
       <Tooltip label={opened ? "Tutup menu bantuan" : "Buka menu bantuan"} position="left">
-        <ActionIcon
-          size={54}
-          radius="xl"
-          variant="filled"
-          color="dark"
-          style={{ boxShadow: "var(--mantine-shadow-md)" }}
-          onClick={() => setOpened((current) => !current)}
-          aria-label={opened ? "Tutup menu bantuan" : "Buka menu bantuan"}
-        >
-          {opened ? <IconX size={24} /> : <IconTools size={25} />}
-        </ActionIcon>
+        <div className="floating-ai-wrapper">
+          <span className="floating-ai-ping" aria-hidden />
+          <ActionIcon
+            size={58}
+            radius="xl"
+            variant="filled"
+            color="indigo"
+            className="floating-ai-btn"
+            style={{ boxShadow: "var(--mantine-shadow-md)" }}
+            onClick={() => setOpened((current) => !current)}
+            aria-label={opened ? "Tutup menu bantuan" : "Buka menu bantuan"}
+          >
+            {opened ? (
+              <IconX size={26} />
+            ) : (
+              <IconRobot className="floating-ai-icon" size={30} stroke={1.8} />
+            )}
+          </ActionIcon>
+        </div>
       </Tooltip>
     </Box>
   );
