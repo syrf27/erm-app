@@ -56,6 +56,7 @@ export default function NotificationCenterPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<ReminderLog[]>([]);
+  const [historyRtp, setHistoryRtp] = useState<{ id: number; risk: string } | null>(null);
 
   const rtpList = useMemo(() => result?.data ?? [], [result?.data]);
 
@@ -158,11 +159,14 @@ export default function NotificationCenterPage() {
     void openReminderModal([rtpId]);
   };
 
-  const openHistory = async () => {
+  const openHistory = async (rtp?: { id: number; risk: string }) => {
     setHistoryOpen(true);
     setHistoryLoading(true);
+    setHistoryRtp(rtp ?? null);
     try {
-      const response = await fetch("/api/reminder-logs?limit=200");
+      const params = new URLSearchParams({ limit: "200" });
+      if (rtp) params.set("rtpId", String(rtp.id));
+      const response = await fetch(`/api/reminder-logs?${params.toString()}`);
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result?.error || "Gagal mengambil riwayat pengingat");
       setHistory(result.data ?? []);
@@ -192,7 +196,7 @@ export default function NotificationCenterPage() {
         </div>
         {pendingRealisationRtp.length > 0 && (
           <Group>
-            <Button variant="light" leftSection={<IconHistory size={16} />} onClick={openHistory}>
+            <Button variant="light" leftSection={<IconHistory size={16} />} onClick={() => openHistory()}>
               Riwayat Pengingat
             </Button>
             <Button
@@ -206,7 +210,7 @@ export default function NotificationCenterPage() {
           </Group>
         )}
         {pendingRealisationRtp.length === 0 && (
-          <Button variant="light" leftSection={<IconHistory size={16} />} onClick={openHistory}>
+          <Button variant="light" leftSection={<IconHistory size={16} />} onClick={() => openHistory()}>
             Riwayat Pengingat
           </Button>
         )}
@@ -248,7 +252,7 @@ export default function NotificationCenterPage() {
                     <Table.Th>Rencana Penanganan (RTP)</Table.Th>
                     <Table.Th>Target Waktu</Table.Th>
                     <Table.Th>Status</Table.Th>
-                    <Table.Th style={{ width: 150 }} align="center">Aksi</Table.Th>
+                    <Table.Th style={{ width: 220 }} align="center">Aksi</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -274,16 +278,27 @@ export default function NotificationCenterPage() {
                           </Badge>
                         </Table.Td>
                         <Table.Td>
-                          <Button
-                            variant="light"
-                            color="red"
-                            size="xs"
-                            leftSection={<IconBell size={14} />}
-                            loading={previewLoading && reminderIds.includes(Number(r.id))}
-                            onClick={() => handleReminderClick(Number(r.id))}
-                          >
-                            Ingatkan
-                          </Button>
+                          <Button.Group>
+                            <Button
+                              variant="light"
+                              color="red"
+                              size="xs"
+                              leftSection={<IconBell size={14} />}
+                              loading={previewLoading && reminderIds.includes(Number(r.id))}
+                              onClick={() => handleReminderClick(Number(r.id))}
+                            >
+                              Ingatkan
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="gray"
+                              size="xs"
+                              leftSection={<IconHistory size={14} />}
+                              onClick={() => openHistory({ id: Number(r.id), risk: riskName })}
+                            >
+                              Riwayat
+                            </Button>
+                          </Button.Group>
                         </Table.Td>
                       </Table.Tr>
                     );
@@ -393,29 +408,46 @@ export default function NotificationCenterPage() {
       <Modal
         opened={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        title="Riwayat Pengingat"
+        title={
+          <Group gap="xs">
+            <IconHistory size={18} />
+            <span>
+              Riwayat Pengingat{historyRtp ? ` — Risiko: ${historyRtp.risk}` : " (Semua)"}
+            </span>
+          </Group>
+        }
         size="xl"
       >
         {historyLoading ? (
           <Center py="xl"><Loader size="sm" /></Center>
         ) : history.length === 0 ? (
-          <Alert color="gray">Belum ada riwayat pengingat.</Alert>
+          <Alert color="gray">
+            {historyRtp ? "Belum ada riwayat pengingat untuk risiko ini." : "Belum ada riwayat pengingat."}
+          </Alert>
         ) : (
-          <ScrollArea type="auto">
-            <Table miw={900} striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Waktu</Table.Th>
-                  <Table.Th>Risiko</Table.Th>
-                  <Table.Th>Kanal</Table.Th>
-                  <Table.Th>Penerima</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Pengirim</Table.Th>
-                  <Table.Th>Detail</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {history.map((log) => (
+          <Stack gap="sm">
+            {historyRtp && (
+              <Group justify="flex-end">
+                <Button variant="subtle" size="xs" onClick={() => openHistory()}>
+                  Tampilkan semua risiko
+                </Button>
+              </Group>
+            )}
+            <ScrollArea type="auto">
+              <Table miw={900} striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Waktu</Table.Th>
+                    <Table.Th>Risiko</Table.Th>
+                    <Table.Th>Kanal</Table.Th>
+                    <Table.Th>Penerima</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th>Pengirim</Table.Th>
+                    <Table.Th>Detail</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {history.map((log) => (
                   <Table.Tr key={log.id}>
                     <Table.Td>{new Date(log.createdAt).toLocaleString("id-ID")}</Table.Td>
                     <Table.Td>{log.rencanaPenanganan?.identifikasiRisiko?.risiko || "-"}</Table.Td>
@@ -429,10 +461,11 @@ export default function NotificationCenterPage() {
                     <Table.Td>{log.sentBy || "-"}</Table.Td>
                     <Table.Td>{log.error || log.providerMessageId || "-"}</Table.Td>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          </Stack>
         )}
       </Modal>
     </Stack>
