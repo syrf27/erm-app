@@ -22,7 +22,12 @@ export type WhatsAppReminderRecipient = {
   name: string;
   email?: string | null;
   whatsappNumber: string | null;
-  source: "team" | "user";
+  source: "team" | "user" | "manual";
+};
+
+export type ManualWhatsAppRecipient = {
+  phone: string;
+  name?: string;
 };
 
 export type WhatsAppReminderPreview = {
@@ -42,7 +47,7 @@ function getProvider(): WhatsAppProvider {
 }
 
 function getInteraktTemplate(): string {
-  return process.env.INTERAKT_TEMPLATE_RTP_REMINDER || "pengingat_penanganan_risiko";
+  return process.env.INTERAKT_TEMPLATE_RTP_REMINDER || "notif_mr";
 }
 
 function getWhatsAppConfig() {
@@ -66,7 +71,25 @@ function normalizeWhatsAppNumber(value: string) {
   return /^[1-9]\d{7,14}$/.test(normalized) ? normalized : null;
 }
 
-async function loadRtpWhatsAppContext(rtpId: number) {
+function normalizeManualRecipients(input: ManualWhatsAppRecipient[] = []): WhatsAppReminderRecipient[] {
+  const recipients = new Map<string, WhatsAppReminderRecipient>();
+  input.slice(0, 50).forEach((item, index) => {
+    const phone = normalizeInteraktPhone(item?.phone);
+    if (!phone) {
+      throw new Error(`Nomor WhatsApp manual ke-${index + 1} tidak valid.`);
+    }
+    recipients.set(phone, {
+      id: `manual:${phone}`,
+      name: item.name?.trim() || `Penerima manual ${index + 1}`,
+      email: null,
+      whatsappNumber: phone,
+      source: "manual",
+    });
+  });
+  return Array.from(recipients.values());
+}
+
+async function loadRtpWhatsAppContext(rtpId: number, manualRecipients: ManualWhatsAppRecipient[] = []) {
   const rtp = await prisma.rencanaPenanganan.findUnique({
     where: { id: rtpId },
     include: { identifikasiRisiko: { include: { team: true } } },
@@ -79,7 +102,16 @@ async function loadRtpWhatsAppContext(rtpId: number) {
     where: { nama: rtp.penanggungJawab || rtp.identifikasiRisiko.team?.nama || "" },
   });
   if (!team) {
-    return { rtp, team: null, recipients: [] as WhatsAppReminderRecipient[] };
+    return {
+      rtp,
+      team: null,
+      recipients: normalizeManualRecipients(manualRecipients),
+    };
+  }
+
+  const manual = normalizeManualRecipients(manualRecipients);
+  if (manual.length > 0) {
+    return { rtp, team, recipients: manual };
   }
 
   // Nomor pada Tim Kerja adalah tujuan utama: satu pengingat untuk Ketua Tim.
@@ -117,8 +149,11 @@ async function loadRtpWhatsAppContext(rtpId: number) {
   return { rtp, team, recipients: Array.from(recipients.values()) };
 }
 
-export async function getRtpWhatsAppPreview(rtpId: number): Promise<WhatsAppReminderPreview> {
-  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId);
+export async function getRtpWhatsAppPreview(
+  rtpId: number,
+  manualRecipients: ManualWhatsAppRecipient[] = []
+): Promise<WhatsAppReminderPreview> {
+  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId, manualRecipients);
   return {
     rtpId,
     teamName: team?.nama || rtp.penanggungJawab || "Tim belum ditentukan",
@@ -127,7 +162,10 @@ export async function getRtpWhatsAppPreview(rtpId: number): Promise<WhatsAppRemi
   };
 }
 
-export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppReminderResult> {
+export async function sendRtpWhatsAppReminder(
+  rtpId: number,
+  manualRecipients: ManualWhatsAppRecipient[] = []
+): Promise<WhatsAppReminderResult> {
   const provider = getProvider();
   const graphConfig = provider === "interakt" ? null : getWhatsAppConfig();
   const interaktConfig = provider === "graph" ? null : getInteraktConfig();
@@ -142,8 +180,8 @@ export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppRe
     };
   }
 
-  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId);
-  if (!team) {
+  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId, manualRecipients);
+  if (!team && recipients.length === 0) {
     return { configured: true, provider, attempted: 0, sent: 0, skipped: 0, errors: ["Tim penanggung jawab tidak ditemukan"] };
   }
 
@@ -154,7 +192,7 @@ export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppRe
   const appBase = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   const actionUrl = appBase ? `${appBase}/pemantauan-risiko` : "";
   const variables = [
-    team.nama,
+    team?.nama || rtp.penanggungJawab || "Penerima manual",
     rtp.identifikasiRisiko.risiko,
     rtp.rencanaTidakPenanganan || "Belum diisi",
     rtp.targetWaktu || "Belum ditentukan",

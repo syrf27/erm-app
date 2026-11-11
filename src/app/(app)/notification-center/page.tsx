@@ -9,6 +9,7 @@ import {
   Button,
   Group,
   Text,
+  Textarea,
   Badge,
   Loader,
   Center,
@@ -21,7 +22,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconBell, IconAlertCircle, IconCheck, IconBrandWhatsapp } from "@tabler/icons-react";
-import type { WhatsAppReminderPreview } from "@/lib/whatsapp-notification";
+import type { ManualWhatsAppRecipient, WhatsAppReminderPreview } from "@/lib/whatsapp-notification";
 
 export default function NotificationCenterPage() {
   const { result, query } = useList({
@@ -36,6 +37,8 @@ export default function NotificationCenterPage() {
   const [previews, setPreviews] = useState<WhatsAppReminderPreview[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [manualNumbers, setManualNumbers] = useState("");
+  const [previewedManualNumbers, setPreviewedManualNumbers] = useState("");
 
   const rtpList = useMemo(() => result?.data ?? [], [result?.data]);
 
@@ -47,24 +50,44 @@ export default function NotificationCenterPage() {
     });
   }, [rtpList]);
 
-  const openReminderModal = async (ids: number[]) => {
-    setReminderIds(ids);
-    setReminderChannel("push");
-    setPreviews([]);
-    setReminderModalOpen(true);
+  const parseManualRecipients = (value: string): ManualWhatsAppRecipient[] =>
+    value
+      .split(/[\n,;]+/)
+      .map((phone) => phone.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+      .map((phone, index) => ({ phone, name: `Penerima manual ${index + 1}` }));
+
+  const loadReminderPreviews = async (ids: number[], manualValue: string) => {
+    const manualRecipients = parseManualRecipients(manualValue);
     setPreviewLoading(true);
     try {
       const results = await Promise.all(ids.map(async (rtpId) => {
         const res = await fetch("/api/send-reminder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rtpId, channel: "preview" }),
+          body: JSON.stringify({ rtpId, channel: "preview", manualRecipients }),
         });
-        if (!res.ok) throw new Error("Gagal mengambil nomor tujuan");
-        const result = await res.json();
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result?.error || "Gagal mengambil nomor tujuan");
         return result.whatsapp as WhatsAppReminderPreview;
       }));
       setPreviews(results);
+      setPreviewedManualNumbers(manualValue);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const openReminderModal = async (ids: number[]) => {
+    setReminderIds(ids);
+    setReminderChannel("push");
+    setManualNumbers("");
+    setPreviewedManualNumbers("");
+    setPreviews([]);
+    setReminderModalOpen(true);
+    try {
+      await loadReminderPreviews(ids, "");
     } catch (error: any) {
       setReminderModalOpen(false);
       notifications.show({
@@ -72,19 +95,20 @@ export default function NotificationCenterPage() {
         message: error?.message || "Gagal mengambil informasi penerima",
         color: "red",
       });
-    } finally {
-      setPreviewLoading(false);
     }
   };
 
   const sendReminder = async () => {
     try {
       setSending(true);
+      const manualRecipients = reminderChannel === "whatsapp"
+        ? parseManualRecipients(manualNumbers)
+        : [];
       for (const rtpId of reminderIds) {
         const res = await fetch("/api/send-reminder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rtpId, channel: reminderChannel }),
+          body: JSON.stringify({ rtpId, channel: reminderChannel, manualRecipients }),
         });
         if (!res.ok) throw new Error("Gagal mengirim pengingat");
       }
@@ -252,6 +276,33 @@ export default function NotificationCenterPage() {
 
           <Divider />
           <Text fw={600}>Nomor tujuan</Text>
+          {reminderChannel === "whatsapp" && (
+            <Stack gap="xs">
+              <Textarea
+                label="Nomor WhatsApp manual (opsional)"
+                description="Masukkan satu atau beberapa nomor, pisahkan dengan baris baru, koma, atau titik koma. Jika diisi, nomor manual akan digunakan sebagai penerima pengganti nomor Tim Kerja."
+                placeholder={"08123456789\n+6285123456789"}
+                value={manualNumbers}
+                onChange={(event) => setManualNumbers(event.currentTarget.value)}
+                minRows={2}
+              />
+              <Group justify="flex-end">
+                <Button
+                  variant="light"
+                  size="xs"
+                  onClick={() => void loadReminderPreviews(reminderIds, manualNumbers).catch((error: any) => {
+                    notifications.show({ title: "Nomor tidak valid", message: error?.message || "Periksa nomor WhatsApp manual.", color: "red" });
+                  })}
+                  loading={previewLoading}
+                >
+                  Periksa Nomor
+                </Button>
+              </Group>
+              {manualNumbers !== previewedManualNumbers && manualNumbers.trim() && (
+                <Text size="xs" c="orange">Klik “Periksa Nomor” untuk memperbarui pratinjau penerima.</Text>
+              )}
+            </Stack>
+          )}
           {previewLoading ? (
             <Center py="md"><Loader size="sm" /></Center>
           ) : previews.length === 0 ? (
@@ -286,7 +337,10 @@ export default function NotificationCenterPage() {
               leftSection={reminderChannel === "whatsapp" ? <IconBrandWhatsapp size={16} /> : <IconBell size={16} />}
               onClick={sendReminder}
               loading={sending}
-              disabled={previewLoading || (reminderChannel === "whatsapp" && previews.every((p) => p.recipients.length === 0))}
+              disabled={previewLoading || (reminderChannel === "whatsapp" && (
+                manualNumbers !== previewedManualNumbers ||
+                previews.every((p) => p.recipients.length === 0)
+              ))}
             >
               Kirim Pengingat
             </Button>
