@@ -53,7 +53,7 @@ export default function MatriksRisikoPage() {
   // Fetch all configuration and transaction data
   const identQuery = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
   const analisisQuery = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
-  const rencanaQuery = useList({ resource: "rencana-penanganan", pagination: { pageSize: 10000 } });
+  const evaluasiQuery = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
   const lkQuery = useList({ resource: "level-kemungkinan", pagination: { pageSize: 100 } });
   const ldQuery = useList({ resource: "level-dampak", pagination: { pageSize: 100 } });
   const matriksQuery = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 100 } });
@@ -61,14 +61,14 @@ export default function MatriksRisikoPage() {
   const loading =
     identQuery.query.isPending ||
     analisisQuery.query.isPending ||
-    rencanaQuery.query.isPending ||
+    evaluasiQuery.query.isPending ||
     lkQuery.query.isPending ||
     ldQuery.query.isPending ||
     matriksQuery.query.isPending;
 
   const identData = useMemo(() => identQuery.result?.data ?? [], [identQuery.result?.data]);
   const analisisData = useMemo(() => analisisQuery.result?.data ?? [], [analisisQuery.result?.data]);
-  const rencanaData = useMemo(() => rencanaQuery.result?.data ?? [], [rencanaQuery.result?.data]);
+  const evaluasiData = useMemo(() => evaluasiQuery.result?.data ?? [], [evaluasiQuery.result?.data]);
   const lkData = useMemo(() => lkQuery.result?.data ?? [], [lkQuery.result?.data]);
   const ldData = useMemo(() => ldQuery.result?.data ?? [], [ldQuery.result?.data]);
   const matriksData = useMemo(() => matriksQuery.result?.data ?? [], [matriksQuery.result?.data]);
@@ -95,15 +95,17 @@ export default function MatriksRisikoPage() {
 
     return identData.map((item: any) => {
       const analisis = analisisData.find((a: any) => a.identifikasiRisikoId === item.id);
-      const rencana = rencanaData.find((r: any) => r.identifikasiRisikoId === item.id);
+      // Residual risk is determined during Evaluasi Risiko. Rencana
+      // Penanganan is a follow-up action and may not duplicate those fields.
+      const evaluasi = evaluasiData.find((e: any) => e.identifikasiRisikoId === item.id);
 
       // Find likelihood & impact scales for aktual
       const lkAktual = lkData.find((lk: any) => lk.id === analisis?.levelKemungkinanId);
       const ldAktual = ldData.find((ld: any) => ld.id === analisis?.levelDampakId);
 
       // Find likelihood & impact scales for residual
-      const lkResidual = lkData.find((lk: any) => lk.id === rencana?.residualLevelKemungkinanId);
-      const ldResidual = ldData.find((ld: any) => ld.id === rencana?.residualLevelDampakId);
+      const lkResidual = lkData.find((lk: any) => lk.id === evaluasi?.residualLevelKemungkinanId);
+      const ldResidual = ldData.find((ld: any) => ld.id === evaluasi?.residualLevelDampakId);
 
       let aktual = null;
       if (lkAktual && ldAktual) {
@@ -148,7 +150,7 @@ export default function MatriksRisikoPage() {
         residual,
       };
     });
-  }, [loading, identData, analisisData, rencanaData, lkData, ldData, matriksData]);
+  }, [loading, identData, analisisData, evaluasiData, lkData, ldData, matriksData]);
 
   // Filter and Paginate the list
   const filteredRisks = useMemo(() => {
@@ -187,13 +189,10 @@ export default function MatriksRisikoPage() {
   }, [processedRisks, selectedRiskIds]);
 
   const toggleRiskSelection = (id: number) => {
-    setSelectedRiskIds((prev) => {
-      if (prev.includes(id)) {
-        if (prev.length === 1) return prev; // Keep at least one selected
-        return prev.filter((x) => x !== id);
-      }
-      return [...prev, id];
-    });
+    // Matriks detail menampilkan satu risiko aktif. Sebelumnya pilihan
+    // ditambahkan ke array sehingga risiko lama tetap tampil dan terlihat
+    // seperti nilai aktual/residual selalu berasal dari risiko yang sama.
+    setSelectedRiskIds([id]);
   };
 
   // Map color names to Hex
