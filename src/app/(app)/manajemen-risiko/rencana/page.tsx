@@ -203,12 +203,11 @@ export default function RencanaPenangananPage() {
     const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
-      const residualLk = kemungkinanById.get(ev?.residualLevelKemungkinanId);
-      const residualLd = dampakById.get(ev?.residualLevelDampakId);
-      const fallbackResidualLk = kemungkinanById.get(rp?.residualLevelKemungkinanId);
-      const fallbackResidualLd = dampakById.get(rp?.residualLevelDampakId);
-      const effectiveResidualLk = residualLk ?? fallbackResidualLk;
-      const effectiveResidualLd = residualLd ?? fallbackResidualLd;
+      const effectiveResidualSource = rp?.residualLevelKemungkinanId && rp?.residualLevelDampakId
+        ? rp
+        : ev;
+      const effectiveResidualLk = kemungkinanById.get(effectiveResidualSource?.residualLevelKemungkinanId);
+      const effectiveResidualLd = dampakById.get(effectiveResidualSource?.residualLevelDampakId);
       const residual = Number(matriksData.find(
         (item: any) => item.levelKemungkinanId === effectiveResidualLk?.id && item.levelDampakId === effectiveResidualLd?.id
       )?.besaran ?? 0);
@@ -225,16 +224,15 @@ export default function RencanaPenangananPage() {
     const mapped = filtered.map((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
-      const residualLK = ev?.residualLevelKemungkinanId
-        ? kemungkinanById.get(ev.residualLevelKemungkinanId)
-        : rp?.residualLevelKemungkinanId
-          ? kemungkinanById.get(rp.residualLevelKemungkinanId)
-          : undefined;
-      const residualLD = ev?.residualLevelDampakId
-        ? dampakById.get(ev.residualLevelDampakId)
-        : rp?.residualLevelDampakId
-          ? dampakById.get(rp.residualLevelDampakId)
-          : undefined;
+      const residualSource = rp?.residualLevelKemungkinanId && rp?.residualLevelDampakId
+        ? rp
+        : ev;
+      const residualLK = residualSource?.residualLevelKemungkinanId
+        ? kemungkinanById.get(residualSource.residualLevelKemungkinanId)
+        : undefined;
+      const residualLD = residualSource?.residualLevelDampakId
+        ? dampakById.get(residualSource.residualLevelDampakId)
+        : undefined;
 
       return [
         r.id,
