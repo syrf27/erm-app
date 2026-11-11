@@ -193,26 +193,30 @@ export default function PelaporanRisikoPage() {
   const allRows = useMemo((): ReportRow[] => {
     if (loading) return [];
 
-    const lkById = new Map(lkData.map((lk: any) => [lk.id, lk]));
-    const ldById = new Map(ldData.map((ld: any) => [ld.id, ld]));
+    // API responses can serialize relation IDs as either numbers or strings.
+    // Keep all lookups numeric so a valid matrix row is not missed and the
+    // score does not silently fall back to likelihood * impact.
+    const lkById = new Map(lkData.map((lk: any) => [Number(lk.id), lk]));
+    const ldById = new Map(ldData.map((ld: any) => [Number(ld.id), ld]));
     const analisisById = new Map(
-      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
+      analisisData.map((a: any) => [Number(a.identifikasiRisikoId), a])
     );
     const evaluasiById = new Map(
-      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
+      evaluasiData.map((e: any) => [Number(e.identifikasiRisikoId), e])
     );
     const rencanaById = new Map(
-      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
+      rencanaData.map((r: any) => [Number(r.identifikasiRisikoId), r])
     );
 
     return filteredIdentifikasiData.map((r: Record<string, any>, index): ReportRow => {
-      const an = analisisById.get(r.id);
-      const ev = evaluasiById.get(r.id);
-      const rp = rencanaById.get(r.id);
+      const riskId = Number(r.id);
+      const an = analisisById.get(riskId);
+      const ev = evaluasiById.get(riskId);
+      const rp = rencanaById.get(riskId);
 
       // Find likelihood & impact scales for aktual
-      const lkAktual = an ? lkById.get(an.levelKemungkinanId) : null;
-      const ldAktual = an ? ldById.get(an.levelDampakId) : null;
+      const lkAktual = an ? lkById.get(Number(an.levelKemungkinanId)) : null;
+      const ldAktual = an ? ldById.get(Number(an.levelDampakId)) : null;
 
       // Evaluasi Risiko adalah sumber kebenaran untuk Residual. Rencana
       // hanya menjadi fallback untuk data legacy yang belum menyimpan
@@ -221,10 +225,10 @@ export default function PelaporanRisikoPage() {
         ? ev
         : rp;
       const lkResidual = residualSource
-        ? lkById.get(residualSource.residualLevelKemungkinanId)
+        ? lkById.get(Number(residualSource.residualLevelKemungkinanId))
         : null;
       const ldResidual = residualSource
-        ? ldById.get(residualSource.residualLevelDampakId)
+        ? ldById.get(Number(residualSource.residualLevelDampakId))
         : null;
 
       let bAktual = 0;
@@ -234,8 +238,8 @@ export default function PelaporanRisikoPage() {
       if (lkAktual && ldAktual) {
         const matchMatriks = matriksData.find(
           (m: any) =>
-            m.levelKemungkinanId === lkAktual.id &&
-            m.levelDampakId === ldAktual.id
+            Number(m.levelKemungkinanId) === Number(lkAktual.id) &&
+            Number(m.levelDampakId) === Number(ldAktual.id)
         );
         bAktual = matchMatriks?.besaran ?? lkAktual.skala * ldAktual.skala;
         levAktual = matchMatriks?.levelRisiko?.nama ?? "Sedang";
@@ -249,8 +253,8 @@ export default function PelaporanRisikoPage() {
       if (lkResidual && ldResidual) {
         const matchMatriks = matriksData.find(
           (m: any) =>
-            m.levelKemungkinanId === lkResidual.id &&
-            m.levelDampakId === ldResidual.id
+            Number(m.levelKemungkinanId) === Number(lkResidual.id) &&
+            Number(m.levelDampakId) === Number(ldResidual.id)
         );
         bResidual =
           matchMatriks?.besaran ?? lkResidual.skala * ldResidual.skala;

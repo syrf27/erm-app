@@ -188,32 +188,33 @@ export default function RencanaPenangananPage() {
   useEffect(() => {
     if (loading) return;
     const analisisById = new Map(
-      analisisData.map((a: any) => [a.identifikasiRisikoId, a])
+      analisisData.map((a: any) => [Number(a.identifikasiRisikoId), a])
     );
     const evaluasiById = new Map(
-      evaluasiData.map((e: any) => [e.identifikasiRisikoId, e])
+      evaluasiData.map((e: any) => [Number(e.identifikasiRisikoId), e])
     );
     const rencanaById = new Map(
-      rencanaData.map((r: any) => [r.identifikasiRisikoId, r])
+      rencanaData.map((r: any) => [Number(r.identifikasiRisikoId), r])
     );
 
-    const kemungkinanById = new Map(kemungkinanData.map((k: any) => [k.id, k]));
-    const dampakById = new Map(dampakData.map((d: any) => [d.id, d]));
+    const kemungkinanById = new Map(kemungkinanData.map((k: any) => [Number(k.id), k]));
+    const dampakById = new Map(dampakData.map((d: any) => [Number(d.id), d]));
 
     const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
-      const ev = evaluasiById.get(r.id);
-      const rp = rencanaById.get(r.id);
+      const riskId = Number(r.id);
+      const ev = evaluasiById.get(riskId);
+      const rp = rencanaById.get(riskId);
       const effectiveResidualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
         ? ev
         : rp;
-      const effectiveResidualLk = kemungkinanById.get(effectiveResidualSource?.residualLevelKemungkinanId);
-      const effectiveResidualLd = dampakById.get(effectiveResidualSource?.residualLevelDampakId);
+      const effectiveResidualLk = kemungkinanById.get(Number(effectiveResidualSource?.residualLevelKemungkinanId));
+      const effectiveResidualLd = dampakById.get(Number(effectiveResidualSource?.residualLevelDampakId));
       const residual = Number(matriksData.find(
-        (item: any) => item.levelKemungkinanId === effectiveResidualLk?.id && item.levelDampakId === effectiveResidualLd?.id
+        (item: any) => Number(item.levelKemungkinanId) === Number(effectiveResidualLk?.id) && Number(item.levelDampakId) === Number(effectiveResidualLd?.id)
       )?.besaran ?? 0);
       // RTP yang sudah tercatat pada register resmi tetap harus ditampilkan.
       // Filter otomatis hanya menentukan kandidat baru yang belum memiliki RTP.
-      if (rencanaById.has(r.id)) return true;
+      if (rencanaById.has(Number(r.id))) return true;
       return (
         (ev?.responRisiko === "mengurangi" || ev?.responRisiko === "Mengurangi Risiko") &&
         seleraRisikoNilai !== null &&
@@ -222,16 +223,17 @@ export default function RencanaPenangananPage() {
     });
 
     const mapped = filtered.map((r: Record<string, any>) => {
-      const ev = evaluasiById.get(r.id);
-      const rp = rencanaById.get(r.id);
+      const riskId = Number(r.id);
+      const ev = evaluasiById.get(riskId);
+      const rp = rencanaById.get(riskId);
       const residualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
         ? ev
         : rp;
       const residualLK = residualSource?.residualLevelKemungkinanId
-        ? kemungkinanById.get(residualSource.residualLevelKemungkinanId)
+        ? kemungkinanById.get(Number(residualSource.residualLevelKemungkinanId))
         : undefined;
       const residualLD = residualSource?.residualLevelDampakId
-        ? dampakById.get(residualSource.residualLevelDampakId)
+        ? dampakById.get(Number(residualSource.residualLevelDampakId))
         : undefined;
 
       return [
@@ -240,7 +242,7 @@ export default function RencanaPenangananPage() {
         ev?.prioritasRisiko ?? "",
         r.risiko,
         matriksData.find(
-          (item: any) => item.levelKemungkinanId === residualLK?.id && item.levelDampakId === residualLD?.id
+          (item: any) => Number(item.levelKemungkinanId) === Number(residualLK?.id) && Number(item.levelDampakId) === Number(residualLD?.id)
         )?.besaran ?? "",
         rp?.rencanaTidakPenanganan ?? "",
         getJenisPenangananLabel(rp?.jenisPenanganan),
