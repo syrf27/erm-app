@@ -60,6 +60,8 @@ const toPositiveInteger = (value: unknown) => {
 
 export default function EvaluasiRisikoPage() {
   const hotRef = useRef<HotTableRef>(null);
+  const initialRowsRef = useRef<any[][]>([]);
+  const dirtyRowsRef = useRef<Set<number>>(new Set());
   const autoPriorityByIdentIdRef = useRef<Map<number, number>>(new Map());
   const savedPriorityByIdentIdRef = useRef<Map<number, number | null>>(new Map());
   const [localData, setLocalData] = useState<any[][]>([]);
@@ -284,6 +286,7 @@ export default function EvaluasiRisikoPage() {
     while (padded.length < 30) {
       padded.push([null, null, "", "", "", "", "", "", "", "", ""]);
     }
+    initialRowsRef.current = padded.map((row) => [...row]);
     setLocalData(padded);
   }, [loading, filteredIdentifikasiData, evaluasiData, analisisData, kemungkinanData, dampakData, matriksData, seleraRisikoNilai]);
 
@@ -305,6 +308,9 @@ export default function EvaluasiRisikoPage() {
       const identId = parseInt(row[0] as string, 10);
       const evaluasiId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const initialRow = initialRowsRef.current[idx];
+      if (Number.isInteger(evaluasiId) && evaluasiId > 0 && !dirtyRowsRef.current.has(idx)) return;
+      if (Number.isInteger(evaluasiId) && evaluasiId > 0 && initialRow && JSON.stringify(row) === JSON.stringify(initialRow)) return;
       const isExistingRow = Number.isInteger(evaluasiId) && evaluasiId > 0;
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, EVALUASI_INPUT_COLUMNS, col);
@@ -372,8 +378,15 @@ export default function EvaluasiRisikoPage() {
       const result = await res.json();
       result.created?.forEach((item: any, index: number) => {
         const row = newRows[index]?.index;
-        if (item?.id && row !== undefined) hot.setDataAtCell(row, 1, item.id, "saveAll");
+        if (item?.id && row !== undefined) {
+          hot.setDataAtCell(row, 1, item.id, "saveAll");
+          initialRowsRef.current[row] = [rows[row][0], item.id, ...rows[row].slice(2)];
+        }
       });
+      updateRows.forEach(({ index }) => {
+        initialRowsRef.current[index] = [...rows[index]];
+      });
+      dirtyRowsRef.current.clear();
       notifications.show({ title: "Tersimpan", message: "Semua data berhasil disimpan", color: "green" });
       if (refetchQuery) refetchQuery();
     } catch (e: any) {
@@ -556,6 +569,11 @@ export default function EvaluasiRisikoPage() {
         afterChange={(changes, source) => {
           if (!changes) return;
           if (String(source) === "priority-auto") return;
+          if (!["loadData", "auto", "recalc", "saveAll", "progressive-reset"].includes(String(source))) {
+            changes.forEach(([row]) => {
+              if (typeof row === "number") dirtyRowsRef.current.add(row);
+            });
+          }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
           applyProgressiveCascade(

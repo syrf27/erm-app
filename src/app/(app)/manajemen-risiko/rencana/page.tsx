@@ -58,6 +58,8 @@ function getJenisPenangananLabel(value: unknown) {
 
 export default function RencanaPenangananPage() {
   const hotRef = useRef<HotTableRef>(null);
+  const initialRowsRef = useRef<any[][]>([]);
+  const dirtyRowsRef = useRef<Set<number>>(new Set());
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -268,6 +270,7 @@ export default function RencanaPenangananPage() {
         "",
       ]);
     }
+    initialRowsRef.current = padded.map((row) => [...row]);
     setLocalData(padded);
   }, [
     loading,
@@ -299,6 +302,9 @@ export default function RencanaPenangananPage() {
       const identId = parseInt(row[0] as string, 10);
       const rencanaId = parseInt(row[1] as string, 10);
       if (isNaN(identId)) return;
+      const initialRow = initialRowsRef.current[idx];
+      if (Number.isInteger(rencanaId) && rencanaId > 0 && !dirtyRowsRef.current.has(idx)) return;
+      if (Number.isInteger(rencanaId) && rencanaId > 0 && initialRow && JSON.stringify(row) === JSON.stringify(initialRow)) return;
       const isExistingRow = Number.isInteger(rencanaId) && rencanaId > 0;
       const canUseColumn = (col: number) =>
         isExistingRow || isColumnUnlockedForRow(row, RENCANA_INPUT_COLUMNS, col);
@@ -362,8 +368,15 @@ export default function RencanaPenangananPage() {
       const result = await res.json();
       result.created?.forEach((item: any, index: number) => {
         const row = newRows[index]?.index;
-        if (item?.id && row !== undefined) hot.setDataAtCell(row, 1, item.id, "saveAll");
+        if (item?.id && row !== undefined) {
+          hot.setDataAtCell(row, 1, item.id, "saveAll");
+          initialRowsRef.current[row] = [rows[row][0], item.id, ...rows[row].slice(2)];
+        }
       });
+      updateRows.forEach(({ index }) => {
+        initialRowsRef.current[index] = [...rows[index]];
+      });
+      dirtyRowsRef.current.clear();
       notifications.show({
         title: "Tersimpan",
         message: "Semua data berhasil disimpan",
@@ -506,6 +519,11 @@ export default function RencanaPenangananPage() {
         }}
         afterChange={(changes, source) => {
           if (!changes) return;
+          if (!["loadData", "auto", "recalc", "saveAll", "progressive-reset"].includes(String(source))) {
+            changes.forEach(([row]) => {
+              if (typeof row === "number") dirtyRowsRef.current.add(row);
+            });
+          }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
           applyProgressiveCascade(

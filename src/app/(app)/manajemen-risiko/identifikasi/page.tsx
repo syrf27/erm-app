@@ -285,6 +285,8 @@ const BankRisikoModal = memo(function BankRisikoModal({
 export default function IdentifikasiRisikoPage() {
   const autoOpenAssistHandledRef = useRef(false);
   const hotRef = useRef<HotTableRef>(null);
+  const initialRowsRef = useRef<any[][]>([]);
+  const dirtyRowsRef = useRef<Set<number>>(new Set());
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -762,6 +764,7 @@ export default function IdentifikasiRisikoPage() {
     while (padded.length < 30) {
       padded.push([null, "", "", "", "", "", "", "", "", "", "", currentYear]);
     }
+    initialRowsRef.current = padded.map((row) => [...row]);
     setLocalData(padded);
   }, [
     loading,
@@ -793,6 +796,9 @@ export default function IdentifikasiRisikoPage() {
 
     rows.forEach((row, idx) => {
       const id = parseInt(row[0] as string, 10);
+      const initialRow = initialRowsRef.current[idx];
+      if (Number.isInteger(id) && id > 0 && !dirtyRowsRef.current.has(idx)) return;
+      if (Number.isInteger(id) && id > 0 && initialRow && JSON.stringify(row) === JSON.stringify(initialRow)) return;
       const sasaranName = (row[1] as string) ?? "";
       const kegiatanName = (row[2] as string) ?? "";
       const prosesBisnisName = (row[3] as string) ?? "";
@@ -898,8 +904,15 @@ export default function IdentifikasiRisikoPage() {
       const result = await res.json();
       result.created?.forEach((item: any, index: number) => {
         const row = newRows[index]?.index;
-        if (item?.id && row !== undefined) hot.setDataAtCell(row, 0, item.id, "saveAll");
+        if (item?.id && row !== undefined) {
+          hot.setDataAtCell(row, 0, item.id, "saveAll");
+          initialRowsRef.current[row] = [...rows[row], item.id];
+        }
       });
+      updateRows.forEach(({ index }) => {
+        initialRowsRef.current[index] = [...rows[index]];
+      });
+      dirtyRowsRef.current.clear();
       notifications.show({
         title: "Tersimpan",
         message: "Semua data berhasil disimpan",
@@ -1247,6 +1260,11 @@ export default function IdentifikasiRisikoPage() {
         }}
         afterChange={(changes, source) => {
           if (!changes || source === "loadData" || source === "auto") return;
+          if (!["saveAll", "progressive-reset", "recalc"].includes(String(source))) {
+            changes.forEach(([row]) => {
+              if (typeof row === "number") dirtyRowsRef.current.add(row);
+            });
+          }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
 
