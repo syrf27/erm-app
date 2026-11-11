@@ -101,8 +101,8 @@ export default function PelaporanRisikoPage() {
   const [modalPersetujuan, setModalPersetujuan] = useState("");
   const [modalDisetujuiOleh, setModalDisetujuiOleh] = useState("");
 
-  const identResult = useList({
-    resource: "identifikasi-risiko",
+  const reportResult = useList({
+    resource: "custom-pelaporan-risiko",
     pagination: { pageSize: 1000 },
     filters: [
       {
@@ -117,150 +117,26 @@ export default function PelaporanRisikoPage() {
       },
     ],
   });
-  const analisisResult = useList({
-    resource: "analisis-risiko",
-    pagination: { pageSize: 1000 },
-  });
-  const evaluasiResult = useList({
-    resource: "evaluasi-risiko",
-    pagination: { pageSize: 1000 },
-  });
-  const rencanaResult = useList({
-    resource: "rencana-penanganan",
-    pagination: { pageSize: 1000 },
-  });
-  const lkResult = useList({
-    resource: "level-kemungkinan",
-    pagination: { mode: "off" },
-  });
-  const ldResult = useList({
-    resource: "level-dampak",
-    pagination: { mode: "off" },
-  });
-  const matriksResult = useList({
-    resource: "matriks-analisis-risiko",
-    pagination: { mode: "off" },
-  });
   const { mutate: createMutate } = useCreate();
   const { mutate: updateMutate } = useUpdate();
 
-  const loading =
-    identResult.query.isPending ||
-    analisisResult.query.isPending ||
-    evaluasiResult.query.isPending ||
-    rencanaResult.query.isPending ||
-    lkResult.query.isPending ||
-    ldResult.query.isPending ||
-    matriksResult.query.isPending;
-
-  const identifikasiData = useMemo(
-    () => identResult.result?.data ?? [],
-    [identResult.result?.data]
+  const loading = reportResult.query.isPending;
+  const reportData = useMemo(
+    () => reportResult.result?.data ?? [],
+    [reportResult.result?.data]
   );
-
-  const currentYear = new Date().getFullYear();
-  const filteredIdentifikasiData = useMemo(() => {
-    return identifikasiData;
-  }, [identifikasiData]);
-
-  const analisisData = useMemo(
-    () => analisisResult.result?.data ?? [],
-    [analisisResult.result?.data]
-  );
-  const evaluasiData = useMemo(
-    () => evaluasiResult.result?.data ?? [],
-    [evaluasiResult.result?.data]
-  );
-  const rencanaData = useMemo(
-    () => rencanaResult.result?.data ?? [],
-    [rencanaResult.result?.data]
-  );
-  const lkData = useMemo(
-    () => lkResult.result?.data ?? [],
-    [lkResult.result?.data]
-  );
-  const ldData = useMemo(
-    () => ldResult.result?.data ?? [],
-    [ldResult.result?.data]
-  );
-  const matriksData = useMemo(
-    () => matriksResult.result?.data ?? [],
-    [matriksResult.result?.data]
-  );
-  const refetchQuery = rencanaResult.query?.refetch;
+  const refetchQuery = reportResult.query?.refetch;
 
   // Compile all data rows
   const allRows = useMemo((): ReportRow[] => {
     if (loading) return [];
 
-    // API responses can serialize relation IDs as either numbers or strings.
-    // Keep all lookups numeric so a valid matrix row is not missed and the
-    // score does not silently fall back to likelihood * impact.
-    const lkById = new Map(lkData.map((lk: any) => [Number(lk.id), lk]));
-    const ldById = new Map(ldData.map((ld: any) => [Number(ld.id), ld]));
-    const analisisById = new Map(
-      analisisData.map((a: any) => [Number(a.identifikasiRisikoId), a])
-    );
-    const evaluasiById = new Map(
-      evaluasiData.map((e: any) => [Number(e.identifikasiRisikoId), e])
-    );
-    const rencanaById = new Map(
-      rencanaData.map((r: any) => [Number(r.identifikasiRisikoId), r])
-    );
-
-    return filteredIdentifikasiData.map((r: Record<string, any>, index): ReportRow => {
-      const riskId = Number(r.id);
-      const an = analisisById.get(riskId);
-      const ev = evaluasiById.get(riskId);
-      const rp = rencanaById.get(riskId);
-
-      // Find likelihood & impact scales for aktual
-      const lkAktual = an ? lkById.get(Number(an.levelKemungkinanId)) : null;
-      const ldAktual = an ? ldById.get(Number(an.levelDampakId)) : null;
-
-      // Evaluasi Risiko adalah sumber kebenaran untuk Residual. Rencana
-      // hanya menjadi fallback untuk data legacy yang belum menyimpan
-      // pasangan level residual di Evaluasi.
-      const residualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
-        ? ev
-        : rp;
-      const lkResidual = residualSource
-        ? lkById.get(Number(residualSource.residualLevelKemungkinanId))
-        : null;
-      const ldResidual = residualSource
-        ? ldById.get(Number(residualSource.residualLevelDampakId))
-        : null;
-
-      let bAktual = 0;
-      let levAktual = "-";
-      let wAktual = "gray";
-
-      if (lkAktual && ldAktual) {
-        const matchMatriks = matriksData.find(
-          (m: any) =>
-            Number(m.levelKemungkinanId) === Number(lkAktual.id) &&
-            Number(m.levelDampakId) === Number(ldAktual.id)
-        );
-        bAktual = matchMatriks?.besaran ?? lkAktual.skala * ldAktual.skala;
-        levAktual = matchMatriks?.levelRisiko?.nama ?? "Sedang";
-        wAktual = matchMatriks?.levelRisiko?.warna ?? "Kuning";
-      }
-
-      let bResidual = 0;
-      let levResidual = "-";
-      let wResidual = "gray";
-
-      if (lkResidual && ldResidual) {
-        const matchMatriks = matriksData.find(
-          (m: any) =>
-            Number(m.levelKemungkinanId) === Number(lkResidual.id) &&
-            Number(m.levelDampakId) === Number(ldResidual.id)
-        );
-        bResidual =
-          matchMatriks?.besaran ?? lkResidual.skala * ldResidual.skala;
-        levResidual = matchMatriks?.levelRisiko?.nama ?? "Rendah";
-        wResidual = matchMatriks?.levelRisiko?.warna ?? "Hijau";
-      }
+    return reportData.map((r: Record<string, any>, index): ReportRow => {
+      const an = r.analisisRisiko;
+      const ev = r.evaluasiRisiko;
+      const rp = r.rencanaPenanganan;
+      const actual = r.computedRisk?.actual;
+      const residual = r.computedRisk?.residual;
 
       return {
         identId: r.id,
@@ -272,11 +148,11 @@ export default function PelaporanRisikoPage() {
         risiko: r.risiko,
         penyebab: r.penyebab ?? "",
         dampak: r.dampak ?? "",
-        kemungkinanAktual: lkAktual?.nama ?? "-",
-        dampakAktual: ldAktual?.nama ?? "-",
-        besaranAktual: bAktual,
-        levelAktual: levAktual,
-        warnaAktual: wAktual,
+        kemungkinanAktual: actual?.likelihood?.nama ?? "-",
+        dampakAktual: actual?.impact?.nama ?? "-",
+        besaranAktual: actual?.besaran ?? 0,
+        levelAktual: actual?.level?.nama ?? "-",
+        warnaAktual: actual?.level?.warna ?? "gray",
         pengendalian: an?.pengendalianUraian ?? "",
         efektivitas: an?.pengendalianEfektivitas ?? "",
         respon: ev?.responRisiko === "mengurangi" ? "Mengurangi Risiko" :
@@ -288,11 +164,11 @@ export default function PelaporanRisikoPage() {
         targetWaktu: rp?.targetWaktu ?? "",
         targetOutput: rp?.targetOutput ?? "",
         penanggungJawab: rp?.penanggungJawab ?? "",
-        kemungkinanResidual: lkResidual?.nama ?? "-",
-        dampakResidual: ldResidual?.nama ?? "-",
-        besaranResidual: bResidual,
-        levelResidual: levResidual,
-        warnaResidual: wResidual,
+        kemungkinanResidual: residual?.likelihood?.nama ?? "-",
+        dampakResidual: residual?.impact?.nama ?? "-",
+        besaranResidual: residual?.besaran ?? 0,
+        levelResidual: residual?.level?.nama ?? "-",
+        warnaResidual: residual?.level?.warna ?? "gray",
         keterjadiRisiko: rp?.keterjadiRisiko ?? "",
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
@@ -300,22 +176,16 @@ export default function PelaporanRisikoPage() {
         persetujuan: rp?.persetujuan ?? "Draft",
         disetujuiOleh: rp?.disetujuiOleh ?? "",
         satuan: r.sasaran?.nama ?? "",
-        tim: r.tim ?? "",
+        tim: r.team?.nama ?? "",
         kategori: r.kategoriRisiko?.nama ?? "",
         areaDampak: r.areaDampak?.nama ?? "",
         sumberRisiko: r.sumberRisiko?.nama ?? "",
-        prioritas: bAktual,
+        prioritas: actual?.besaran ?? 0,
       };
     });
   }, [
     loading,
-    filteredIdentifikasiData,
-    analisisData,
-    evaluasiData,
-    rencanaData,
-    lkData,
-    ldData,
-    matriksData,
+    reportData,
   ]);
 
   // Paginate rows
@@ -885,7 +755,7 @@ export default function PelaporanRisikoPage() {
               setCurrentPage(1);
             }}
             data={[
-              { value: "all", label: `Semua Risiko (${identifikasiData.length})` },
+              { value: "all", label: `Semua Risiko (${reportData.length})` },
               {
                 value: "ditangani",
                 label: `Sedang Ditangani (${handledCount})`,
