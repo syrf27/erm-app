@@ -17,6 +17,7 @@ import {
   createRencanaPenangananSchema,
   updateRencanaPenangananSchema,
 } from "@/lib/validators";
+import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
 
 const batchSchemas = {
   "identifikasi-risiko": {
@@ -78,6 +79,22 @@ export async function POST(
       }
       return { id: Number(item.id), data: schemas.update.parse(item.data) };
     });
+
+    if (resource === "identifikasi-risiko" || RISK_LINKED_RESOURCES.has(resource)) {
+      const createRiskIds = RISK_LINKED_RESOURCES.has(resource)
+        ? validatedCreates.map((data: any) => Number(data.identifikasiRisikoId))
+        : [];
+      const hasArchivedRisk = await referencesArchivedRisk(resource, {
+        riskIds: createRiskIds,
+        recordIds: validatedUpdates.map((item) => item.id),
+      });
+      if (hasArchivedRisk) {
+        return NextResponse.json(
+          { error: "Batch memuat risiko yang sedang diarsipkan. Pulihkan risiko sebelum mengubah datanya." },
+          { status: 409 }
+        );
+      }
+    }
 
     const cookieStore = await cookies();
     let userId = "anonymous";

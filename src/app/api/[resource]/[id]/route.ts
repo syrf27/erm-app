@@ -33,6 +33,7 @@ import {
   documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
+import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
 
 function getDelegate(resource: string) {
   const model = resourceMap[resource];
@@ -67,6 +68,12 @@ export async function GET(
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
   const delegate = getDelegate(resource);
+  if (
+    (resource === "identifikasi-risiko" || RISK_LINKED_RESOURCES.has(resource)) &&
+    await referencesArchivedRisk(resource, { recordIds: [Number(id)] })
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const item = await delegate.findUnique({ where: { id: Number(id) } });
   if (!item) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -100,6 +107,15 @@ export async function PATCH(
     const isAllowed = await checkRecordPermission(resource, "update", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    if (
+      (resource === "identifikasi-risiko" || RISK_LINKED_RESOURCES.has(resource)) &&
+      await referencesArchivedRisk(resource, { recordIds: [Number(id)] })
+    ) {
+      return NextResponse.json(
+        { error: "Risiko sedang diarsipkan. Pulihkan risiko sebelum mengubah datanya." },
+        { status: 409 }
+      );
     }
     const body = await request.json();
     let validatedData: any;
@@ -386,6 +402,24 @@ export async function DELETE(
     const isAllowed = await checkRecordPermission(resource, "delete", Number(id), { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    if (resource === "identifikasi-risiko") {
+      return NextResponse.json(
+        {
+          error:
+            "Risiko tidak dapat dihapus langsung. Gunakan fitur Arsipkan Risiko; hapus permanen hanya tersedia dari daftar arsip.",
+        },
+        { status: 405 }
+      );
+    }
+    if (
+      RISK_LINKED_RESOURCES.has(resource) &&
+      await referencesArchivedRisk(resource, { recordIds: [Number(id)] })
+    ) {
+      return NextResponse.json(
+        { error: "Risiko sedang diarsipkan. Pulihkan risiko sebelum menghapus data terkait." },
+        { status: 409 }
+      );
     }
     const delegate = getDelegate(resource);
     const filesToDelete: string[] = [];

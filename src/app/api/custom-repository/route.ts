@@ -255,6 +255,7 @@ async function findDocumentsBySemanticSearch(
         JOIN document_embeddings de
           ON de.document_type = 'bukti'
           AND de.document_id = d.id
+        WHERE ir."archivedAt" IS NULL
       ) docs
       ${whereClause}
       ORDER BY similarity DESC, "createdAt" DESC
@@ -313,6 +314,11 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch dynamic mitigation bukti dukung files
     const buktiDocs = await prisma.dokumenPendukung.findMany({
+      where: {
+        rencanaPenanganan: {
+          identifikasiRisiko: { archivedAt: null },
+        },
+      },
       include: {
         rencanaPenanganan: {
           include: {

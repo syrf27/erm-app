@@ -40,6 +40,7 @@ import {
   documentReferenceSchema,
 } from "@/lib/validators";
 import { ZodError } from "zod";
+import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
 
 // Force recompile to load updated resource map
 function getDelegate(resource: string) {
@@ -84,6 +85,7 @@ export async function GET(
             gte: tahunDari,
             lte: tahunSampai,
           },
+          archivedAt: null,
         },
         include: {
           analisisRisiko: {
@@ -181,8 +183,14 @@ export async function GET(
         );
         return NextResponse.json(data, { headers: getCacheHeaders() });
       }
+      const idWhere: any = { id: { in: ids.map(Number) } };
+      if (resource === "identifikasi-risiko") {
+        idWhere.archivedAt = null;
+      } else if (RISK_LINKED_RESOURCES.has(resource)) {
+        idWhere.identifikasiRisiko = { is: { archivedAt: null } };
+      }
       const data = await delegate.findMany({
-        where: { id: { in: ids.map(Number) } },
+        where: idWhere,
       });
       return NextResponse.json(data, { headers: getCacheHeaders() });
     }
@@ -241,6 +249,20 @@ export async function GET(
         // Exact match
         where[key] = isNaN(Number(value)) ? value : Number(value);
       }
+    }
+
+    // Risiko yang diarsipkan hanya muncul pada daftar arsip (filter
+    // archivedAt eksplisit, mis. archivedAt_gte) dan tersembunyi dari semua
+    // menu aktif secara default.
+    if (resource === "identifikasi-risiko" && where.archivedAt === undefined) {
+      const archivedOnly = searchParams.get("_archived") === "true";
+      where.archivedAt = archivedOnly ? { not: null } : null;
+    }
+    if (RISK_LINKED_RESOURCES.has(resource)) {
+      where.identifikasiRisiko = {
+        ...(where.identifikasiRisiko ?? {}),
+        is: { archivedAt: null },
+      };
     }
 
     const take = _end - _start;
@@ -403,6 +425,18 @@ export async function POST(
         );
       }
       throw error;
+    }
+
+    if (
+      RISK_LINKED_RESOURCES.has(resource) &&
+      await referencesArchivedRisk(resource, {
+        riskIds: [Number(validatedData?.identifikasiRisikoId)],
+      })
+    ) {
+      return NextResponse.json(
+        { error: "Risiko sedang diarsipkan. Pulihkan risiko sebelum menambahkan data terkait." },
+        { status: 409 }
+      );
     }
 
     const delegate = getDelegate(resource);

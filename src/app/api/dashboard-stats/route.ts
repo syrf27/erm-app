@@ -48,14 +48,15 @@ export async function GET() {
                 levelRisikoId: true,
               },
             }),
-            prisma.identifikasiRisiko.count(),
-            prisma.analisisRisiko.count(),
-            prisma.evaluasiRisiko.count(),
-            prisma.rencanaPenanganan.count(),
-            prisma.kri.count(),
+            prisma.identifikasiRisiko.count({ where: { archivedAt: null } }),
+            prisma.analisisRisiko.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
+            prisma.evaluasiRisiko.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
+            prisma.rencanaPenanganan.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
+            prisma.kri.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
             prisma.sasaran.count(),
             prisma.prosesBisnis.count(),
             prisma.analisisRisiko.findMany({
+              where: { identifikasiRisiko: { archivedAt: null } },
               select: {
                 id: true,
                 levelKemungkinanId: true,
@@ -70,9 +71,15 @@ export async function GET() {
                 },
               },
             }),
-            prisma.evaluasiRisiko.findMany({ select: { responRisiko: true } }),
-            prisma.rencanaPenanganan.findMany(),
+            prisma.evaluasiRisiko.findMany({
+              where: { identifikasiRisiko: { archivedAt: null } },
+              select: { responRisiko: true },
+            }),
+            prisma.rencanaPenanganan.findMany({
+              where: { identifikasiRisiko: { archivedAt: null } },
+            }),
             prisma.kri.findMany({
+              where: { identifikasiRisiko: { archivedAt: null } },
               select: {
                 id: true,
                 namaIndikator: true,

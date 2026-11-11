@@ -11,6 +11,9 @@ export type AuditAction =
   | "UPLOAD"
   | "APPROVE"
   | "REJECT"
+  | "ARCHIVE"
+  | "RESTORE"
+  | "PERMANENT_DELETE"
   | "ACCESS_DENIED";
 
 interface LogAuditParams {

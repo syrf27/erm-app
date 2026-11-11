@@ -52,7 +52,8 @@ async function getInitialRisks(tahun: number | undefined, limit: number) {
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
-      WHERE ir.tahun = $1
+      WHERE ir."archivedAt" IS NULL
+        AND ir.tahun = $1
       ORDER BY ir."updatedAt" DESC, ir.id DESC
       LIMIT $2
     `;
@@ -64,6 +65,7 @@ async function getInitialRisks(tahun: number | undefined, limit: number) {
     ${SELECT_FIELDS},
     0::float AS similarity
     ${FROM_JOINS}
+    WHERE ir."archivedAt" IS NULL
     ORDER BY ir."updatedAt" DESC, ir.id DESC
     LIMIT $1
   `;
@@ -94,7 +96,8 @@ async function doTextSearch(
           similarity(COALESCE(ir.dampak, ''), $1)
         ) AS similarity
         ${FROM_JOINS}
-        WHERE ir.tahun = $2
+        WHERE ir."archivedAt" IS NULL
+          AND ir.tahun = $2
           AND (
             similarity(ir.risiko, $1) > 0.05
             OR similarity(COALESCE(ir.penyebab, ''), $1) > 0.05
@@ -123,7 +126,8 @@ async function doTextSearch(
           similarity(COALESCE(ir.dampak, ''), $1)
         ) AS similarity
         ${FROM_JOINS}
-        WHERE (
+        WHERE ir."archivedAt" IS NULL
+          AND (
           similarity(ir.risiko, $1) > 0.05
           OR similarity(COALESCE(ir.penyebab, ''), $1) > 0.05
           OR similarity(COALESCE(ir.dampak, ''), $1) > 0.05
@@ -150,7 +154,8 @@ async function doTextSearch(
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
-      WHERE (
+      WHERE ir."archivedAt" IS NULL
+        AND (
         ir.risiko ILIKE $1
         OR ir.penyebab ILIKE $1
         OR ir.dampak ILIKE $1
@@ -171,7 +176,8 @@ async function doTextSearch(
       ${SELECT_FIELDS},
       0::float AS similarity
       ${FROM_JOINS}
-      WHERE (
+      WHERE ir."archivedAt" IS NULL
+        AND (
         ir.risiko ILIKE $1
         OR ir.penyebab ILIKE $1
         OR ir.dampak ILIKE $1
@@ -242,7 +248,12 @@ export async function POST(request: NextRequest) {
       try {
         const hasEmbeddings = await prisma.$queryRaw<
           Array<{ count: bigint }>
-        >`SELECT COUNT(*) as count FROM risk_embeddings`;
+        >`
+          SELECT COUNT(*) as count
+          FROM risk_embeddings re
+          JOIN "IdentifikasiRisiko" ir ON ir.id = re.identifikasi_risiko_id
+          WHERE ir."archivedAt" IS NULL
+        `;
 
         if (Number(hasEmbeddings[0].count) > 0) {
           const queryEmbedding = await generateEmbedding(searchText, "query");
@@ -256,7 +267,8 @@ export async function POST(request: NextRequest) {
               1 - (re.embedding <=> $1::vector) AS similarity
               ${FROM_JOINS}
               JOIN risk_embeddings re ON re.identifikasi_risiko_id = ir.id
-              WHERE ir.tahun = $2
+          WHERE ir."archivedAt" IS NULL
+            AND ir.tahun = $2
               ORDER BY similarity DESC
               LIMIT $3
             `;
@@ -267,6 +279,7 @@ export async function POST(request: NextRequest) {
               1 - (re.embedding <=> $1::vector) AS similarity
               ${FROM_JOINS}
               JOIN risk_embeddings re ON re.identifikasi_risiko_id = ir.id
+              WHERE ir."archivedAt" IS NULL
               ORDER BY similarity DESC
               LIMIT $2
             `;

@@ -58,6 +58,9 @@ const actionColors: Record<string, string> = {
   UPLOAD: "cyan",
   APPROVE: "lime",
   REJECT: "pink",
+  ARCHIVE: "orange",
+  RESTORE: "teal",
+  PERMANENT_DELETE: "red",
 };
 
 // Strip ::ffff: IPv6 prefix from localhost IPs
@@ -272,6 +275,9 @@ export default function AuditLogPage() {
                   { value: "UPLOAD", label: "Upload" },
                   { value: "APPROVE", label: "Approve" },
                   { value: "REJECT", label: "Reject" },
+                  { value: "ARCHIVE", label: "Arsipkan Risiko" },
+                  { value: "RESTORE", label: "Pulihkan Risiko" },
+                  { value: "PERMANENT_DELETE", label: "Hapus Permanen" },
                 ]}
                 value={action}
                 onChange={setAction}

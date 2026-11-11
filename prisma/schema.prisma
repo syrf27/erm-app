@@ -249,6 +249,9 @@ model IdentifikasiRisiko {
   prosesBisnisId    Int?
   teamId            Int?
   tahun             Int                @default(2026)
+  archivedAt        DateTime?
+  archivedBy        String?
+  archiveReason     String?
   analisisRisiko    AnalisisRisiko?
   evaluasiRisiko    EvaluasiRisiko?
   areaDampak        AreaDampak         @relation(fields: [areaDampakId], references: [id])
@@ -265,6 +268,7 @@ model IdentifikasiRisiko {
 
   @@index([tahun])
   @@index([tahun, updatedAt])
+  @@index([archivedAt, tahun])
   @@index([sasaranId])
   @@index([kegiatanId])
   @@index([prosesBisnisId])

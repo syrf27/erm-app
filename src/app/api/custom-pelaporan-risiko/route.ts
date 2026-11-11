@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
             gte: Number.isFinite(tahunDari) ? tahunDari : 0,
             lte: Number.isFinite(tahunSampai) ? tahunSampai : 9999,
           },
+          archivedAt: null,
         },
         orderBy: { id: "asc" },
         include: {

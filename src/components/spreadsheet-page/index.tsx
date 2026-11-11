@@ -33,8 +33,10 @@ interface SpreadsheetPageProps {
   // seluruh halaman (termasuk HotTable) yang membuat input terasa lambat.
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchKey?: string;
   // Aksi khusus halaman (mis. "Tambah Risiko" atau "Lanjutkan Data Belum Lengkap")
   actions?: ReactNode;
+  showSave?: boolean;
   children: ReactNode;
 }
 
@@ -46,7 +48,9 @@ export function SpreadsheetPage({
   onSave,
   onSearchChange,
   onSearchKeyDown,
+  searchKey,
   actions,
+  showSave = true,
   children,
 }: SpreadsheetPageProps) {
   // Shortcut Ctrl+S / Cmd+S untuk menyimpan perubahan.
@@ -54,12 +58,12 @@ export function SpreadsheetPage({
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === "s") {
         event.preventDefault();
-        if (!saving) onSave();
+        if (showSave && !saving) onSave();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onSave, saving]);
+  }, [onSave, saving, showSave]);
 
   // Peringatan saat meninggalkan halaman (reload/tutup tab) jika masih ada
   // perubahan yang belum disimpan.
@@ -90,6 +94,7 @@ export function SpreadsheetPage({
           <Group gap="sm">
             {actions}
             <TextInput
+              key={searchKey}
               placeholder="Cari & Tandai Sel..."
               size="xs"
               leftSection={<IconSearch size={14} />}
@@ -107,9 +112,11 @@ export function SpreadsheetPage({
                 {dirtyCount} perubahan belum disimpan
               </Badge>
             )}
-            <Button onClick={onSave} loading={saving} leftSection={<IconDeviceFloppy size={16} />}>
-              Simpan Perubahan
-            </Button>
+            {showSave && (
+              <Button onClick={onSave} loading={saving} leftSection={<IconDeviceFloppy size={16} />}>
+                Simpan Perubahan
+              </Button>
+            )}
           </Group>
         </Group>
         {description && (

@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
     // Existing risk data for the selected year window (mirrors the pelaporan export assembly)
     const [records, matriksList] = await Promise.all([
       prisma.identifikasiRisiko.findMany({
-        where: { tahun: { gte: tahunDari, lte: tahunSampai } },
+        where: {
+          tahun: { gte: tahunDari, lte: tahunSampai },
+          archivedAt: null,
+        },
         orderBy: { id: "asc" },
         include: {
           sasaran: true,

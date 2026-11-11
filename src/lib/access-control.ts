@@ -183,6 +183,30 @@ export async function checkPermission(
   }
 }
 
+// Mengembalikan konteks pengguna saat ini (role + permissions) tanpa melakukan
+// pemeriksaan permission. Dipakai endpoint yang butuh verifikasi role
+// tambahan, mis. hapus permanen yang hanya boleh dilakukan Admin.
+export async function getAuthUserContext(): Promise<UserContext | null> {
+  try {
+    const cookieStore = await cookies();
+    const auth = cookieStore.get("auth");
+    if (!auth?.value) return null;
+
+    const parsed = JSON.parse(auth.value);
+    const email = parsed.email;
+    if (!email) return null;
+
+    return await getOrSet(
+      `user:context:${email}`,
+      async () => getUserContext(email),
+      900
+    );
+  } catch (error) {
+    console.error("getAuthUserContext error:", error);
+    return null;
+  }
+}
+
 export async function checkRecordPermission(
   resource: string,
   action: string,

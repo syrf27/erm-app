@@ -292,6 +292,11 @@ export async function POST(request: NextRequest) {
             if (!existing) {
               throw new Error(`ID Sistem ${row.idSistem} tidak ditemukan`);
             }
+            if (existing.archivedAt) {
+              throw new Error(
+                `ID Sistem ${row.idSistem} sedang diarsipkan. Pulihkan risiko terlebih dahulu sebelum mengimpor pembaruan.`
+              );
+            }
             const patch: Record<string, unknown> = {};
             if (row.risiko) patch.risiko = row.risiko;
             if (jenis) patch.jenisRisikoId = jenis.id;

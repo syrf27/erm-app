@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
-import { useList } from "@refinedev/core";
+import { useGetIdentity, useList } from "@refinedev/core";
 import {
   Button,
   Group,
@@ -20,9 +20,22 @@ import {
   FileButton,
   ScrollArea,
   Box,
+  Alert,
+  SegmentedControl,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconSearch, IconDatabase, IconPlus, IconDownload, IconUpload, IconSparkles } from "@tabler/icons-react";
+import {
+  IconArchive,
+  IconAlertTriangle,
+  IconDatabase,
+  IconDownload,
+  IconPlus,
+  IconRestore,
+  IconSearch,
+  IconSparkles,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -41,6 +54,7 @@ import {
   scrollPageToCell,
 } from "@/lib/handsontable-progressive-lock";
 import { SpreadsheetPage } from "@/components/spreadsheet-page";
+import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -79,6 +93,25 @@ const getFirstUnlockedEmptyColumn = (rowData: unknown[]) =>
   PROGRESSIVE_INPUT_COLUMNS.find(
     (col) => isColumnUnlockedForRow(rowData, col) && !isFilledCellValue(rowData[col])
   );
+
+type RiskView = "active" | "archived";
+type ArchiveAction = "archive" | "restore" | "permanent-delete";
+
+interface RiskArchiveImpact {
+  id: number;
+  risiko: string;
+  tahun: number;
+  team?: { id: number; nama: string; ketuaTim?: string | null } | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archiveReason?: string | null;
+  hasAnalisis: boolean;
+  hasEvaluasi: boolean;
+  hasRencana: boolean;
+  kriCount: number;
+  dokumenCount: number;
+  reminderCount: number;
+}
 
 interface BankModalProps {
   opened: boolean;
@@ -292,9 +325,26 @@ export default function IdentifikasiRisikoPage() {
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [dirtyCount, setDirtyCount] = useState(0);
+  const [riskView, setRiskView] = useState<RiskView>("active");
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
+  const [archiveModalOpened, setArchiveModalOpened] = useState(false);
+  const [archiveAction, setArchiveAction] = useState<ArchiveAction>("archive");
+  const [archiveImpact, setArchiveImpact] = useState<RiskArchiveImpact | null>(null);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [permanentConfirmId, setPermanentConfirmId] = useState("");
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { tahunDari, tahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
+  const { data: identity } = useGetIdentity<any>();
+  const canArchive = hasClientPermission(identity, "identifikasi-risiko:delete");
+  const isAdmin = isAdminIdentity(identity);
+  const selectedRowIsUnsaved = useMemo(() => {
+    if (selectedRowIndex === null) return false;
+    return !hasPersistedRowId(localData[selectedRowIndex] ?? [], 0);
+  }, [localData, selectedRowIndex]);
 
   const [bankOpened, { open: openBank, close: closeBank }] = useDisclosure(false);
   const [importing, setImporting] = useState(false);
@@ -323,6 +373,10 @@ export default function IdentifikasiRisikoPage() {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.currentTarget.value;
+    if (riskView === "archived") {
+      setArchiveSearch(query);
+      return;
+    }
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -333,6 +387,7 @@ export default function IdentifikasiRisikoPage() {
   };
 
   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (riskView === "archived") return;
     if (event.key !== "Enter") return;
     event.preventDefault();
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -341,6 +396,22 @@ export default function IdentifikasiRisikoPage() {
       (event.target as HTMLInputElement).value
     );
   };
+
+  const handleRiskViewChange = useCallback((value: string) => {
+    const nextView = value as RiskView;
+    if (nextView === riskView) return;
+    if (dirtyRowsRef.current.size > 0) {
+      notifications.show({
+        title: "Perubahan belum disimpan",
+        message: "Simpan perubahan sebelum membuka daftar arsip.",
+        color: "orange",
+      });
+      return;
+    }
+    setSelectedRowIndex(null);
+    setArchiveSearch("");
+    setRiskView(nextView);
+  }, [riskView]);
 
   // Tambah risiko: baris kosong baru selalu di posisi paling atas selama sesi
   // pengisian. Index semua baris lama bergeser +1 sehingga dirty rows dan
@@ -368,6 +439,24 @@ export default function IdentifikasiRisikoPage() {
   const { result: existingResult, query: listQuery } = useList({
     resource: "identifikasi-risiko",
     pagination: { pageSize: 1000 },
+    filters: [
+      {
+        field: "tahun",
+        operator: "gte",
+        value: tahunDari,
+      },
+      {
+        field: "tahun",
+        operator: "lte",
+        value: tahunSampai,
+      },
+    ],
+  });
+
+  const { result: archivedResult, query: archiveListQuery } = useList({
+    resource: "identifikasi-risiko/archive",
+    pagination: { pageSize: 1000 },
+    queryOptions: { enabled: riskView === "archived" },
     filters: [
       {
         field: "tahun",
@@ -423,6 +512,7 @@ export default function IdentifikasiRisikoPage() {
 
   const loading =
     (listQuery?.isPending ?? false) ||
+    (riskView === "archived" && (archiveListQuery?.isPending ?? false)) ||
     (jenisList.query?.isPending ?? false) ||
     (sumberList.query?.isPending ?? false) ||
     (kategoriList.query?.isPending ?? false) ||
@@ -437,7 +527,27 @@ export default function IdentifikasiRisikoPage() {
     () => existingResult?.data ?? [],
     [existingResult?.data]
   );
+  const archivedData = useMemo(
+    () => archivedResult?.data ?? [],
+    [archivedResult?.data]
+  );
+  const filteredArchivedData = useMemo(() => {
+    const query = archiveSearch.trim().toLowerCase();
+    if (!query) return archivedData;
+    return archivedData.filter((risk: any) =>
+      [
+        risk.id,
+        risk.risiko,
+        risk.team?.nama,
+        risk.archivedBy,
+        risk.archiveReason,
+      ]
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [archiveSearch, archivedData]);
   const refetchQuery = listQuery?.refetch;
+  const refetchArchiveQuery = archiveListQuery?.refetch;
 
   const handleDownloadTemplate = async () => {
     try {
@@ -757,7 +867,7 @@ export default function IdentifikasiRisikoPage() {
   }, [openRiskAssistant]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || riskView === "archived") return;
     const records = filteredData as any[];
     const mapped = records.map((r: any) => {
       const jr = jenisData.find((o: any) => o.id === r.jenisRisikoId);
@@ -813,6 +923,7 @@ export default function IdentifikasiRisikoPage() {
     sasaranData,
     kegiatanData,
     prosesBisnisData,
+    riskView,
   ]);
 
   const saveAll = useCallback(async () => {
@@ -975,6 +1086,125 @@ export default function IdentifikasiRisikoPage() {
     kegiatanData,
     prosesBisnisData,
   ]);
+
+  const openArchiveDialog = useCallback(async (id: number, action: ArchiveAction) => {
+    setArchiveAction(action);
+    setArchiveImpact(null);
+    setArchiveReason("");
+    setPermanentConfirmId("");
+    setArchiveModalOpened(true);
+    setArchiveLoading(true);
+    try {
+      const response = await fetch(`/api/identifikasi-risiko/archive?id=${id}`, {
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Gagal memuat dampak pengarsipan");
+      setArchiveImpact(data);
+    } catch (error: any) {
+      setArchiveModalOpened(false);
+      notifications.show({
+        title: "Gagal membuka pengelolaan risiko",
+        message: error?.message || "Silakan coba lagi",
+        color: "red",
+      });
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, []);
+
+  const archiveSelectedRisk = useCallback(() => {
+    const hot = hotRef.current?.hotInstance;
+    if (!hot || selectedRowIndex === null) {
+      notifications.show({
+        title: "Pilih risiko",
+        message: "Klik salah satu baris risiko yang ingin diarsipkan.",
+        color: "blue",
+      });
+      return;
+    }
+    const id = Number(hot.getDataAtCell(selectedRowIndex, 0));
+    if (!Number.isInteger(id) || id <= 0) {
+      const rows = (hot.getData() as unknown[][]).map((row) => [...row]);
+      rows.splice(selectedRowIndex, 1);
+
+      const shiftedDirtyRows = new Set<number>();
+      dirtyRowsRef.current.forEach((row) => {
+        if (row < selectedRowIndex) shiftedDirtyRows.add(row);
+        if (row > selectedRowIndex) shiftedDirtyRows.add(row - 1);
+      });
+      dirtyRowsRef.current = shiftedDirtyRows;
+      setDirtyCount(shiftedDirtyRows.size);
+      initialRowsRef.current.splice(selectedRowIndex, 1);
+      setLocalData(rows as any[][]);
+      hot.loadData(rows as any[][], "loadData");
+      setSelectedRowIndex(null);
+      notifications.show({
+        title: "Baris baru dihapus",
+        message: "Draf yang belum tersimpan telah dibuang.",
+        color: "green",
+      });
+      return;
+    }
+    if (dirtyRowsRef.current.has(selectedRowIndex)) {
+      notifications.show({
+        title: "Baris belum disimpan",
+        message: "Simpan perubahan pada baris ini sebelum mengarsipkannya.",
+        color: "orange",
+      });
+      return;
+    }
+    void openArchiveDialog(id, "archive");
+  }, [openArchiveDialog, selectedRowIndex]);
+
+  const submitArchiveAction = useCallback(async () => {
+    if (!archiveImpact) return;
+    if ((archiveAction === "archive" || archiveAction === "permanent-delete") && !archiveReason.trim()) {
+      notifications.show({
+        title: "Alasan diperlukan",
+        message: "Isi alasan agar perubahan dapat dipertanggungjawabkan.",
+        color: "orange",
+      });
+      return;
+    }
+    setArchiveSubmitting(true);
+    try {
+      const response = await fetch("/api/identifikasi-risiko/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: archiveAction,
+          id: archiveImpact.id,
+          reason: archiveReason.trim(),
+          confirmId: permanentConfirmId.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Gagal memproses risiko");
+
+      const messages: Record<ArchiveAction, string> = {
+        archive: "Risiko dipindahkan ke arsip dan tidak lagi muncul pada proses aktif.",
+        restore: "Risiko beserta seluruh data terkait berhasil dipulihkan.",
+        "permanent-delete": "Risiko dan seluruh data terkait telah dihapus permanen.",
+      };
+      notifications.show({
+        title: archiveAction === "archive" ? "Risiko diarsipkan" : archiveAction === "restore" ? "Risiko dipulihkan" : "Risiko dihapus permanen",
+        message: messages[archiveAction],
+        color: archiveAction === "permanent-delete" ? "red" : "green",
+      });
+      setArchiveModalOpened(false);
+      setSelectedRowIndex(null);
+      await Promise.all([refetchQuery?.(), refetchArchiveQuery?.()]);
+    } catch (error: any) {
+      notifications.show({
+        title: "Aksi gagal",
+        message: error?.message || "Silakan coba lagi",
+        color: "red",
+      });
+    } finally {
+      setArchiveSubmitting(false);
+    }
+  }, [archiveAction, archiveImpact, archiveReason, permanentConfirmId, refetchArchiveQuery, refetchQuery]);
 
   const columns: Handsontable.ColumnSettings[] = useMemo(
     () => [
@@ -1199,15 +1429,31 @@ export default function IdentifikasiRisikoPage() {
 
   return (
     <SpreadsheetPage
-      title="Identifikasi Risiko"
-      description="Isi data langsung di sel. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel."
+      title={riskView === "active" ? "Identifikasi Risiko" : "Arsip Risiko"}
+      description={
+        riskView === "active"
+          ? "Isi data langsung di sel. Pilih baris untuk mengarsipkan risiko. Data yang diarsipkan tetap aman dan dapat dipulihkan."
+          : "Risiko arsip tidak muncul pada proses aktif. Pulihkan risiko atau hapus permanen jika Anda adalah Admin."
+      }
       dirtyCount={dirtyCount}
       saving={saving}
       onSave={saveAll}
       onSearchChange={handleSearchChange}
       onSearchKeyDown={handleSearchKeyDown}
+      searchKey={riskView}
+      showSave={riskView === "active"}
       actions={
         <>
+          <SegmentedControl
+            value={riskView}
+            onChange={handleRiskViewChange}
+            data={[
+              { value: "active", label: "Risiko Aktif" },
+              { value: "archived", label: "Arsip" },
+            ]}
+          />
+          {riskView === "active" && (
+            <>
           <Button
             variant="light"
             color="blue"
@@ -1259,9 +1505,22 @@ export default function IdentifikasiRisikoPage() {
               </Button>
             )}
           </FileButton>
+          {canArchive && (
+            <Button
+              variant="light"
+              color={selectedRowIsUnsaved ? "red" : "orange"}
+              leftSection={selectedRowIsUnsaved ? <IconTrash size={16} /> : <IconArchive size={16} />}
+              onClick={archiveSelectedRisk}
+            >
+              {selectedRowIsUnsaved ? "Hapus Baris Baru" : "Arsipkan Risiko"}
+            </Button>
+          )}
+            </>
+          )}
         </>
       }
     >
+      {riskView === "active" ? (
       <HotTable
         ref={hotRef}
         data={localData}
@@ -1284,6 +1543,7 @@ export default function IdentifikasiRisikoPage() {
           columns: [0],
           indicators: false,
         }}
+        afterSelectionEnd={(row) => setSelectedRowIndex(row)}
         afterChange={(changes, source) => {
           if (!changes || source === "loadData" || source === "auto") return;
           if (!["saveAll", "progressive-reset", "recalc"].includes(String(source))) {
@@ -1381,7 +1641,88 @@ export default function IdentifikasiRisikoPage() {
         manualColumnResize={true}
         manualColumnMove={true}
         search={true}
-/>
+      />
+      ) : (
+        <Box
+          style={{
+            border: "1px solid var(--mantine-color-default-border)",
+            borderRadius: "var(--mantine-radius-md)",
+            overflow: "hidden",
+          }}
+        >
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover withColumnBorders miw={1000}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th style={{ width: 70 }}>ID</Table.Th>
+                  <Table.Th>Risiko</Table.Th>
+                  <Table.Th style={{ width: 90 }}>Tahun</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Tim</Table.Th>
+                  <Table.Th style={{ width: 170 }}>Diarsipkan</Table.Th>
+                  <Table.Th>Alasan</Table.Th>
+                  <Table.Th style={{ width: 120, textAlign: "center" }}>Aksi</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredArchivedData.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={7}>
+                      <Text ta="center" c="dimmed" py="xl">
+                        {archiveSearch ? "Tidak ada arsip yang cocok dengan pencarian." : "Belum ada risiko yang diarsipkan pada periode ini."}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ) : (
+                  filteredArchivedData.map((risk: any) => (
+                    <Table.Tr key={risk.id}>
+                      <Table.Td>{risk.id}</Table.Td>
+                      <Table.Td>
+                        <Text fw={600} lineClamp={3}>{risk.risiko}</Text>
+                        <Badge mt={6} size="sm" variant="light" color="gray">Diarsipkan</Badge>
+                      </Table.Td>
+                      <Table.Td>{risk.tahun}</Table.Td>
+                      <Table.Td>{risk.team?.nama || "-"}</Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{risk.archivedAt ? new Date(risk.archivedAt).toLocaleString("id-ID") : "-"}</Text>
+                        <Text size="xs" c="dimmed">oleh {risk.archivedBy || "-"}</Text>
+                      </Table.Td>
+                      <Table.Td>{risk.archiveReason || "-"}</Table.Td>
+                      <Table.Td>
+                        <Group gap="xs" justify="center" wrap="nowrap">
+                          {canArchive && (
+                            <Tooltip label="Pulihkan risiko">
+                              <ActionIcon
+                                variant="light"
+                                color="green"
+                                aria-label="Pulihkan risiko"
+                                onClick={() => void openArchiveDialog(risk.id, "restore")}
+                              >
+                                <IconRestore size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          {isAdmin && (
+                            <Tooltip label="Hapus permanen">
+                              <ActionIcon
+                                variant="light"
+                                color="red"
+                                aria-label="Hapus permanen"
+                                onClick={() => void openArchiveDialog(risk.id, "permanent-delete")}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        </Box>
+      )}
 
       <style jsx global>{`
         .handsontable td.rm-progressive-locked-cell {
@@ -1405,6 +1746,104 @@ export default function IdentifikasiRisikoPage() {
           opacity: 0.45;
         }
       `}</style>
+
+      <Modal
+        opened={archiveModalOpened}
+        onClose={() => !archiveSubmitting && setArchiveModalOpened(false)}
+        title={
+          archiveAction === "archive"
+            ? "Arsipkan Risiko"
+            : archiveAction === "restore"
+            ? "Pulihkan Risiko"
+            : "Hapus Risiko Secara Permanen"
+        }
+        size="lg"
+        closeOnClickOutside={!archiveSubmitting}
+        closeOnEscape={!archiveSubmitting}
+      >
+        {archiveLoading || !archiveImpact ? (
+          <Center py="xl"><Loader /></Center>
+        ) : (
+          <Stack gap="md">
+            <Alert
+              color={archiveAction === "permanent-delete" ? "red" : archiveAction === "archive" ? "orange" : "green"}
+              icon={<IconAlertTriangle size={18} />}
+              title={
+                archiveAction === "permanent-delete"
+                  ? "Tindakan ini tidak dapat dibatalkan"
+                  : archiveAction === "archive"
+                  ? "Data tetap aman dan dapat dipulihkan"
+                  : "Seluruh data terkait akan kembali aktif"
+              }
+            >
+              {archiveAction === "permanent-delete"
+                ? "Analisis, evaluasi, rencana penanganan, KRI, dokumen, riwayat pengingat, dan embedding akan ikut dihapus."
+                : archiveAction === "archive"
+                ? "Risiko tidak akan muncul pada Analisis, Evaluasi, Rencana, Pemantauan, Pelaporan, Matriks, atau Bank Risiko selama diarsipkan."
+                : "Risiko akan kembali muncul pada seluruh menu sesuai periode datanya."}
+            </Alert>
+
+            <Box p="md" style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: "var(--mantine-radius-md)" }}>
+              <Text size="xs" c="dimmed">RISIKO #{archiveImpact.id} · TAHUN {archiveImpact.tahun}</Text>
+              <Text fw={600} mt={4}>{archiveImpact.risiko}</Text>
+              <Text size="sm" c="dimmed" mt={4}>Tim: {archiveImpact.team?.nama || "-"}</Text>
+            </Box>
+
+            <Group gap="xs">
+              <Badge color={archiveImpact.hasAnalisis ? "blue" : "gray"}>Analisis: {archiveImpact.hasAnalisis ? "Ada" : "Tidak ada"}</Badge>
+              <Badge color={archiveImpact.hasEvaluasi ? "violet" : "gray"}>Evaluasi: {archiveImpact.hasEvaluasi ? "Ada" : "Tidak ada"}</Badge>
+              <Badge color={archiveImpact.hasRencana ? "orange" : "gray"}>Rencana: {archiveImpact.hasRencana ? "Ada" : "Tidak ada"}</Badge>
+              <Badge variant="light">{archiveImpact.kriCount} KRI</Badge>
+              <Badge variant="light">{archiveImpact.dokumenCount} dokumen</Badge>
+              <Badge variant="light">{archiveImpact.reminderCount} pengingat</Badge>
+            </Group>
+
+            {(archiveAction === "archive" || archiveAction === "permanent-delete") && (
+              <Textarea
+                label={archiveAction === "archive" ? "Alasan pengarsipan" : "Alasan penghapusan permanen"}
+                description="Wajib diisi dan akan dicatat pada Audit Log."
+                placeholder="Tuliskan alasan yang dapat dipertanggungjawabkan"
+                value={archiveReason}
+                onChange={(event) => setArchiveReason(event.currentTarget.value)}
+                autosize
+                minRows={3}
+                required
+              />
+            )}
+
+            {archiveAction === "permanent-delete" && (
+              <TextInput
+                label={`Ketik ID ${archiveImpact.id} untuk mengonfirmasi`}
+                placeholder={String(archiveImpact.id)}
+                value={permanentConfirmId}
+                onChange={(event) => setPermanentConfirmId(event.currentTarget.value)}
+                error={permanentConfirmId && permanentConfirmId !== String(archiveImpact.id) ? "ID tidak cocok" : undefined}
+              />
+            )}
+
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setArchiveModalOpened(false)} disabled={archiveSubmitting}>
+                Batal
+              </Button>
+              <Button
+                color={archiveAction === "permanent-delete" ? "red" : archiveAction === "archive" ? "orange" : "green"}
+                leftSection={archiveAction === "restore" ? <IconRestore size={16} /> : archiveAction === "archive" ? <IconArchive size={16} /> : <IconTrash size={16} />}
+                loading={archiveSubmitting}
+                disabled={
+                  archiveAction === "permanent-delete"
+                    ? !archiveReason.trim() || permanentConfirmId !== String(archiveImpact.id)
+                    : archiveAction === "archive"
+                    ? !archiveReason.trim()
+                    : false
+                }
+                onClick={() => void submitArchiveAction()}
+              >
+                {archiveAction === "archive" ? "Arsipkan Risiko" : archiveAction === "restore" ? "Pulihkan Risiko" : "Hapus Permanen"}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
 
       <BankRisikoModal
         opened={bankOpened}
