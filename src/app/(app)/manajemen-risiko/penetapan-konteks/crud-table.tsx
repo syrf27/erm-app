@@ -77,6 +77,7 @@ const fieldConfigs: Record<string, FieldConfig[]> = {
     { key: "nama", label: "Tim Kerja", type: "text", required: true },
     { key: "tahun", label: "Tahun", type: "number", required: true, defaultValue: 2026 },
     { key: "ketuaTim", label: "Ketua Tim", type: "text" },
+    { key: "whatsappNumber", label: "Nomor WhatsApp Ketua Tim", type: "text" },
   ],
   kegiatan: [
     { key: "nama", label: "Kegiatan", type: "text", required: true },

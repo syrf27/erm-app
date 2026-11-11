@@ -84,7 +84,7 @@ export const includeMap: Record<string, any> = {
     sumberRisiko: { select: { id: true, nama: true } },
     kategoriRisiko: { select: { id: true, nama: true } },
     areaDampak: { select: { id: true, nama: true } },
-    team: { select: { id: true, nama: true } },
+    team: { select: { id: true, nama: true, ketuaTim: true, whatsappNumber: true } },
   },
   "analisis-risiko": {
     identifikasiRisiko: { select: { id: true, risiko: true } },
@@ -98,7 +98,7 @@ export const includeMap: Record<string, any> = {
         id: true,
         risiko: true,
         teamId: true,
-        team: { select: { id: true, nama: true } },
+        team: { select: { id: true, nama: true, ketuaTim: true, whatsappNumber: true } },
       },
     },
     residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },

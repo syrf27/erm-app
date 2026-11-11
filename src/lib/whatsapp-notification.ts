@@ -17,6 +17,21 @@ type WhatsAppReminderResult = {
   messageIds?: string[];
 };
 
+export type WhatsAppReminderRecipient = {
+  id: number | string;
+  name: string;
+  email?: string | null;
+  whatsappNumber: string | null;
+  source: "team" | "user";
+};
+
+export type WhatsAppReminderPreview = {
+  rtpId: number;
+  teamName: string;
+  risk: string;
+  recipients: WhatsAppReminderRecipient[];
+};
+
 function getProvider(): WhatsAppProvider {
   const raw = (process.env.WHATSAPP_PROVIDER || "").toLowerCase();
   if (raw === "graph" || raw === "meta") return "graph";
@@ -51,6 +66,67 @@ function normalizeWhatsAppNumber(value: string) {
   return /^[1-9]\d{7,14}$/.test(normalized) ? normalized : null;
 }
 
+async function loadRtpWhatsAppContext(rtpId: number) {
+  const rtp = await prisma.rencanaPenanganan.findUnique({
+    where: { id: rtpId },
+    include: { identifikasiRisiko: { include: { team: true } } },
+  });
+  if (!rtp?.identifikasiRisiko) {
+    throw new Error("Rencana penanganan atau risiko tidak ditemukan");
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { nama: rtp.penanggungJawab || rtp.identifikasiRisiko.team?.nama || "" },
+  });
+  if (!team) {
+    return { rtp, team: null, recipients: [] as WhatsAppReminderRecipient[] };
+  }
+
+  // Nomor pada Tim Kerja adalah tujuan utama: satu pengingat untuk Ketua Tim.
+  // Fallback ke nomor anggota lama agar data sebelum penambahan field tetap berjalan.
+  if (team.whatsappNumber) {
+    return {
+      rtp,
+      team,
+      recipients: [{
+        id: `team:${team.id}`,
+        name: team.ketuaTim || "Ketua Tim",
+        email: null,
+        whatsappNumber: team.whatsappNumber,
+        source: "team" as const,
+      }],
+    };
+  }
+
+  const teamMembers = await prisma.userTeam.findMany({
+    where: { teamId: team.id },
+    select: { user: { select: { id: true, name: true, email: true, whatsappNumber: true } } },
+  });
+  const recipients = new Map<number, WhatsAppReminderRecipient>();
+  for (const { user } of teamMembers) {
+    recipients.set(user.id, { ...user, source: "user" });
+  }
+  if (team.ketuaTim) {
+    const ketua = await prisma.user.findFirst({
+      where: { OR: [{ email: team.ketuaTim }, { name: team.ketuaTim }] },
+      select: { id: true, name: true, email: true, whatsappNumber: true },
+    });
+    if (ketua) recipients.set(ketua.id, { ...ketua, source: "user" });
+  }
+
+  return { rtp, team, recipients: Array.from(recipients.values()) };
+}
+
+export async function getRtpWhatsAppPreview(rtpId: number): Promise<WhatsAppReminderPreview> {
+  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId);
+  return {
+    rtpId,
+    teamName: team?.nama || rtp.penanggungJawab || "Tim belum ditentukan",
+    risk: rtp.identifikasiRisiko?.risiko || "-",
+    recipients,
+  };
+}
+
 export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppReminderResult> {
   const provider = getProvider();
   const graphConfig = provider === "interakt" ? null : getWhatsAppConfig();
@@ -66,32 +142,9 @@ export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppRe
     };
   }
 
-  const rtp = await prisma.rencanaPenanganan.findUnique({
-    where: { id: rtpId },
-    include: { identifikasiRisiko: { include: { team: true } } },
-  });
-  if (!rtp?.identifikasiRisiko) {
-    throw new Error("Rencana penanganan atau risiko tidak ditemukan");
-  }
-
-  const team = await prisma.team.findFirst({
-    where: { nama: rtp.penanggungJawab || rtp.identifikasiRisiko.team?.nama || "" },
-  });
+  const { rtp, team, recipients } = await loadRtpWhatsAppContext(rtpId);
   if (!team) {
     return { configured: true, provider, attempted: 0, sent: 0, skipped: 0, errors: ["Tim penanggung jawab tidak ditemukan"] };
-  }
-
-  const teamMembers = await prisma.userTeam.findMany({
-    where: { teamId: team.id },
-    select: { user: { select: { id: true, name: true, email: true, whatsappNumber: true } } },
-  });
-  const recipients = new Map(teamMembers.map(({ user }) => [user.id, user]));
-  if (team.ketuaTim) {
-    const ketua = await prisma.user.findFirst({
-      where: { OR: [{ email: team.ketuaTim }, { name: team.ketuaTim }] },
-      select: { id: true, name: true, email: true, whatsappNumber: true },
-    });
-    if (ketua) recipients.set(ketua.id, ketua);
   }
 
   const evidenceUrl = process.env.EVIDENCE_DRIVE_URL || "https://drive.google.com/drive/folders/1ME4zKW6vP1GwQu1KCTnXKfgihRITtd3C?usp=sharing";
@@ -125,7 +178,7 @@ export async function sendRtpWhatsAppReminder(rtpId: number): Promise<WhatsAppRe
   // Jika provider=both tapi salah satu belum terkonfigurasi, pakai yang tersedia.
   const sendViaInteraktFirst = interaktConfig !== null && provider !== "graph";
 
-  for (const recipient of Array.from(recipients.values())) {
+  for (const recipient of recipients) {
     const rawNumber = recipient.whatsappNumber;
     // HIGHLIGHT vs gojags: Interakt butuh nomor PENDEK (tanpa 62) + countryCode terpisah,
     // sedangkan Meta Graph butuh nomor FULL internasional (62...).

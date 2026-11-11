@@ -15,9 +15,13 @@ import {
   Stack,
   Alert,
   ScrollArea,
+  Modal,
+  Radio,
+  Divider,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconBell, IconAlertCircle, IconCheck } from "@tabler/icons-react";
+import { IconBell, IconAlertCircle, IconCheck, IconBrandWhatsapp } from "@tabler/icons-react";
+import type { WhatsAppReminderPreview } from "@/lib/whatsapp-notification";
 
 export default function NotificationCenterPage() {
   const { result, query } = useList({
@@ -25,8 +29,13 @@ export default function NotificationCenterPage() {
     pagination: { mode: "off" },
   });
 
-  const [sendingId, setSendingId] = useState<number | null>(null);
   const [sendingAll, setSendingAll] = useState(false);
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [reminderIds, setReminderIds] = useState<number[]>([]);
+  const [reminderChannel, setReminderChannel] = useState<"push" | "whatsapp">("push");
+  const [previews, setPreviews] = useState<WhatsAppReminderPreview[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const rtpList = useMemo(() => result?.data ?? [], [result?.data]);
 
@@ -38,66 +47,74 @@ export default function NotificationCenterPage() {
     });
   }, [rtpList]);
 
-  const sendReminder = async (rtpId: number, silent = false) => {
+  const openReminderModal = async (ids: number[]) => {
+    setReminderIds(ids);
+    setReminderChannel("push");
+    setPreviews([]);
+    setReminderModalOpen(true);
+    setPreviewLoading(true);
     try {
-      if (!silent) setSendingId(rtpId);
-      const res = await fetch("/api/send-reminder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rtpId }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Gagal mengirim pengingat");
-      }
-
-      const result = await res.json();
-      const whatsapp = result.whatsapp;
-
-      if (!silent) {
-        const whatsappMessage = !whatsapp?.configured
-          ? "WhatsApp belum dikirim karena konfigurasi belum tersedia."
-          : `WhatsApp dikirim ke ${whatsapp.sent} penerima${whatsapp.skipped ? `; ${whatsapp.skipped} pengguna belum memiliki nomor WhatsApp.` : "."}`;
-        notifications.show({
-          title: "Berhasil",
-          message: `Notifikasi aplikasi berhasil dikirim. ${whatsappMessage}`,
-          color: "green",
+      const results = await Promise.all(ids.map(async (rtpId) => {
+        const res = await fetch("/api/send-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rtpId, channel: "preview" }),
         });
-      }
+        if (!res.ok) throw new Error("Gagal mengambil nomor tujuan");
+        const result = await res.json();
+        return result.whatsapp as WhatsAppReminderPreview;
+      }));
+      setPreviews(results);
     } catch (error: any) {
-      if (!silent) {
-        notifications.show({
-          title: "Gagal",
-          message: error?.message || "Terjadi kesalahan saat mengirim pengingat",
-          color: "red",
-        });
-      }
+      setReminderModalOpen(false);
+      notifications.show({
+        title: "Gagal",
+        message: error?.message || "Gagal mengambil informasi penerima",
+        color: "red",
+      });
     } finally {
-      if (!silent) setSendingId(null);
+      setPreviewLoading(false);
+    }
+  };
+
+  const sendReminder = async () => {
+    try {
+      setSending(true);
+      for (const rtpId of reminderIds) {
+        const res = await fetch("/api/send-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rtpId, channel: reminderChannel }),
+        });
+        if (!res.ok) throw new Error("Gagal mengirim pengingat");
+      }
+
+      notifications.show({
+        title: "Berhasil",
+        message: `${reminderChannel === "whatsapp" ? "WhatsApp" : "Push notification"} berhasil dikirim untuk ${reminderIds.length} risiko.`,
+        color: "green",
+      });
+      setReminderModalOpen(false);
+    } catch (error: any) {
+      notifications.show({
+        title: "Gagal",
+        message: error?.message || "Terjadi kesalahan saat mengirim pengingat",
+        color: "red",
+      });
+    } finally {
+      setSending(false);
     }
   };
 
   const sendAllReminders = async () => {
     if (pendingRealisationRtp.length === 0) return;
-    try {
-      setSendingAll(true);
-      for (const r of pendingRealisationRtp) {
-        await sendReminder(Number(r.id), true);
-      }
-      notifications.show({
-        title: "Berhasil",
-        message: `Berhasil mengirim ${pendingRealisationRtp.length} pengingat ke Tim Kerja masing-masing`,
-        color: "green",
-      });
-    } catch (error: any) {
-      notifications.show({
-        title: "Gagal",
-        message: "Gagal mengirim sebagian pengingat",
-        color: "red",
-      });
-    } finally {
-      setSendingAll(false);
-    }
+    setSendingAll(true);
+    await openReminderModal(pendingRealisationRtp.map((r: any) => Number(r.id)));
+    setSendingAll(false);
+  };
+
+  const handleReminderClick = (rtpId: number) => {
+    void openReminderModal([rtpId]);
   };
 
   if (query.isPending) {
@@ -196,8 +213,8 @@ export default function NotificationCenterPage() {
                             color="red"
                             size="xs"
                             leftSection={<IconBell size={14} />}
-                            loading={sendingId === Number(r.id)}
-                            onClick={() => sendReminder(Number(r.id))}
+                            loading={previewLoading && reminderIds.includes(Number(r.id))}
+                            onClick={() => handleReminderClick(Number(r.id))}
                           >
                             Ingatkan
                           </Button>
@@ -211,6 +228,71 @@ export default function NotificationCenterPage() {
           </Card>
         </>
       )}
+
+      <Modal
+        opened={reminderModalOpen}
+        onClose={() => !sending && setReminderModalOpen(false)}
+        title="Pilih cara mengingatkan"
+        size="lg"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Pilih kanal pengingat. Untuk WhatsApp, periksa nomor tujuan sebelum pesan dikirim.
+          </Text>
+          <Radio.Group
+            value={reminderChannel}
+            onChange={(value) => setReminderChannel(value as "push" | "whatsapp")}
+            label="Kirim melalui"
+          >
+            <Group mt="xs">
+              <Radio value="push" label="Notifikasi aplikasi" />
+              <Radio value="whatsapp" label="WhatsApp" />
+            </Group>
+          </Radio.Group>
+
+          <Divider />
+          <Text fw={600}>Nomor tujuan</Text>
+          {previewLoading ? (
+            <Center py="md"><Loader size="sm" /></Center>
+          ) : previews.length === 0 ? (
+            <Alert color="orange">Tidak ada informasi penerima yang dapat ditampilkan.</Alert>
+          ) : (
+            <Stack gap="xs">
+              {previews.map((preview) => (
+                <Card key={preview.rtpId} withBorder padding="sm" radius="sm">
+                  <Text size="sm" fw={600}>{preview.teamName}</Text>
+                  <Text size="xs" c="dimmed" lineClamp={2}>{preview.risk}</Text>
+                  {preview.recipients.length === 0 ? (
+                    <Text size="sm" c="orange" mt={4}>Tim belum memiliki nomor WhatsApp.</Text>
+                  ) : (
+                    preview.recipients.map((recipient) => (
+                      <Group key={`${preview.rtpId}-${recipient.id}`} gap="xs" mt={4}>
+                        <IconBrandWhatsapp size={16} color="var(--mantine-color-green-7)" />
+                        <Text size="sm">{recipient.name}: {recipient.whatsappNumber || "Nomor belum diisi"}</Text>
+                      </Group>
+                    ))
+                  )}
+                </Card>
+              ))}
+            </Stack>
+          )}
+
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setReminderModalOpen(false)} disabled={sending}>
+              Batal
+            </Button>
+            <Button
+              color={reminderChannel === "whatsapp" ? "green" : "blue"}
+              leftSection={reminderChannel === "whatsapp" ? <IconBrandWhatsapp size={16} /> : <IconBell size={16} />}
+              onClick={sendReminder}
+              loading={sending}
+              disabled={previewLoading || (reminderChannel === "whatsapp" && previews.every((p) => p.recipients.length === 0))}
+            >
+              Kirim Pengingat
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

@@ -121,6 +121,7 @@ export const createTeamSchema = z.object({
   nama: safePlainText(500, "Nama tim harus diisi"),
   tahun: z.number().int().min(2020).max(2035).default(new Date().getFullYear()),
   ketuaTim: safePlainText(500).optional().nullable(),
+  whatsappNumber: z.string().trim().regex(/^\+?[1-9]\d{7,14}$/, "Nomor WhatsApp harus menggunakan format internasional").optional().nullable(),
 });
 
 export const updateTeamSchema = createTeamSchema.partial();

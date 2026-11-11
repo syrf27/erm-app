@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkPermission } from "@/lib/access-control";
 import { sendRtpPushNotification } from "@/lib/push-notification";
-import { sendRtpWhatsAppReminder } from "@/lib/whatsapp-notification";
+import { getRtpWhatsAppPreview, sendRtpWhatsAppReminder } from "@/lib/whatsapp-notification";
 
 export async function POST(req: Request) {
   try {
@@ -10,16 +10,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    const { rtpId } = await req.json();
+    const { rtpId, channel } = await req.json();
     if (!rtpId) {
       return NextResponse.json({ error: "Missing rtpId" }, { status: 400 });
     }
 
     const id = Number(rtpId);
-    await sendRtpPushNotification(id);
-    const whatsapp = await sendRtpWhatsAppReminder(id);
+    if (channel === "preview") {
+      return NextResponse.json({ success: true, whatsapp: await getRtpWhatsAppPreview(id) });
+    }
 
-    return NextResponse.json({ success: true, whatsapp });
+    const push = channel !== "whatsapp" ? await sendRtpPushNotification(id) : null;
+    const whatsapp = channel !== "push" ? await sendRtpWhatsAppReminder(id) : null;
+
+    return NextResponse.json({ success: true, push, whatsapp });
   } catch (error: any) {
     console.error("Error sending reminder:", error);
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });

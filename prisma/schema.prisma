@@ -472,6 +472,7 @@ model Team {
   kode               String               @unique
   tahun              Int                  @default(2026)
   ketuaTim           String?
+  whatsappNumber     String?              @unique
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   identifikasiRisiko IdentifikasiRisiko[]
