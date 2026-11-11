@@ -21,8 +21,22 @@ import {
   Divider,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconBell, IconAlertCircle, IconCheck, IconBrandWhatsapp } from "@tabler/icons-react";
+import { IconBell, IconAlertCircle, IconCheck, IconBrandWhatsapp, IconHistory } from "@tabler/icons-react";
 import type { ManualWhatsAppRecipient, WhatsAppReminderPreview } from "@/lib/whatsapp-notification";
+
+type ReminderLog = {
+  id: number;
+  channel: string;
+  recipientName: string | null;
+  recipientPhone: string | null;
+  recipientSource: string | null;
+  status: string;
+  providerMessageId: string | null;
+  error: string | null;
+  sentBy: string | null;
+  createdAt: string;
+  rencanaPenanganan?: { identifikasiRisiko?: { risiko?: string | null } | null } | null;
+};
 
 export default function NotificationCenterPage() {
   const { result, query } = useList({
@@ -39,6 +53,9 @@ export default function NotificationCenterPage() {
   const [sending, setSending] = useState(false);
   const [manualNumbers, setManualNumbers] = useState("");
   const [previewedManualNumbers, setPreviewedManualNumbers] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<ReminderLog[]>([]);
 
   const rtpList = useMemo(() => result?.data ?? [], [result?.data]);
 
@@ -141,6 +158,21 @@ export default function NotificationCenterPage() {
     void openReminderModal([rtpId]);
   };
 
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const response = await fetch("/api/reminder-logs?limit=200");
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Gagal mengambil riwayat pengingat");
+      setHistory(result.data ?? []);
+    } catch (error: any) {
+      notifications.show({ title: "Gagal", message: error?.message || "Gagal mengambil riwayat pengingat", color: "red" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   if (query.isPending) {
     return (
       <Center style={{ height: "60vh" }}>
@@ -159,13 +191,23 @@ export default function NotificationCenterPage() {
           </Text>
         </div>
         {pendingRealisationRtp.length > 0 && (
-          <Button
-            leftSection={<IconBell size={16} />}
-            color="red"
-            loading={sendingAll}
-            onClick={sendAllReminders}
-          >
-            Ingatkan Semua ({pendingRealisationRtp.length})
+          <Group>
+            <Button variant="light" leftSection={<IconHistory size={16} />} onClick={openHistory}>
+              Riwayat Pengingat
+            </Button>
+            <Button
+              leftSection={<IconBell size={16} />}
+              color="red"
+              loading={sendingAll}
+              onClick={sendAllReminders}
+            >
+              Ingatkan Semua ({pendingRealisationRtp.length})
+            </Button>
+          </Group>
+        )}
+        {pendingRealisationRtp.length === 0 && (
+          <Button variant="light" leftSection={<IconHistory size={16} />} onClick={openHistory}>
+            Riwayat Pengingat
           </Button>
         )}
       </Group>
@@ -346,6 +388,52 @@ export default function NotificationCenterPage() {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      <Modal
+        opened={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        title="Riwayat Pengingat"
+        size="xl"
+      >
+        {historyLoading ? (
+          <Center py="xl"><Loader size="sm" /></Center>
+        ) : history.length === 0 ? (
+          <Alert color="gray">Belum ada riwayat pengingat.</Alert>
+        ) : (
+          <ScrollArea type="auto">
+            <Table miw={900} striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Waktu</Table.Th>
+                  <Table.Th>Risiko</Table.Th>
+                  <Table.Th>Kanal</Table.Th>
+                  <Table.Th>Penerima</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Pengirim</Table.Th>
+                  <Table.Th>Detail</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {history.map((log) => (
+                  <Table.Tr key={log.id}>
+                    <Table.Td>{new Date(log.createdAt).toLocaleString("id-ID")}</Table.Td>
+                    <Table.Td>{log.rencanaPenanganan?.identifikasiRisiko?.risiko || "-"}</Table.Td>
+                    <Table.Td>{log.channel === "whatsapp" ? "WhatsApp" : "Notifikasi aplikasi"}</Table.Td>
+                    <Table.Td>{log.recipientName || "-"}{log.recipientPhone ? ` (${log.recipientPhone})` : ""}</Table.Td>
+                    <Table.Td>
+                      <Badge color={log.status === "sent" ? "green" : log.status === "skipped" ? "yellow" : "red"}>
+                        {log.status === "sent" ? "Terkirim" : log.status === "skipped" ? "Dilewati" : "Gagal"}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>{log.sentBy || "-"}</Table.Td>
+                    <Table.Td>{log.error || log.providerMessageId || "-"}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+        )}
       </Modal>
     </Stack>
   );

@@ -338,11 +338,30 @@ model RencanaPenanganan {
   residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
   residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
   dokumenPendukungs          DokumenPendukung[]
+  reminderLogs               ReminderLog[]
 
   @@index([targetWaktu])
   @@index([penanggungJawab])
   @@index([residualLevelKemungkinanId])
   @@index([residualLevelDampakId])
+}
+
+model ReminderLog {
+  id                   Int                @id @default(autoincrement())
+  rencanaPenangananId  Int
+  channel              String
+  recipientName        String?
+  recipientPhone       String?
+  recipientSource      String?
+  status               String
+  providerMessageId    String?
+  error                String?
+  sentBy               String?
+  createdAt            DateTime           @default(now())
+  rencanaPenanganan    RencanaPenanganan  @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
+
+  @@index([rencanaPenangananId, createdAt])
+  @@index([channel, status, createdAt])
 }
 
 model DokumenPendukung {

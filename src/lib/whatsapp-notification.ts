@@ -15,6 +15,16 @@ type WhatsAppReminderResult = {
   skipped: number;
   errors: string[];
   messageIds?: string[];
+  deliveryLogs?: WhatsAppDeliveryLog[];
+};
+
+export type WhatsAppDeliveryLog = {
+  recipientName: string;
+  recipientPhone: string | null;
+  recipientSource: "team" | "user" | "manual";
+  status: "sent" | "failed" | "skipped";
+  providerMessageId?: string;
+  error?: string;
 };
 
 export type WhatsAppReminderRecipient = {
@@ -177,6 +187,7 @@ export async function sendRtpWhatsAppReminder(
       sent: 0,
       skipped: 0,
       errors: [],
+      deliveryLogs: [],
     };
   }
 
@@ -209,6 +220,7 @@ export async function sendRtpWhatsAppReminder(
     skipped: 0,
     errors: [],
     messageIds: [],
+    deliveryLogs: [],
   };
 
   const useInterakt = interaktConfig !== null && (provider === "interakt" || provider === "both");
@@ -225,6 +237,13 @@ export async function sendRtpWhatsAppReminder(
     const to = sendViaInteraktFirst ? interaktTo ?? graphTo : graphTo ?? interaktTo;
     if (!to) {
       result.skipped += 1;
+      result.deliveryLogs?.push({
+        recipientName: recipient.name,
+        recipientPhone: rawNumber,
+        recipientSource: recipient.source,
+        status: "skipped",
+        error: "Nomor WhatsApp tidak valid atau belum diisi",
+      });
       continue;
     }
 
@@ -242,6 +261,13 @@ export async function sendRtpWhatsAppReminder(
         });
         result.sent += 1;
         result.messageIds?.push(messageId);
+        result.deliveryLogs?.push({
+          recipientName: recipient.name,
+          recipientPhone: rawNumber,
+          recipientSource: recipient.source,
+          status: "sent",
+          providerMessageId: messageId,
+        });
         continue;
       } catch (error) {
         const code = (error as NodeJS.ErrnoException)?.code;
@@ -250,6 +276,13 @@ export async function sendRtpWhatsAppReminder(
         // Error lain + graph tersedia -> fallback ke graph di bawah.
         if (code === "INTERAKT_RATE_LIMITED" || !useGraph || !graphTo) {
           result.errors.push(`Gagal mengirim ke ${recipient.name}`);
+          result.deliveryLogs?.push({
+            recipientName: recipient.name,
+            recipientPhone: rawNumber,
+            recipientSource: recipient.source,
+            status: "failed",
+            error: error instanceof Error ? error.message : "Gagal mengirim WhatsApp",
+          });
           continue;
         }
       }
@@ -288,9 +321,22 @@ export async function sendRtpWhatsAppReminder(
         throw new Error(errorText || `HTTP ${response.status}`);
       }
       result.sent += 1;
+      result.deliveryLogs?.push({
+        recipientName: recipient.name,
+        recipientPhone: rawNumber,
+        recipientSource: recipient.source,
+        status: "sent",
+      });
     } catch (error) {
       console.error("WhatsApp reminder failed", { rtpId, userId: recipient.id, error });
       result.errors.push(`Gagal mengirim ke ${recipient.name}`);
+      result.deliveryLogs?.push({
+        recipientName: recipient.name,
+        recipientPhone: rawNumber,
+        recipientSource: recipient.source,
+        status: "failed",
+        error: error instanceof Error ? error.message : "Gagal mengirim WhatsApp",
+      });
     }
   }
 
