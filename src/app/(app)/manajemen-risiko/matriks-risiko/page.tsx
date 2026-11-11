@@ -17,7 +17,7 @@ import {
   TextInput,
   Pagination,
 } from "@mantine/core";
-import { IconArrowRight, IconRefresh } from "@tabler/icons-react";
+import { IconDownload } from "@tabler/icons-react";
 
 interface RiskData {
   id: number;
@@ -48,6 +48,7 @@ export default function MatriksRisikoPage() {
   const [selectedRiskIds, setSelectedRiskIds] = useState<number[]>([]);
   const [searchVal, setSearchVal] = useState("");
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   const pageSize = 5;
 
   // Fetch all configuration and transaction data
@@ -189,10 +190,110 @@ export default function MatriksRisikoPage() {
   }, [processedRisks, selectedRiskIds]);
 
   const toggleRiskSelection = (id: number) => {
-    // Matriks detail menampilkan satu risiko aktif. Sebelumnya pilihan
-    // ditambahkan ke array sehingga risiko lama tetap tampil dan terlihat
-    // seperti nilai aktual/residual selalu berasal dari risiko yang sama.
-    setSelectedRiskIds([id]);
+    setSelectedRiskIds((prev) => {
+      if (prev.includes(id)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const exportMatrixAsImage = async () => {
+    if (exporting) return;
+    try {
+      setExporting(true);
+      const scale = 2;
+      const cellSize = 90;
+      const left = 170;
+      const top = 110;
+      const canvas = document.createElement("canvas");
+      canvas.width = 900 * scale;
+      canvas.height = 650 * scale;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.scale(scale, scale);
+      context.fillStyle = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      context.fillRect(0, 0, 900, 650);
+      context.fillStyle = getComputedStyle(document.body).color || "#1f2937";
+      context.font = "700 20px sans-serif";
+      context.fillText("MATRIKS ANALISIS RISIKO GABUNGAN", 24, 38);
+      context.font = "13px sans-serif";
+      context.fillText("Aktual dan residual risiko", 24, 62);
+
+      context.textAlign = "center";
+      context.font = "700 12px sans-serif";
+      xAxisItems.forEach((item, index) => {
+        context.fillText(String(item.skala), left + index * cellSize + cellSize / 2, top - 34);
+        context.font = "11px sans-serif";
+        context.fillText(item.label, left + index * cellSize + cellSize / 2, top - 14);
+        context.font = "700 12px sans-serif";
+      });
+      yAxisItems.forEach((item, index) => {
+        const y = top + index * cellSize + cellSize / 2;
+        context.textAlign = "right";
+        context.fillText(`${item.skala} ${item.label}`, left - 12, y + 4);
+        context.textAlign = "center";
+      });
+
+      gridCells.forEach((cell, index) => {
+        const x = left + (index % 5) * cellSize;
+        const y = top + Math.floor(index / 5) * cellSize;
+        context.fillStyle = getColorHex(cell.warna);
+        context.fillRect(x, y, cellSize, cellSize);
+        context.strokeStyle = "rgba(0,0,0,.35)";
+        context.strokeRect(x, y, cellSize, cellSize);
+        context.fillStyle = "#ffffff";
+        context.font = "700 20px sans-serif";
+        context.fillText(String(cell.besaran), x + cellSize / 2, y + cellSize / 2 + 7);
+      });
+
+      selectedRisks.forEach((risk, index) => {
+        if (!risk.aktual || !risk.residual) return;
+        const color = ["#e03131", "#228be6", "#7950f2", "#fab005", "#15aabf"][index % 5];
+        const startX = left + (risk.aktual.dampakSkala - 1) * cellSize + cellSize / 2;
+        const startY = top + (5 - risk.aktual.kemungkinanSkala) * cellSize + cellSize / 2;
+        const endX = left + (risk.residual.dampakSkala - 1) * cellSize + cellSize / 2;
+        const endY = top + (5 - risk.residual.kemungkinanSkala) * cellSize + cellSize / 2;
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.lineWidth = 4;
+        context.beginPath();
+        context.moveTo(startX, startY);
+        context.lineTo(endX, endY);
+        context.stroke();
+        context.beginPath();
+        context.arc(startX, startY, 18, 0, Math.PI * 2);
+        context.stroke();
+        context.beginPath();
+        context.arc(endX, endY, 18, 0, Math.PI * 2);
+        context.stroke();
+        context.font = "700 10px sans-serif";
+        context.fillText(String(risk.id), startX, startY + 4);
+        context.fillText(String(risk.id), endX, endY + 4);
+      });
+
+      context.textAlign = "left";
+      context.fillStyle = getComputedStyle(document.body).color || "#1f2937";
+      context.font = "700 15px sans-serif";
+      context.fillText("Risiko dipilih", 650, 120);
+      context.font = "12px sans-serif";
+      selectedRisks.slice(0, 8).forEach((risk, index) => {
+        const y = 150 + index * 52;
+        context.fillText(`${index + 1}. ${risk.risiko.slice(0, 34)}`, 650, y);
+        context.fillText(`Aktual: ${risk.aktual?.besaran ?? "-"}   Residual: ${risk.residual?.besaran ?? "-"}`, 665, y + 20);
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `matriks-risiko-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error("Failed to export risk matrix image", error);
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Map color names to Hex
@@ -328,6 +429,14 @@ export default function MatriksRisikoPage() {
             Visualisasi perpindahan tingkat risiko dari Kondisi Aktual ke Kondisi Residual Harapan.
           </Text>
         </Stack>
+        <Button
+          variant="light"
+          leftSection={<IconDownload size={16} />}
+          loading={exporting}
+          onClick={exportMatrixAsImage}
+        >
+          Unduh Matriks
+        </Button>
       </Group>
 
       <Grid gutter="xl">

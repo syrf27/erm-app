@@ -14,7 +14,7 @@ import {
   Textarea,
   Tooltip,
 } from "@mantine/core";
-import { IconMessageCircleQuestion, IconSend, IconX } from "@tabler/icons-react";
+import { IconSend, IconX } from "@tabler/icons-react";
 
 type ChatRole = "assistant" | "user";
 
@@ -46,6 +46,12 @@ export function HelpChatWidget() {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
+
+  useEffect(() => {
+    const openChat = () => setOpened(true);
+    window.addEventListener("open-help-chat-widget", openChat);
+    return () => window.removeEventListener("open-help-chat-widget", openChat);
+  }, []);
 
   useEffect(() => {
     if (!opened) return;
@@ -264,19 +270,6 @@ export function HelpChatWidget() {
         </Paper>
       )}
 
-      <Tooltip label="Bantuan aplikasi" position="left">
-        <ActionIcon
-          size={54}
-          radius="xl"
-          variant="filled"
-          color="blue"
-          style={{ boxShadow: "var(--mantine-shadow-md)" }}
-          onClick={() => setOpened((current) => !current)}
-          aria-label="Buka bantuan aplikasi"
-        >
-          {opened ? <IconX size={24} /> : <IconMessageCircleQuestion size={26} />}
-        </ActionIcon>
-      </Tooltip>
     </Box>
   );
 }

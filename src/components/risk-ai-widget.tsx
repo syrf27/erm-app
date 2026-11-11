@@ -1,7 +1,6 @@
 "use client";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ActionIcon, Box, Tooltip } from "@mantine/core";
-import { IconSparkles } from "@tabler/icons-react";
 
 export function RiskAiWidget() {
   const pathname = usePathname();
@@ -13,11 +12,10 @@ export function RiskAiWidget() {
       router.push("/manajemen-risiko/identifikasi?openAiAssist=1");
     }
   };
-  return <Box style={{ position: "fixed", right: 24, bottom: 152, zIndex: 220 }}>
-    <Tooltip label="Bantu isi risiko dengan AI" position="left">
-      <ActionIcon size={54} radius="xl" variant="filled" color="violet" style={{ boxShadow: "var(--mantine-shadow-md)" }} onClick={openAssistant} aria-label="Buka bantuan isi risiko dengan AI">
-        <IconSparkles size={26} />
-      </ActionIcon>
-    </Tooltip>
-  </Box>;
+  useEffect(() => {
+    window.addEventListener("open-risk-ai-widget", openAssistant);
+    return () => window.removeEventListener("open-risk-ai-widget", openAssistant);
+  });
+
+  return null;
 }
