@@ -18,6 +18,7 @@ import {
   Badge,
   ActionIcon,
   Select,
+  SegmentedControl,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -93,6 +94,7 @@ export default function PelaporanRisikoPage() {
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterMode, setFilterMode] = useState<"all" | "ditangani">("all");
   const { tahunDari, tahunSampai } = useYear();
 
   // Form State
@@ -306,14 +308,24 @@ export default function PelaporanRisikoPage() {
   ]);
 
   // Paginate rows
-  const totalRows = allRows.length;
+  const handledCount = useMemo(
+    () => allRows.filter((row) => row.rencanaId !== null).length,
+    [allRows]
+  );
+
+  const displayRows = useMemo(() => {
+    const rows = filterMode === "all" ? allRows : allRows.filter((row) => row.rencanaId !== null);
+    return rows.map((row, idx) => ({ ...row, no: idx + 1 }));
+  }, [allRows, filterMode]);
+
+  const totalRows = displayRows.length;
   const tableRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    return allRows
+    return displayRows
       .slice(start, end)
       .map((row, idx) => ({ ...row, no: start + idx + 1 }));
-  }, [allRows, currentPage, pageSize]);
+  }, [displayRows, currentPage, pageSize]);
 
   // Reset to page 1 when page size changes
   const handlePageSizeChange = (newSize: number) => {
@@ -647,7 +659,7 @@ export default function PelaporanRisikoPage() {
       }
 
       // Add data rows
-      allRows.forEach((row, index) => {
+      displayRows.forEach((row, index) => {
         const dataRow = worksheet.addRow({
           no: index + 1,
           sasaran: row.sasaran || "-",
@@ -853,7 +865,22 @@ export default function PelaporanRisikoPage() {
             risiko untuk proses persetujuan (approval).
           </Text>
         </div>
-        <Group>
+        <Group gap="sm">
+          <SegmentedControl
+            size="sm"
+            value={filterMode}
+            onChange={(value) => {
+              setFilterMode(value as "all" | "ditangani");
+              setCurrentPage(1);
+            }}
+            data={[
+              { value: "all", label: `Semua Risiko (${identifikasiData.length})` },
+              {
+                value: "ditangani",
+                label: `Sedang Ditangani (${handledCount})`,
+              },
+            ]}
+          />
           <Button
             leftSection={<IconDownload size={16} />}
             variant="light"
@@ -978,7 +1005,9 @@ export default function PelaporanRisikoPage() {
                   }}
                 >
                   {totalRows === 0
-                    ? "Belum ada data risiko teridentifikasi."
+                    ? filterMode === "ditangani"
+                      ? "Tidak ada risiko yang memiliki Rencana Penanganan dan Pemantauan pada tahun ini."
+                      : "Belum ada data risiko teridentifikasi."
                     : "Tidak ada data pada halaman ini."}
                 </Table.Td>
               </Table.Tr>
