@@ -214,12 +214,12 @@ export default function PelaporanRisikoPage() {
       const lkAktual = an ? lkById.get(an.levelKemungkinanId) : null;
       const ldAktual = an ? ldById.get(an.levelDampakId) : null;
 
-      // Untuk risiko yang sudah memiliki RTP, gunakan residual yang tersimpan
-      // di Rencana Penanganan agar sama persis dengan menu Rencana. Evaluasi
-      // menjadi fallback untuk data yang belum memiliki residual RTP.
-      const residualSource = rp?.residualLevelKemungkinanId && rp?.residualLevelDampakId
-        ? rp
-        : ev;
+      // Evaluasi Risiko adalah sumber kebenaran untuk Residual. Rencana
+      // hanya menjadi fallback untuk data legacy yang belum menyimpan
+      // pasangan level residual di Evaluasi.
+      const residualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
+        ? ev
+        : rp;
       const lkResidual = residualSource
         ? lkById.get(residualSource.residualLevelKemungkinanId)
         : null;

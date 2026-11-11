@@ -203,9 +203,9 @@ export default function RencanaPenangananPage() {
     const filtered = filteredIdentifikasiData.filter((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
-      const effectiveResidualSource = rp?.residualLevelKemungkinanId && rp?.residualLevelDampakId
-        ? rp
-        : ev;
+      const effectiveResidualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
+        ? ev
+        : rp;
       const effectiveResidualLk = kemungkinanById.get(effectiveResidualSource?.residualLevelKemungkinanId);
       const effectiveResidualLd = dampakById.get(effectiveResidualSource?.residualLevelDampakId);
       const residual = Number(matriksData.find(
@@ -224,9 +224,9 @@ export default function RencanaPenangananPage() {
     const mapped = filtered.map((r: Record<string, any>) => {
       const ev = evaluasiById.get(r.id);
       const rp = rencanaById.get(r.id);
-      const residualSource = rp?.residualLevelKemungkinanId && rp?.residualLevelDampakId
-        ? rp
-        : ev;
+      const residualSource = ev?.residualLevelKemungkinanId && ev?.residualLevelDampakId
+        ? ev
+        : rp;
       const residualLK = residualSource?.residualLevelKemungkinanId
         ? kemungkinanById.get(residualSource.residualLevelKemungkinanId)
         : undefined;
