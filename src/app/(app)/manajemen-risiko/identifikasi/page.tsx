@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import { useList } from "@refinedev/core";
 import {
-  Title,
   Button,
   Group,
   Loader,
@@ -40,6 +39,7 @@ import {
   openUnlockedDropdownOnMouseDown,
   preventLockedCellMouseDown,
 } from "@/lib/handsontable-progressive-lock";
+import { SpreadsheetPage, useSpreadsheetTableHeight } from "@/components/spreadsheet-page";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -290,8 +290,10 @@ export default function IdentifikasiRisikoPage() {
   const [localData, setLocalData] = useState<any[][]>([]);
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [searchVal, setSearchVal] = useState("");
+  const [dirtyCount, setDirtyCount] = useState(0);
+  const tableHeight = useSpreadsheetTableHeight();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const { tahunDari, tahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
 
@@ -320,18 +322,44 @@ export default function IdentifikasiRisikoPage() {
     setIsMounted(true);
   }, []);
 
-  const handleSearchChange = () => {
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const query = event.currentTarget.value;
+    setSearchVal(query);
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      applyHandsontableSearch(
-        hotRef.current?.hotInstance,
-        searchInputRef.current?.value || ""
-      );
+      applyHandsontableSearch(hotRef.current?.hotInstance, query);
     }, 150);
   };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+  };
+
+  // Tambah risiko: baris kosong baru selalu di posisi paling atas selama sesi
+  // pengisian. Index semua baris lama bergeser +1 sehingga dirty rows dan
+  // snapshot awal juga harus digeser agar batch save tetap menunjuk baris benar.
+  const addNewRowAtTop = useCallback(() => {
+    const hot = hotRef.current?.hotInstance;
+    if (!hot) return;
+    const rows = (hot.getData() as unknown[][]).map((row) => [...row]);
+    const blankRow = [null, "", "", "", "", "", "", "", "", "", "", currentYear];
+    const nextData = [blankRow as any[], ...rows] as any[][];
+    dirtyRowsRef.current = new Set(Array.from(dirtyRowsRef.current, (index) => index + 1));
+    dirtyRowsRef.current.add(0);
+    setDirtyCount(dirtyRowsRef.current.size);
+    initialRowsRef.current = [blankRow, ...initialRowsRef.current].slice(0, nextData.length);
+    setLocalData(nextData);
+    hot.loadData(nextData, "tambah-risiko");
+    hot.scrollViewportTo(0, 1);
+    hot.selectCell(0, 1);
+    hot.render();
+  }, [currentYear]);
 
   const { result: existingResult, query: listQuery } = useList({
     resource: "identifikasi-risiko",
@@ -587,6 +615,9 @@ export default function IdentifikasiRisikoPage() {
     // spare row can be discarded by the controlled `data` prop on rerender.
     const nextData = rows.map((row) => [...row]);
     nextData[rowIndex].splice(1, values.length, ...values);
+    // Draf AI dihitung sebagai perubahan belum disimpan pada indikator.
+    dirtyRowsRef.current.add(rowIndex);
+    setDirtyCount(dirtyRowsRef.current.size);
     setLocalData(nextData);
     hot.loadData(nextData, "ai-assist");
     hot.scrollViewportTo(rowIndex, 1);
@@ -913,6 +944,7 @@ export default function IdentifikasiRisikoPage() {
         initialRowsRef.current[index] = [...rows[index]];
       });
       dirtyRowsRef.current.clear();
+      setDirtyCount(0);
       notifications.show({
         title: "Tersimpan",
         message: "Semua data berhasil disimpan",
@@ -1162,15 +1194,29 @@ export default function IdentifikasiRisikoPage() {
   }
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Identifikasi Risiko</Title>
-        <Group>
+    <SpreadsheetPage
+      title="Identifikasi Risiko"
+      description="Isi data langsung di sel. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel."
+      dirtyCount={dirtyCount}
+      saving={saving}
+      onSave={saveAll}
+      searchValue={searchVal}
+      onSearchChange={handleSearchChange}
+      onSearchKeyDown={handleSearchKeyDown}
+      actions={
+        <>
+          <Button
+            variant="light"
+            color="blue"
+            leftSection={<IconPlus size={16} />}
+            onClick={addNewRowAtTop}
+          >
+            Tambah Risiko
+          </Button>
           <Button
             variant="gradient"
             gradient={{ from: "violet", to: "blue", deg: 100 }}
             color="violet"
-            size="sm"
             leftSection={<IconSparkles size={16} />}
             onClick={() => {
               setAssistSuggestion(null);
@@ -1210,32 +1256,9 @@ export default function IdentifikasiRisikoPage() {
               </Button>
             )}
           </FileButton>
-          <TextInput
-            placeholder="Cari & Tandai Sel..."
-            size="xs"
-            ref={searchInputRef}
-            onChange={handleSearchChange}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-              focusNextHandsontableSearchResult(
-                hotRef.current?.hotInstance,
-                searchInputRef.current?.value || ""
-              );
-            }}
-            style={{ width: 220 }}
-          />
-          <Button onClick={saveAll} loading={saving}>
-            Simpan Semua
-          </Button>
-        </Group>
-      </Group>
-      <Text size="sm" c="dimmed">
-        Isi data langsung di sel. Baris baru otomatis tersedia. Seret kolom
-        untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V
-        untuk salin-tempel.
-      </Text>
+        </>
+      }
+    >
       <HotTable
         ref={hotRef}
         data={localData}
@@ -1264,6 +1287,7 @@ export default function IdentifikasiRisikoPage() {
             changes.forEach(([row]) => {
               if (typeof row === "number") dirtyRowsRef.current.add(row);
             });
+            setDirtyCount(dirtyRowsRef.current.size);
           }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
@@ -1340,7 +1364,7 @@ export default function IdentifikasiRisikoPage() {
           );
         }}
         rowHeaders={true}
-        height="auto"
+        height={tableHeight ?? 400}
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
@@ -1513,6 +1537,6 @@ export default function IdentifikasiRisikoPage() {
           </Group>
         </Stack>
       </Modal>
-    </Stack>
+    </SpreadsheetPage>
   );
 }

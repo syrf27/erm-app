@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import Link from "next/link";
-import { Title, Button, Group, Loader, Center, Stack, Text, Card, TextInput } from "@mantine/core";
+import { Button, Loader, Center } from "@mantine/core";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -14,7 +13,9 @@ import { registerAllModules } from "handsontable/registry";
 import {
   applyHandsontableSearch,
   applyProgressiveCascade,
+  countIncompleteRows,
   focusNextHandsontableSearchResult,
+  goToNextIncompleteRow,
   handleProgressiveBeforeChange,
   getSafeRowData,
   hasPersistedRowId,
@@ -25,6 +26,7 @@ import {
   PROGRESSIVE_LOCKED_CELL_CLASS,
   progressiveLockedCellStyles,
 } from "@/lib/handsontable-progressive-lock";
+import { SpreadsheetPage, useSpreadsheetTableHeight } from "@/components/spreadsheet-page";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -48,11 +50,39 @@ export default function AnalisisRisikoPage() {
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const [dirtyCount, setDirtyCount] = useState(0);
+  const [incompleteCount, setIncompleteCount] = useState(0);
+  const tableHeight = useSpreadsheetTableHeight();
   const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const updateIncompleteCount = useCallback(() => {
+    setIncompleteCount(
+      countIncompleteRows(hotRef.current?.hotInstance, ANALISIS_INPUT_COLUMNS)
+    );
+  }, []);
+
+  // Hitung ulang jumlah baris belum lengkap setiap kali data tabel berubah.
+  useEffect(() => {
+    const timer = window.setTimeout(updateIncompleteCount, 0);
+    return () => window.clearTimeout(timer);
+  }, [localData, updateIncompleteCount]);
+
+  const handleGoToNextIncomplete = () => {
+    const hot = hotRef.current?.hotInstance;
+    if (!hot) return;
+    const next = goToNextIncompleteRow(hot, ANALISIS_INPUT_COLUMNS);
+    if (!next) {
+      notifications.show({
+        title: "Data Lengkap",
+        message: "Tidak ada baris yang belum lengkap",
+        color: "green",
+      });
+    }
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -238,6 +268,7 @@ export default function AnalisisRisikoPage() {
         initialRowsRef.current[index] = [...rows[index]];
       });
       dirtyRowsRef.current.clear();
+      setDirtyCount(0);
       notifications.show({ title: "Tersimpan", message: "Semua data berhasil disimpan", color: "green" });
       if (refetchQuery) refetchQuery();
     } catch (e: any) {
@@ -332,30 +363,30 @@ export default function AnalisisRisikoPage() {
   }
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Analisis Risiko</Title>
-        <Group>
-          <TextInput
-            placeholder="Cari & Tandai Sel..."
-            size="xs"
-            value={searchVal}
-            onChange={handleSearchChange}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
-            }}
-            style={{ width: 220 }}
-          />
-          <Button onClick={saveAll} loading={saving}>
-            Simpan Semua
-          </Button>
-        </Group>
-      </Group>
-      <Text size="sm" c="dimmed">
-        Isi level risiko untuk setiap risiko yang teridentifikasi. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel.
-      </Text>
+    <SpreadsheetPage
+      title="Analisis Risiko"
+      description="Isi level risiko untuk setiap risiko yang teridentifikasi. Seret kolom untuk memindahkan, tarik sudut sel untuk autofill, gunakan Ctrl+C/V untuk salin-tempel."
+      dirtyCount={dirtyCount}
+      saving={saving}
+      onSave={saveAll}
+      searchValue={searchVal}
+      onSearchChange={handleSearchChange}
+      onSearchKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+      }}
+      actions={
+        <Button
+          variant="light"
+          color="orange"
+          disabled={incompleteCount === 0}
+          onClick={handleGoToNextIncomplete}
+        >
+          Lanjutkan Data Belum Lengkap ({incompleteCount})
+        </Button>
+      }
+    >
       <HotTable
         ref={hotRef}
         data={localData}
@@ -393,7 +424,7 @@ export default function AnalisisRisikoPage() {
           ],
         ]}
         rowHeaders={true}
-        height="auto"
+        height={tableHeight ?? 400}
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
@@ -430,6 +461,7 @@ export default function AnalisisRisikoPage() {
             changes.forEach(([row]) => {
               if (typeof row === "number") dirtyRowsRef.current.add(row);
             });
+            setDirtyCount(dirtyRowsRef.current.size);
           }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
@@ -447,10 +479,11 @@ export default function AnalisisRisikoPage() {
             }
           }
           hot.render();
+          updateIncompleteCount();
         }}
       />
       <style jsx global>{progressiveLockedCellStyles}</style>
-    </Stack>
+    </SpreadsheetPage>
   );
 }
 

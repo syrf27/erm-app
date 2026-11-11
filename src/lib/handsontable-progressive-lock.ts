@@ -250,6 +250,67 @@ export function applyProgressiveCascade(
   }, 0);
 }
 
+export interface IncompleteRowTarget {
+  row: number;
+  col: number;
+}
+
+// Baris "belum lengkap" = baris risiko yang sudah berasal dari server (punya
+// ID pada idColumn) tetapi masih memiliki field input wajib yang kosong.
+// Baris kosong/spare tidak dihitung karena tidak punya ID.
+export function findIncompleteRows(
+  hot: Handsontable.Core | null | undefined,
+  inputColumns: number[],
+  idColumn = 0
+): IncompleteRowTarget[] {
+  if (!hot) return [];
+
+  const rows = hot.getData() as unknown[][];
+  const results: IncompleteRowTarget[] = [];
+
+  rows.forEach((rowData, row) => {
+    const id = Number(rowData[idColumn]);
+    if (!Number.isInteger(id) || id <= 0) return;
+
+    const col = getFirstUnlockedEmptyColumn(rowData, inputColumns);
+    if (typeof col === "number") {
+      results.push({ row, col });
+    }
+  });
+
+  return results;
+}
+
+export function countIncompleteRows(
+  hot: Handsontable.Core | null | undefined,
+  inputColumns: number[],
+  idColumn = 0
+) {
+  return findIncompleteRows(hot, inputColumns, idColumn).length;
+}
+
+// Menuju baris belum lengkap berikutnya: mulai setelah baris aktif saat ini
+// dan kembali ke baris pertama ketika melewati baris terakhir. Index baris
+// tidak pernah berubah, sehingga dirty-row tracking dan batch save tetap aman.
+export function goToNextIncompleteRow(
+  hot: Handsontable.Core | null | undefined,
+  inputColumns: number[],
+  idColumn = 0
+): IncompleteRowTarget | null {
+  const incomplete = findIncompleteRows(hot, inputColumns, idColumn);
+  if (!hot || incomplete.length === 0) return null;
+
+  const selected = hot.getSelectedLast();
+  const currentRow = typeof selected?.[0] === "number" ? selected[0] : -1;
+  const next = incomplete.find((item) => item.row > currentRow) ?? incomplete[0];
+
+  hot.scrollViewportTo(next.row, next.col, true, true);
+  hot.selectCell(next.row, next.col);
+  hot.render();
+
+  return next;
+}
+
 export function preventLockedCellMouseDown(
   event: MouseEvent,
   coords: { row: number; col: number },

@@ -2,18 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useList } from "@refinedev/core";
-import Link from "next/link";
-import {
-  Title,
-  Button,
-  Group,
-  Loader,
-  Center,
-  Stack,
-  Text,
-  Card,
-  TextInput,
-} from "@mantine/core";
+import { Button, Loader, Center } from "@mantine/core";
 import { useYear } from "@/lib/year-context";
 import { notifications } from "@mantine/notifications";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -24,7 +13,9 @@ import { registerAllModules } from "handsontable/registry";
 import {
   applyHandsontableSearch,
   applyProgressiveCascade,
+  countIncompleteRows,
   focusNextHandsontableSearchResult,
+  goToNextIncompleteRow,
   handleProgressiveBeforeChange,
   getSafeRowData,
   hasPersistedRowId,
@@ -35,6 +26,7 @@ import {
   PROGRESSIVE_LOCKED_CELL_CLASS,
   progressiveLockedCellStyles,
 } from "@/lib/handsontable-progressive-lock";
+import { SpreadsheetPage, useSpreadsheetTableHeight } from "@/components/spreadsheet-page";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -64,11 +56,39 @@ export default function RencanaPenangananPage() {
   const [saving, setSaving] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const [dirtyCount, setDirtyCount] = useState(0);
+  const [incompleteCount, setIncompleteCount] = useState(0);
+  const tableHeight = useSpreadsheetTableHeight();
   const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const updateIncompleteCount = useCallback(() => {
+    setIncompleteCount(
+      countIncompleteRows(hotRef.current?.hotInstance, RENCANA_INPUT_COLUMNS)
+    );
+  }, []);
+
+  // Hitung ulang jumlah baris belum lengkap setiap kali data tabel berubah.
+  useEffect(() => {
+    const timer = window.setTimeout(updateIncompleteCount, 0);
+    return () => window.clearTimeout(timer);
+  }, [localData, updateIncompleteCount]);
+
+  const handleGoToNextIncomplete = () => {
+    const hot = hotRef.current?.hotInstance;
+    if (!hot) return;
+    const next = goToNextIncompleteRow(hot, RENCANA_INPUT_COLUMNS);
+    if (!next) {
+      notifications.show({
+        title: "Data Lengkap",
+        message: "Tidak ada baris yang belum lengkap",
+        color: "green",
+      });
+    }
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -390,6 +410,7 @@ export default function RencanaPenangananPage() {
         initialRowsRef.current[index] = [...rows[index]];
       });
       dirtyRowsRef.current.clear();
+      setDirtyCount(0);
       notifications.show({
         title: "Tersimpan",
         message: "Semua data berhasil disimpan",
@@ -497,30 +518,30 @@ export default function RencanaPenangananPage() {
   }
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Rencana Penanganan</Title>
-        <Group>
-          <TextInput
-            placeholder="Cari & Tandai Sel..."
-            size="xs"
-            value={searchVal}
-            onChange={handleSearchChange}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
-            }}
-            style={{ width: 220 }}
-          />
-          <Button onClick={saveAll} loading={saving}>
-            Simpan Semua
-          </Button>
-        </Group>
-      </Group>
-      <Text size="sm" c="dimmed">
-        Menampilkan risiko dengan respons Mengurangi Risiko dan residual di atas selera risiko. Risiko lain cukup dipantau.
-      </Text>
+    <SpreadsheetPage
+      title="Rencana Penanganan"
+      description="Menampilkan risiko dengan respons Mengurangi Risiko dan residual di atas selera risiko. Risiko lain cukup dipantau."
+      dirtyCount={dirtyCount}
+      saving={saving}
+      onSave={saveAll}
+      searchValue={searchVal}
+      onSearchChange={handleSearchChange}
+      onSearchKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        focusNextHandsontableSearchResult(hotRef.current?.hotInstance, searchVal);
+      }}
+      actions={
+        <Button
+          variant="light"
+          color="orange"
+          disabled={incompleteCount === 0}
+          onClick={handleGoToNextIncomplete}
+        >
+          Lanjutkan Data Belum Lengkap ({incompleteCount})
+        </Button>
+      }
+    >
       <HotTable
         ref={hotRef}
         data={localData}
@@ -536,6 +557,7 @@ export default function RencanaPenangananPage() {
             changes.forEach(([row]) => {
               if (typeof row === "number") dirtyRowsRef.current.add(row);
             });
+            setDirtyCount(dirtyRowsRef.current.size);
           }
           const hot = hotRef.current?.hotInstance;
           if (!hot) return;
@@ -548,9 +570,10 @@ export default function RencanaPenangananPage() {
             shouldEnforceRencanaProgression
           );
           hot.render();
+          updateIncompleteCount();
         }}
         rowHeaders={true}
-        height="auto"
+        height={tableHeight ?? 400}
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
@@ -583,6 +606,6 @@ export default function RencanaPenangananPage() {
         }}
       />
       <style jsx global>{progressiveLockedCellStyles}</style>
-    </Stack>
+    </SpreadsheetPage>
   );
 }
