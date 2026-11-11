@@ -26,7 +26,7 @@ import {
   PROGRESSIVE_LOCKED_CELL_CLASS,
   progressiveLockedCellStyles,
 } from "@/lib/handsontable-progressive-lock";
-import { SpreadsheetPage, useSpreadsheetTableHeight } from "@/components/spreadsheet-page";
+import { SpreadsheetPage } from "@/components/spreadsheet-page";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -72,7 +72,6 @@ export default function EvaluasiRisikoPage() {
   const [searchVal, setSearchVal] = useState("");
   const [dirtyCount, setDirtyCount] = useState(0);
   const [incompleteCount, setIncompleteCount] = useState(0);
-  const tableHeight = useSpreadsheetTableHeight();
   const { tahunDari, tahunSampai } = useYear();
 
   useEffect(() => {
@@ -566,7 +565,7 @@ export default function EvaluasiRisikoPage() {
           indicators: false,
         }}
         rowHeaders={true}
-        height={tableHeight ?? 400}
+        height="auto"
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}

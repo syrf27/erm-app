@@ -143,6 +143,7 @@ export function focusNextHandsontableSearchResult(
   const next = results[(currentIndex + 1) % results.length];
   hot.selectCell(next.row, next.col);
   hot.scrollViewportTo(next.row, next.col, true, true);
+  scrollPageToCell(hot, next.row, next.col);
   hot.render();
   return true;
 }
@@ -255,6 +256,21 @@ export interface IncompleteRowTarget {
   col: number;
 }
 
+// Tabel memanjang penuh mengikuti halaman (height auto), sehingga scroll
+// internal Handsontable tidak bergerak. Gulir halaman utama agar sel yang
+// dipilih terlihat, tidak tertutup toolbar sticky di bagian atas.
+export function scrollPageToCell(
+  hot: Handsontable.Core | null | undefined,
+  row: number,
+  col: number
+) {
+  if (!hot) return;
+  const cellElement = hot.getCell(row, col);
+  if (cellElement instanceof HTMLElement) {
+    cellElement.scrollIntoView({ block: "center", inline: "nearest" });
+  }
+}
+
 // Baris "belum lengkap" = baris risiko yang sudah berasal dari server (punya
 // ID pada idColumn) tetapi masih memiliki field input wajib yang kosong.
 // Baris kosong/spare tidak dihitung karena tidak punya ID.
@@ -306,6 +322,7 @@ export function goToNextIncompleteRow(
 
   hot.scrollViewportTo(next.row, next.col, true, true);
   hot.selectCell(next.row, next.col);
+  scrollPageToCell(hot, next.row, next.col);
   hot.render();
 
   return next;

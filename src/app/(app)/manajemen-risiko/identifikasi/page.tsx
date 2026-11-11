@@ -38,8 +38,9 @@ import {
   hasPersistedRowId,
   openUnlockedDropdownOnMouseDown,
   preventLockedCellMouseDown,
+  scrollPageToCell,
 } from "@/lib/handsontable-progressive-lock";
-import { SpreadsheetPage, useSpreadsheetTableHeight } from "@/components/spreadsheet-page";
+import { SpreadsheetPage } from "@/components/spreadsheet-page";
 
 if (typeof window !== "undefined") {
   registerAllModules();
@@ -292,7 +293,6 @@ export default function IdentifikasiRisikoPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [searchVal, setSearchVal] = useState("");
   const [dirtyCount, setDirtyCount] = useState(0);
-  const tableHeight = useSpreadsheetTableHeight();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { tahunDari, tahunSampai } = useYear();
   const currentYear = new Date().getFullYear();
@@ -358,6 +358,9 @@ export default function IdentifikasiRisikoPage() {
     hot.loadData(nextData, "tambah-risiko");
     hot.scrollViewportTo(0, 1);
     hot.selectCell(0, 1);
+    // Tabel memanjang penuh; gulir halaman ke baris paling atas agar baris
+    // baru yang baru dibuat terlihat meskipun pengguna sedang jauh di bawah.
+    scrollPageToCell(hot, 0, 1);
     hot.render();
   }, [currentYear]);
 
@@ -1364,7 +1367,7 @@ export default function IdentifikasiRisikoPage() {
           );
         }}
         rowHeaders={true}
-        height={tableHeight ?? 400}
+        height="auto"
         stretchH="all"
         licenseKey="non-commercial-and-evaluation"
         contextMenu={true}
