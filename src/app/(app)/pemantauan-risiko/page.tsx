@@ -35,6 +35,7 @@ import { getSafeDocumentHref, isSafeAppUrl } from "@/lib/safe-url";
 
 interface RiskRow {
   identId: number;
+  evaluasiId: number | null;
   rencanaId: number | null;
   no: number;
   prioritas: string;
@@ -105,14 +106,14 @@ export default function PemantauanRisikoPage() {
       },
     },
   });
-  const kemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
-  const dampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
-  const kemungkinanOptions = (kemungkinanList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
-  const dampakOptions = (dampakList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
-
   const customData = result.result;
   const isLoading = result.query.isLoading;
   const refetchQuery = result.query.refetch;
+  const kemungkinanList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
+  const dampakList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
+  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const kemungkinanOptions = (kemungkinanList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
+  const dampakOptions = (dampakList.result?.data ?? []).map((item: any) => ({ value: String(item.id), label: item.nama }));
 
   console.log("Pemantauan Page useCustom query status:", {
     isLoading,
@@ -137,10 +138,12 @@ export default function PemantauanRisikoPage() {
 
     return list.map((r: any, index: number): RiskRow => {
       const an = r.analisisRisiko;
+      const ev = r.evaluasiRisiko;
       const rp = r.rencanaPenanganan;
 
       return {
         identId: r.id,
+        evaluasiId: ev?.id ?? null,
         rencanaId: rp?.id ?? null,
         no: index + 1,
         prioritas: String(r.priorityRank ?? "-"),
@@ -151,10 +154,10 @@ export default function PemantauanRisikoPage() {
         keterjadiRisiko: rp?.keterjadiRisiko ?? "",
         realisasiWaktu: rp?.realisasiWaktu ?? "",
         realisasiOutput: rp?.realisasiOutput ?? "",
-        residualLevelKemungkinanId: rp?.residualLevelKemungkinanId ?? null,
-        residualLevelDampakId: rp?.residualLevelDampakId ?? null,
-        residualLevelKemungkinan: rp?.residualLevelKemungkinan?.nama ?? "",
-        residualLevelDampak: rp?.residualLevelDampak?.nama ?? "",
+        residualLevelKemungkinanId: ev?.residualLevelKemungkinanId ?? null,
+        residualLevelDampakId: ev?.residualLevelDampakId ?? null,
+        residualLevelKemungkinan: ev?.residualLevelKemungkinan?.nama ?? "",
+        residualLevelDampak: ev?.residualLevelDampak?.nama ?? "",
         dokumenPendukung: rp?.dokumenPendukung ?? "",
         dokumenPendukungs: rp?.dokumenPendukungs ?? [],
       };
@@ -209,7 +212,6 @@ export default function PemantauanRisikoPage() {
     setModalKeterjadian(row.keterjadiRisiko);
     setModalResidualKemungkinan(row.residualLevelKemungkinanId ? String(row.residualLevelKemungkinanId) : "");
     setModalResidualDampak(row.residualLevelDampakId ? String(row.residualLevelDampakId) : "");
-
     // Map existing documents list to form state
     const docs = (row.dokumenPendukungs || []).map((d) => {
       const isLocalUpload = d.url.startsWith("/uploads/") || d.url.startsWith("/api/uploads/");
@@ -364,23 +366,13 @@ export default function PemantauanRisikoPage() {
   };
 
   // Submit Modal Save
-  const handleSaveModal = () => {
+  const handleSaveModal = async () => {
     if (!selectedRow) return;
 
-    const hasResidualKemungkinan = Boolean(modalResidualKemungkinan);
-    const hasResidualDampak = Boolean(modalResidualDampak);
-    if (hasResidualKemungkinan !== hasResidualDampak) {
+    if (!modalResidualKemungkinan || !modalResidualDampak) {
       notifications.show({
-        title: "Data residual belum lengkap",
-        message: "Level kemungkinan dan level dampak hasil pemantauan harus diisi berpasangan.",
-        color: "orange",
-      });
-      return;
-    }
-    if ((hasResidualKemungkinan || hasResidualDampak) && (!modalWaktu || !modalOutput.trim())) {
-      notifications.show({
-        title: "Realisasi belum lengkap",
-        message: "Isi waktu dan output realisasi sebelum menetapkan risiko residual hasil pemantauan.",
+        title: "Risiko residual belum lengkap",
+        message: "Level kemungkinan dan level dampak residual harus diisi berpasangan.",
         color: "orange",
       });
       return;
@@ -403,12 +395,49 @@ export default function PemantauanRisikoPage() {
       return;
     }
 
+    const residualLevelKemungkinanId = Number(modalResidualKemungkinan);
+    const residualLevelDampakId = Number(modalResidualDampak);
+    const residualMatrix = (matriksList.result?.data ?? []).find(
+      (item: any) =>
+        Number(item.levelKemungkinanId) === residualLevelKemungkinanId &&
+        Number(item.levelDampakId) === residualLevelDampakId
+    );
+    if (!selectedRow.evaluasiId || !residualMatrix?.levelRisikoId) {
+      notifications.show({
+        title: "Risiko residual tidak dapat disimpan",
+        message: "Pasangan level residual tidak ditemukan pada Matriks Risiko.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      const residualResponse = await fetch(`/api/evaluasi-risiko/${selectedRow.evaluasiId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          residualLevelKemungkinanId,
+          residualLevelDampakId,
+          residualLevelRisikoId: residualMatrix.levelRisikoId,
+        }),
+      });
+      if (!residualResponse.ok) {
+        const errorBody = await residualResponse.json().catch(() => null);
+        throw new Error(errorBody?.error || "Gagal memperbarui Evaluasi Risiko");
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Gagal menyimpan risiko residual",
+        message: error instanceof Error ? error.message : "Terjadi kesalahan saat memperbarui Evaluasi Risiko.",
+        color: "red",
+      });
+      return;
+    }
+
     const payload = {
       keterjadiRisiko: modalKeterjadian || null,
       realisasiWaktu: convertToDisplayDate(modalWaktu) || null,
       realisasiOutput: modalOutput || null,
-      residualLevelKemungkinanId: modalResidualKemungkinan ? Number(modalResidualKemungkinan) : null,
-      residualLevelDampakId: modalResidualDampak ? Number(modalResidualDampak) : null,
       dokumenPendukung: docList.length > 0 ? docList[0].url : null, // legacy field fallback
       dokumenPendukungs: docList,
     };
@@ -553,7 +582,7 @@ export default function PemantauanRisikoPage() {
                 Realisasi
               </Table.Th>
               <Table.Th colSpan={2} style={{ textAlign: "center" }}>
-                Risiko Residual Hasil Pemantauan
+                Risiko Residual (Evaluasi)
               </Table.Th>
               <Table.Th rowSpan={2} className="monitoring-sticky-action" style={{ textAlign: "center", width: 70 }}>
                 Aksi
@@ -805,10 +834,10 @@ export default function PemantauanRisikoPage() {
           />
 
           <Text size="xs" c="dimmed">
-            Isi hasil penilaian ulang setelah RTP dilaksanakan. Nilai ini berbeda dari residual saat Evaluasi dan dari target Residual Harapan.
+            Nilai berikut menggunakan data yang sama dengan Evaluasi Risiko. Perubahan dari Pemantauan juga langsung memperbarui Evaluasi.
           </Text>
-          <Select label="Residual Hasil Pemantauan - Level Kemungkinan" placeholder="Pilih level kemungkinan setelah RTP" value={modalResidualKemungkinan} onChange={(value) => setModalResidualKemungkinan(value || "")} data={kemungkinanOptions} searchable clearable />
-          <Select label="Residual Hasil Pemantauan - Level Dampak" placeholder="Pilih level dampak setelah RTP" value={modalResidualDampak} onChange={(value) => setModalResidualDampak(value || "")} data={dampakOptions} searchable clearable />
+          <Select label="Risiko Residual - Level Kemungkinan" placeholder="Pilih level kemungkinan residual" value={modalResidualKemungkinan} onChange={(value) => setModalResidualKemungkinan(value || "")} data={kemungkinanOptions} searchable />
+          <Select label="Risiko Residual - Level Dampak" placeholder="Pilih level dampak residual" value={modalResidualDampak} onChange={(value) => setModalResidualDampak(value || "")} data={dampakOptions} searchable />
 
           <Stack gap="xs" mt="xs">
             <Group justify="space-between" align="center">
