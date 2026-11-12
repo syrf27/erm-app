@@ -367,6 +367,25 @@ export default function PemantauanRisikoPage() {
   const handleSaveModal = () => {
     if (!selectedRow) return;
 
+    const hasResidualKemungkinan = Boolean(modalResidualKemungkinan);
+    const hasResidualDampak = Boolean(modalResidualDampak);
+    if (hasResidualKemungkinan !== hasResidualDampak) {
+      notifications.show({
+        title: "Data residual belum lengkap",
+        message: "Level kemungkinan dan level dampak hasil pemantauan harus diisi berpasangan.",
+        color: "orange",
+      });
+      return;
+    }
+    if ((hasResidualKemungkinan || hasResidualDampak) && (!modalWaktu || !modalOutput.trim())) {
+      notifications.show({
+        title: "Realisasi belum lengkap",
+        message: "Isi waktu dan output realisasi sebelum menetapkan risiko residual hasil pemantauan.",
+        color: "orange",
+      });
+      return;
+    }
+
     // Keep uploaded evidence even when users skip the optional title field.
     const docList = modalDocs
       .filter((d) => d.url.trim() !== "")
@@ -534,7 +553,7 @@ export default function PemantauanRisikoPage() {
                 Realisasi
               </Table.Th>
               <Table.Th colSpan={2} style={{ textAlign: "center" }}>
-                Risiko Residual
+                Risiko Residual Hasil Pemantauan
               </Table.Th>
               <Table.Th rowSpan={2} className="monitoring-sticky-action" style={{ textAlign: "center", width: 70 }}>
                 Aksi
@@ -785,8 +804,11 @@ export default function PemantauanRisikoPage() {
             onChange={(e) => setModalOutput(e.currentTarget.value)}
           />
 
-          <Select label="Risiko Residual - Level Kemungkinan" placeholder="Pilih level kemungkinan residual" value={modalResidualKemungkinan} onChange={(value) => setModalResidualKemungkinan(value || "")} data={kemungkinanOptions} searchable clearable />
-          <Select label="Risiko Residual - Level Dampak" placeholder="Pilih level dampak residual" value={modalResidualDampak} onChange={(value) => setModalResidualDampak(value || "")} data={dampakOptions} searchable clearable />
+          <Text size="xs" c="dimmed">
+            Isi hasil penilaian ulang setelah RTP dilaksanakan. Nilai ini berbeda dari residual saat Evaluasi dan dari target Residual Harapan.
+          </Text>
+          <Select label="Residual Hasil Pemantauan - Level Kemungkinan" placeholder="Pilih level kemungkinan setelah RTP" value={modalResidualKemungkinan} onChange={(value) => setModalResidualKemungkinan(value || "")} data={kemungkinanOptions} searchable clearable />
+          <Select label="Residual Hasil Pemantauan - Level Dampak" placeholder="Pilih level dampak setelah RTP" value={modalResidualDampak} onChange={(value) => setModalResidualDampak(value || "")} data={dampakOptions} searchable clearable />
 
           <Stack gap="xs" mt="xs">
             <Group justify="space-between" align="center">
