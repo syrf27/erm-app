@@ -61,11 +61,19 @@ export async function GET(request: NextRequest) {
           analisisRisiko: {
             include: { levelKemungkinan: true, levelDampak: true, levelRisiko: true },
           },
-          evaluasiRisiko: true,
+          evaluasiRisiko: {
+            include: {
+              residualLevelKemungkinan: true,
+              residualLevelDampak: true,
+              residualLevelRisiko: true,
+            },
+          },
           rencanaPenanganan: {
             include: {
               residualLevelKemungkinan: true,
               residualLevelDampak: true,
+              targetResidualLevelKemungkinan: true,
+              targetResidualLevelDampak: true,
               dokumenPendukungs: { select: { id: true } },
             },
           },
@@ -81,12 +89,19 @@ export async function GET(request: NextRequest) {
 
     const rows: TemplateRowData[] = records.map((r) => {
       const an = r.analisisRisiko;
+      const ev = r.evaluasiRisiko;
       const rp = r.rencanaPenanganan;
       const matriksAktual = an
         ? lookupMatriks(an.levelKemungkinanId, an.levelDampakId)
         : null;
-      const matriksResidual = rp
-        ? lookupMatriks(rp.residualLevelKemungkinanId, rp.residualLevelDampakId)
+      const matriksResidual = ev
+        ? lookupMatriks(ev.residualLevelKemungkinanId, ev.residualLevelDampakId)
+        : null;
+      const matriksTargetResidual = rp
+        ? lookupMatriks(
+            rp.targetResidualLevelKemungkinanId,
+            rp.targetResidualLevelDampakId
+          )
         : null;
       return {
         id: r.id,
@@ -110,10 +125,14 @@ export async function GET(request: NextRequest) {
         levelAktual: matriksAktual?.levelRisiko?.nama ?? "",
         pengendalian: an?.pengendalianUraian ?? "",
         efektivitas: an?.pengendalianEfektivitas ?? "",
-        residualKemungkinan: rp?.residualLevelKemungkinan?.nama ?? "",
-        residualDampak: rp?.residualLevelDampak?.nama ?? "",
+        residualKemungkinan: ev?.residualLevelKemungkinan?.nama ?? "",
+        residualDampak: ev?.residualLevelDampak?.nama ?? "",
         besaranResidual: matriksResidual?.besaran ?? 0,
         levelResidual: matriksResidual?.levelRisiko?.nama ?? "",
+        targetResidualKemungkinan: rp?.targetResidualLevelKemungkinan?.nama ?? "",
+        targetResidualDampak: rp?.targetResidualLevelDampak?.nama ?? "",
+        targetBesaranResidual: matriksTargetResidual?.besaran ?? 0,
+        targetLevelResidual: matriksTargetResidual?.levelRisiko?.nama ?? "",
         respon: r.evaluasiRisiko?.responRisiko ?? "",
         rencanaPenanganan: rp?.rencanaTidakPenanganan ?? "",
         targetWaktu: rp?.targetWaktu ?? "",

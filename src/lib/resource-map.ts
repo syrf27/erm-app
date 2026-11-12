@@ -103,6 +103,8 @@ export const includeMap: Record<string, any> = {
     },
     residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
     residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+    targetResidualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
+    targetResidualLevelDampak: { select: { id: true, nama: true, skala: true } },
     dokumenPendukungs: true,
   },
   "pelaporan-risiko": {

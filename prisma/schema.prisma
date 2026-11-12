@@ -140,7 +140,8 @@ model LevelKemungkinan {
   evaluasiRisikos               EvaluasiRisiko[]
   kriteriaKemungkinans          KriteriaKemungkinan[]
   matriksAnalisisRisikos        MatriksAnalisisRisiko[]
-  rencanaPenangananKemungkinans RencanaPenanganan[]
+  rencanaPenangananKemungkinans RencanaPenanganan[] @relation("RencanaResidualAktualKemungkinan")
+  rencanaPenangananTargetKemungkinans RencanaPenanganan[] @relation("RencanaResidualHarapanKemungkinan")
 }
 
 model LevelDampak {
@@ -153,7 +154,8 @@ model LevelDampak {
   analisisRisikos          AnalisisRisiko[]
   evaluasiRisikos          EvaluasiRisiko[]
   matriksAnalisisRisikos   MatriksAnalisisRisiko[]
-  rencanaPenangananDampaks RencanaPenanganan[]
+  rencanaPenangananDampaks RencanaPenanganan[] @relation("RencanaResidualAktualDampak")
+  rencanaPenangananTargetDampaks RencanaPenanganan[] @relation("RencanaResidualHarapanDampak")
 }
 
 model LevelRisiko {
@@ -329,6 +331,8 @@ model RencanaPenanganan {
   penanggungJawab            String?
   residualLevelKemungkinanId Int?
   residualLevelDampakId      Int?
+  targetResidualLevelKemungkinanId Int?
+  targetResidualLevelDampakId      Int?
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   disetujuiOleh              String?
@@ -339,8 +343,10 @@ model RencanaPenanganan {
   jenisPenanganan            String?
   keterjadiRisiko            String?
   identifikasiRisiko         IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
-  residualLevelDampak        LevelDampak?       @relation(fields: [residualLevelDampakId], references: [id])
-  residualLevelKemungkinan   LevelKemungkinan?  @relation(fields: [residualLevelKemungkinanId], references: [id])
+  residualLevelDampak        LevelDampak?       @relation("RencanaResidualAktualDampak", fields: [residualLevelDampakId], references: [id])
+  residualLevelKemungkinan   LevelKemungkinan?  @relation("RencanaResidualAktualKemungkinan", fields: [residualLevelKemungkinanId], references: [id])
+  targetResidualLevelDampak      LevelDampak?       @relation("RencanaResidualHarapanDampak", fields: [targetResidualLevelDampakId], references: [id])
+  targetResidualLevelKemungkinan LevelKemungkinan?  @relation("RencanaResidualHarapanKemungkinan", fields: [targetResidualLevelKemungkinanId], references: [id])
   dokumenPendukungs          DokumenPendukung[]
   reminderLogs               ReminderLog[]
 
@@ -348,6 +354,8 @@ model RencanaPenanganan {
   @@index([penanggungJawab])
   @@index([residualLevelKemungkinanId])
   @@index([residualLevelDampakId])
+  @@index([targetResidualLevelKemungkinanId])
+  @@index([targetResidualLevelDampakId])
 }
 
 model ReminderLog {

@@ -101,6 +101,8 @@ export const createRencanaPenangananSchema = z.object({
   penanggungJawab: safePlainText(500).optional().nullable(),
   residualLevelKemungkinanId: optionalPositiveInt.nullable(),
   residualLevelDampakId: optionalPositiveInt.nullable(),
+  targetResidualLevelKemungkinanId: optionalPositiveInt.nullable(),
+  targetResidualLevelDampakId: optionalPositiveInt.nullable(),
   keterjadiRisiko: z.enum(["Terjadi", "Tidak Terjadi"]).optional().nullable(),
   realisasiWaktu: safePlainText(500).optional().nullable(),
   realisasiOutput: safePlainText(5000).optional().nullable(),

@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
     const anyUpdate = parsedRows.some((r) => r.idSistem !== null);
     const rowHasAnalisis = (r: ParsedImportRow) =>
       !!(r.lvlKemungkinan || r.lvlDampak || r.pengendalian || r.efektivitas);
-    const rowHasEvaluasi = (r: ParsedImportRow) => !!r.respon;
+    const rowHasEvaluasi = (r: ParsedImportRow) =>
+      !!(r.respon || r.residualKemungkinan || r.residualDampak);
     const rowHasRencana = (r: ParsedImportRow) =>
       !!(
         r.rencanaPenanganan ||
@@ -134,8 +135,6 @@ export async function POST(request: NextRequest) {
         r.keterjadianRisiko ||
         r.realisasiWaktu ||
         r.realisasiOutput ||
-        r.residualKemungkinan ||
-        r.residualDampak ||
         r.kemungkinanResidualHarapan ||
         r.dampakResidualHarapan
       );
@@ -388,17 +387,35 @@ export async function POST(request: NextRequest) {
 
           // --- evaluasi (conditional) ---
           if (rowHasEvaluasi(row)) {
-            const respon = normalizeRespons(row.respon);
-            if (!respon) {
+            const respon = row.respon ? normalizeRespons(row.respon) : null;
+            if (row.respon && !respon) {
               throw new Error(
                 `Respons '${row.respon}' tidak valid (gunakan: Mengurangi/Mengalihkan/Menghindari/Menerima Risiko)`
               );
             }
+            const residualLk = row.residualKemungkinan
+              ? resolve(lkMap, row.residualKemungkinan, "Level Kemungkinan Residual Saat Ini", false)
+              : null;
+            const residualLd = row.residualDampak
+              ? resolve(ldMap, row.residualDampak, "Level Dampak Residual Saat Ini", false)
+              : null;
+            if (Boolean(residualLk) !== Boolean(residualLd)) {
+              throw new Error("Level Kemungkinan dan Level Dampak residual saat ini harus diisi berpasangan");
+            }
+            const residualLevelRisikoId = residualLk && residualLd
+              ? matriksByPair.get(`${residualLk.id}-${residualLd.id}`) ?? null
+              : null;
+            const evaluationPatch = stripNulls({
+              responRisiko: respon,
+              residualLevelKemungkinanId: residualLk?.id ?? null,
+              residualLevelDampakId: residualLd?.id ?? null,
+              residualLevelRisikoId,
+            });
             const existing = await tx.evaluasiRisiko.findUnique({
               where: { identifikasiRisikoId: identId },
             });
             if (existing) {
-              const parsed = updateEvaluasiRisikoSchema.safeParse({ responRisiko: respon });
+              const parsed = updateEvaluasiRisikoSchema.safeParse(evaluationPatch);
               if (!parsed.success) {
                 throw new Error("Validasi evaluasi gagal");
               }
@@ -409,7 +426,7 @@ export async function POST(request: NextRequest) {
             } else {
               const parsed = createEvaluasiRisikoSchema.safeParse({
                 identifikasiRisikoId: identId,
-                responRisiko: respon,
+                ...evaluationPatch,
               });
               if (!parsed.success) {
                 throw new Error("Validasi evaluasi gagal");
@@ -424,14 +441,15 @@ export async function POST(request: NextRequest) {
               where: { identifikasiRisikoId: identId },
             });
 
-            const residualLkName = row.residualKemungkinan || row.kemungkinanResidualHarapan;
-            const residualLdName = row.residualDampak || row.dampakResidualHarapan;
-            const residualLk = residualLkName
-              ? resolve(lkMap, residualLkName, "Level Kemungkinan (Residual)", false)
+            const targetResidualLk = row.kemungkinanResidualHarapan
+              ? resolve(lkMap, row.kemungkinanResidualHarapan, "Level Kemungkinan Residual Harapan", false)
               : null;
-            const residualLd = residualLdName
-              ? resolve(ldMap, residualLdName, "Level Dampak (Residual)", false)
+            const targetResidualLd = row.dampakResidualHarapan
+              ? resolve(ldMap, row.dampakResidualHarapan, "Level Dampak Residual Harapan", false)
               : null;
+            if (Boolean(targetResidualLk) !== Boolean(targetResidualLd)) {
+              throw new Error("Level Kemungkinan dan Level Dampak residual harapan harus diisi berpasangan");
+            }
             const keterjadian = row.keterjadianRisiko
               ? normalizeKeterjadian(row.keterjadianRisiko)
               : null;
@@ -447,8 +465,8 @@ export async function POST(request: NextRequest) {
             if (keterjadian) patch.keterjadiRisiko = keterjadian;
             if (row.realisasiWaktu) patch.realisasiWaktu = row.realisasiWaktu;
             if (row.realisasiOutput) patch.realisasiOutput = row.realisasiOutput;
-            if (residualLk) patch.residualLevelKemungkinanId = residualLk.id;
-            if (residualLd) patch.residualLevelDampakId = residualLd.id;
+            if (targetResidualLk) patch.targetResidualLevelKemungkinanId = targetResidualLk.id;
+            if (targetResidualLd) patch.targetResidualLevelDampakId = targetResidualLd.id;
 
             if (existing) {
               const parsed = updateRencanaPenangananSchema.safeParse(patch);

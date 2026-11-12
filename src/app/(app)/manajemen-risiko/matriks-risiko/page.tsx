@@ -426,7 +426,7 @@ export default function MatriksRisikoPage() {
         <Stack gap={0}>
           <Title order={3}>Matriks Risiko & Heatmap Perpindahan</Title>
           <Text size="sm" c="dimmed">
-            Visualisasi perpindahan tingkat risiko dari Kondisi Aktual ke Kondisi Residual Harapan.
+            Visualisasi perpindahan tingkat risiko dari Risiko Aktual ke Risiko Residual hasil evaluasi.
           </Text>
         </Stack>
         <Button

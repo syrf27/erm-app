@@ -160,6 +160,10 @@ export interface TemplateRowData {
   residualDampak: string;
   besaranResidual: number;
   levelResidual: string;
+  targetResidualKemungkinan: string;
+  targetResidualDampak: string;
+  targetBesaranResidual: number;
+  targetLevelResidual: string;
   respon: string;
   rencanaPenanganan: string;
   targetWaktu: string;
@@ -338,11 +342,10 @@ export function buildImportTemplateWorkbook(
       row.realisasiWaktu,
       row.realisasiOutput,
       row.dokumenPendukung,
-      // AD-AG "Risiko Residual Harapan" duplicate the residual columns, same as the export
-      row.residualKemungkinan,
-      row.residualDampak,
-      row.levelResidual,
-      row.besaranResidual > 0 ? row.besaranResidual : "",
+      row.targetResidualKemungkinan,
+      row.targetResidualDampak,
+      row.targetLevelResidual,
+      row.targetBesaranResidual > 0 ? row.targetBesaranResidual : "",
       row.persetujuan,
       row.disetujuiOleh,
       row.id,
@@ -436,7 +439,8 @@ export function buildImportTemplateWorkbook(
     ["Efektivitas", `Salah satu: ${enumCols.P.join(" / ")}`],
     ["Respons Risiko", `Salah satu: ${enumCols.U.join(" / ")}`],
     ["Rencana Penanganan (Rencana/Target Waktu/Target Output/P. Jawab)", "Jika salah satu diisi, record rencana penanganan dibuat/diperbarui."],
-    ["Risiko Residual (Level Kemungkinan/Level Dampak)", "Disimpan pada rencana penanganan. Kolom 'Risiko Residual Harapan' berlaku sebagai cadangan jika kolom residual utama kosong."],
+    ["Risiko Residual Saat Ini", "Level kemungkinan dan dampak pada bagian Risiko Residual disimpan pada tahap Evaluasi Risiko."],
+    ["Risiko Residual Harapan", "Target kemungkinan dan dampak setelah RTP dilaksanakan. Nilai ini disimpan terpisah pada Rencana Penanganan dan tidak menggantikan residual saat ini maupun residual aktual hasil pemantauan."],
     ["Pemantauan (Keterjadian/Waktu Realisasi/Output Realisasi)", `Ikut diimport ke rencana penanganan. Keterjadian: Terjadi / Tidak Terjadi.`],
     ["Tidak diimport", "Kolom Dokumen Pendukung, Persetujuan, Disetujui Oleh (approval tetap dikelola di aplikasi; rencana baru selalu berstatus Draft), dan semua kolom hasil hitungan (Besaran/Level)."],
     ["Format file", "Bisa diunggah: .xlsx, .xlsm, .xls, .xlsb, .csv. Untuk file Numbers (Mac), ekspor dulu ke Excel: File > Export To > Excel..."],
