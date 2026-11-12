@@ -920,14 +920,18 @@ export default function MatriksRisikoPage() {
                         </Table.Td>
                         <Table.Td>
                           {r.aktual ? (
-                            <Badge color={r.aktual.warna} size="xs">{r.aktual.besaran}</Badge>
+                            <Badge color={r.aktual.warna} variant="light" size="xs" fw={700}>
+                              {r.aktual.besaran}
+                            </Badge>
                           ) : (
                             <Text size="xs" c="dimmed">-</Text>
                           )}
                         </Table.Td>
                         <Table.Td>
                           {r.residual ? (
-                            <Badge color={r.residual.warna} size="xs">{r.residual.besaran}</Badge>
+                            <Badge color={r.residual.warna} variant="light" size="xs" fw={700}>
+                              {r.residual.besaran}
+                            </Badge>
                           ) : (
                             <Text size="xs" c="dimmed">-</Text>
                           )}
