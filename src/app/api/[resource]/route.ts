@@ -66,6 +66,46 @@ export async function GET(
   try {
     const { resource } = await params;
 
+    if (resource === "custom-matriks-risiko") {
+      const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+      const userAgent = request.headers.get("user-agent") || "unknown";
+      const isAllowed = await checkPermission("identifikasi-risiko", "read", { ipAddress, userAgent });
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+
+      const risks = await prisma.identifikasiRisiko.findMany({
+        where: { archivedAt: null },
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          risiko: true,
+          penyebab: true,
+          dampak: true,
+          analisisRisiko: {
+            select: {
+              levelKemungkinanId: true,
+              levelDampakId: true,
+              levelKemungkinan: { select: { id: true, nama: true, skala: true } },
+              levelDampak: { select: { id: true, nama: true, skala: true } },
+            },
+          },
+          evaluasiRisiko: {
+            select: {
+              residualLevelKemungkinanId: true,
+              residualLevelDampakId: true,
+              residualLevelKemungkinan: { select: { id: true, nama: true, skala: true } },
+              residualLevelDampak: { select: { id: true, nama: true, skala: true } },
+            },
+          },
+        },
+      });
+
+      return NextResponse.json(risks, {
+        headers: { "Cache-Control": REVALIDATE_CACHE_CONTROL },
+      });
+    }
+
     if (resource === "custom-pemantauan-risiko") {
       const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
       const userAgent = request.headers.get("user-agent") || "unknown";

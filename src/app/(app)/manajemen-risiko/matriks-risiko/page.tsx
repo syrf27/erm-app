@@ -1,7 +1,7 @@
 "use client";
 
-import { useList } from "@refinedev/core";
-import { useEffect, useState, useMemo } from "react";
+import { useCustom, useList } from "@refinedev/core";
+import { useState, useMemo } from "react";
 import {
   Title,
   Loader,
@@ -16,6 +16,7 @@ import {
   Badge,
   TextInput,
   Pagination,
+  ScrollArea,
 } from "@mantine/core";
 import { IconDownload } from "@tabler/icons-react";
 
@@ -52,24 +53,21 @@ export default function MatriksRisikoPage() {
   const pageSize = 5;
 
   // Fetch all configuration and transaction data
-  const identQuery = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 10000 } });
-  const analisisQuery = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
-  const evaluasiQuery = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
+  const riskQuery = useCustom({ url: "/api/custom-matriks-risiko", method: "get" });
   const lkQuery = useList({ resource: "level-kemungkinan", pagination: { pageSize: 100 } });
   const ldQuery = useList({ resource: "level-dampak", pagination: { pageSize: 100 } });
   const matriksQuery = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 100 } });
 
   const loading =
-    identQuery.query.isPending ||
-    analisisQuery.query.isPending ||
-    evaluasiQuery.query.isPending ||
+    riskQuery.query.isPending ||
     lkQuery.query.isPending ||
     ldQuery.query.isPending ||
     matriksQuery.query.isPending;
 
-  const identData = useMemo(() => identQuery.result?.data ?? [], [identQuery.result?.data]);
-  const analisisData = useMemo(() => analisisQuery.result?.data ?? [], [analisisQuery.result?.data]);
-  const evaluasiData = useMemo(() => evaluasiQuery.result?.data ?? [], [evaluasiQuery.result?.data]);
+  const identData = useMemo(() => {
+    const result = riskQuery.result?.data as any;
+    return Array.isArray(result) ? result : Array.isArray(result?.data) ? result.data : [];
+  }, [riskQuery.result?.data]);
   const lkData = useMemo(() => lkQuery.result?.data ?? [], [lkQuery.result?.data]);
   const ldData = useMemo(() => ldQuery.result?.data ?? [], [ldQuery.result?.data]);
   const matriksData = useMemo(() => matriksQuery.result?.data ?? [], [matriksQuery.result?.data]);
@@ -95,18 +93,16 @@ export default function MatriksRisikoPage() {
     if (loading) return [];
 
     return identData.map((item: any) => {
-      const analisis = analisisData.find((a: any) => a.identifikasiRisikoId === item.id);
-      // Residual risk is determined during Evaluasi Risiko. Rencana
-      // Penanganan is a follow-up action and may not duplicate those fields.
-      const evaluasi = evaluasiData.find((e: any) => e.identifikasiRisikoId === item.id);
+      const analisis = item.analisisRisiko;
+      const evaluasi = item.evaluasiRisiko;
 
       // Find likelihood & impact scales for aktual
-      const lkAktual = lkData.find((lk: any) => lk.id === analisis?.levelKemungkinanId);
-      const ldAktual = ldData.find((ld: any) => ld.id === analisis?.levelDampakId);
+      const lkAktual = analisis?.levelKemungkinan;
+      const ldAktual = analisis?.levelDampak;
 
       // Find likelihood & impact scales for residual
-      const lkResidual = lkData.find((lk: any) => lk.id === evaluasi?.residualLevelKemungkinanId);
-      const ldResidual = ldData.find((ld: any) => ld.id === evaluasi?.residualLevelDampakId);
+      const lkResidual = evaluasi?.residualLevelKemungkinan;
+      const ldResidual = evaluasi?.residualLevelDampak;
 
       let aktual = null;
       if (lkAktual && ldAktual) {
@@ -151,7 +147,7 @@ export default function MatriksRisikoPage() {
         residual,
       };
     });
-  }, [loading, identData, analisisData, evaluasiData, lkData, ldData, matriksData]);
+  }, [loading, identData, matriksData]);
 
   // Filter and Paginate the list
   const filteredRisks = useMemo(() => {
@@ -173,18 +169,6 @@ export default function MatriksRisikoPage() {
     setPage(1);
   };
 
-  // Set default selected risk
-  useEffect(() => {
-    if (processedRisks.length > 0 && selectedRiskIds.length === 0) {
-      const firstValid = processedRisks.find((r) => r.aktual && r.residual);
-      if (firstValid) {
-        setSelectedRiskIds([firstValid.id]);
-      } else {
-        setSelectedRiskIds([processedRisks[0].id]);
-      }
-    }
-  }, [processedRisks, selectedRiskIds]);
-
   const selectedRisks = useMemo(() => {
     return processedRisks.filter((r) => selectedRiskIds.includes(r.id));
   }, [processedRisks, selectedRiskIds]);
@@ -192,7 +176,6 @@ export default function MatriksRisikoPage() {
   const toggleRiskSelection = (id: number) => {
     setSelectedRiskIds((prev) => {
       if (prev.includes(id)) {
-        if (prev.length === 1) return prev;
         return prev.filter((x) => x !== id);
       }
       return [...prev, id];
@@ -815,64 +798,73 @@ export default function MatriksRisikoPage() {
           <Stack gap="md">
             {/* Risk Selection Card */}
             <Card withBorder padding="md" radius="md">
-              <Title order={5} mb="sm">Visualisasi Perpindahan</Title>
+              <Group justify="space-between" align="center" mb="sm">
+                <Title order={5}>Visualisasi Perpindahan</Title>
+                {selectedRiskIds.length > 0 && (
+                  <Button variant="subtle" size="compact-xs" onClick={() => setSelectedRiskIds([])}>
+                    Bersihkan Pilihan
+                  </Button>
+                )}
+              </Group>
               <Text size="xs" c="dimmed" mb="md">
                 Klik baris pada tabel di bawah untuk melihat perpindahan selera risiko di matriks heatmap.
               </Text>
 
               {/* Risk Details Summary */}
               {selectedRisks.length > 0 ? (
-                <Stack gap="sm" style={{ maxHeight: 320, overflowY: "auto" }}>
-                  {selectedRisks.map((risk) => {
-                    const arrow = transitionArrows.find((a) => a.id === risk.id);
-                    const color = arrow?.color || "#e03131";
-                    return (
-                      <Card key={risk.id} withBorder radius="sm" padding="xs" style={{ borderLeft: `4px solid ${color}` }}>
-                        <Stack gap="xs">
-                          <Group justify="space-between">
-                            <Text size="xs" fw={700} style={{ color }}>RISIKO (ID {risk.id})</Text>
-                          </Group>
-                          <Text size="xs" fw={600} lineClamp={2}>{risk.risiko}</Text>
-                          {risk.penyebab && (
-                            <Text size="10px" c="dimmed" lineClamp={1}>Penyebab: {risk.penyebab}</Text>
-                          )}
-                          <Grid gutter="xs">
-                            <Grid.Col span={6}>
-                              <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
-                                <Text size="9px" fw={700} c="dimmed">AKTUAL (A)</Text>
-                                {risk.aktual ? (
-                                  <Group gap={6} mt={2}>
-                                    <Text size="xs" fw={700} c="blue">{risk.aktual.besaran}</Text>
-                                    <Badge color={risk.aktual.warna} size="9px" style={{ fontSize: "8px" }}>
-                                      {risk.aktual.level}
-                                    </Badge>
-                                  </Group>
-                                ) : (
-                                  <Text size="9px" c="dimmed">Belum dianalisis</Text>
-                                )}
-                              </Card>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                              <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
-                                <Text size="9px" fw={700} c="dimmed">RESIDUAL (R)</Text>
-                                {risk.residual ? (
-                                  <Group gap={6} mt={2}>
-                                    <Text size="xs" fw={700} c="green">{risk.residual.besaran}</Text>
-                                    <Badge color={risk.residual.warna} size="9px" style={{ fontSize: "8px" }}>
-                                      {risk.residual.level}
-                                    </Badge>
-                                  </Group>
-                                ) : (
-                                  <Text size="9px" c="dimmed">Belum ditangani</Text>
-                                )}
-                              </Card>
-                            </Grid.Col>
-                          </Grid>
-                        </Stack>
-                      </Card>
-                    );
-                  })}
-                </Stack>
+                <ScrollArea h={320} type="auto" offsetScrollbars>
+                  <Stack gap="sm" pr="xs">
+                    {selectedRisks.map((risk) => {
+                      const arrow = transitionArrows.find((a) => a.id === risk.id);
+                      const color = arrow?.color || "#e03131";
+                      return (
+                        <Card key={risk.id} withBorder radius="sm" padding="xs" style={{ borderLeft: `4px solid ${color}` }}>
+                          <Stack gap="xs">
+                            <Group justify="space-between">
+                              <Text size="xs" fw={700} style={{ color }}>RISIKO (ID {risk.id})</Text>
+                            </Group>
+                            <Text size="xs" fw={600} lineClamp={2}>{risk.risiko}</Text>
+                            {risk.penyebab && (
+                              <Text size="10px" c="dimmed" lineClamp={1}>Penyebab: {risk.penyebab}</Text>
+                            )}
+                            <Grid gutter="xs">
+                              <Grid.Col span={6}>
+                                <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
+                                  <Text size="9px" fw={700} c="dimmed">AKTUAL (A)</Text>
+                                  {risk.aktual ? (
+                                    <Group gap={6} mt={2}>
+                                      <Text size="xs" fw={700} c="blue">{risk.aktual.besaran}</Text>
+                                      <Badge color={risk.aktual.warna} size="9px" style={{ fontSize: "8px" }}>
+                                        {risk.aktual.level}
+                                      </Badge>
+                                    </Group>
+                                  ) : (
+                                    <Text size="9px" c="dimmed">Belum dianalisis</Text>
+                                  )}
+                                </Card>
+                              </Grid.Col>
+                              <Grid.Col span={6}>
+                                <Card withBorder padding="xs" radius="sm" bg="var(--mantine-color-default-hover)" style={{ padding: 6 }}>
+                                  <Text size="9px" fw={700} c="dimmed">RESIDUAL (R)</Text>
+                                  {risk.residual ? (
+                                    <Group gap={6} mt={2}>
+                                      <Text size="xs" fw={700} c="green">{risk.residual.besaran}</Text>
+                                      <Badge color={risk.residual.warna} size="9px" style={{ fontSize: "8px" }}>
+                                        {risk.residual.level}
+                                      </Badge>
+                                    </Group>
+                                  ) : (
+                                    <Text size="9px" c="dimmed">Belum dievaluasi</Text>
+                                  )}
+                                </Card>
+                              </Grid.Col>
+                            </Grid>
+                          </Stack>
+                        </Card>
+                      );
+                    })}
+                  </Stack>
+                </ScrollArea>
               ) : (
                 <Text size="sm" c="dimmed" ta="center">Belum ada risiko dipilih</Text>
               )}
