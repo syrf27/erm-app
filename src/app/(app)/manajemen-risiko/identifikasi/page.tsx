@@ -1492,6 +1492,14 @@ export default function IdentifikasiRisikoPage() {
           >
             Unduh Template
           </Button>
+          <Button
+            component="a"
+            href="/manajemen-risiko/identifikasi-univer"
+            variant="light"
+            color="teal"
+          >
+            Coba Tampilan Univer
+          </Button>
           <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={handleImportExcel}>
             {(props) => (
               <Button
