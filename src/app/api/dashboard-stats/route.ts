@@ -7,23 +7,32 @@ export const dynamic = "force-dynamic";
 // Aggregated statistics for the Enterprise Risk Management dashboard.
 // Computed server-side in a single round-trip for performance.
 // Cached in Redis for 300s (5 min) to reduce DB load.
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const currentYear = new Date().getFullYear();
+    const tahunDari = Number(url.searchParams.get("tahunDari")) || currentYear;
+    const tahunSampai = Number(url.searchParams.get("tahunSampai")) || tahunDari;
+    const yearRange = {
+      gte: Math.min(tahunDari, tahunSampai),
+      lte: Math.max(tahunDari, tahunSampai),
+    };
+    const riskScope = { tahun: yearRange, archivedAt: null };
+    const relatedRiskScope = { identifikasiRisiko: riskScope };
+
     const stats = await getOrSet(
-        "dashboard:stats",
+        `dashboard:stats:${yearRange.gte}:${yearRange.lte}`,
         async () => {
           const [
             levelKemungkinan,
             levelDampak,
             levelRisiko,
             matriks,
-            countIdentifikasi,
+            identifikasiScope,
             countAnalisis,
             countEvaluasi,
             countRencana,
             countKri,
-            countSasaran,
-            countProsesBisnis,
             analisis,
             evaluasi,
             rencana,
@@ -48,15 +57,16 @@ export async function GET() {
                 levelRisikoId: true,
               },
             }),
-            prisma.identifikasiRisiko.count({ where: { archivedAt: null } }),
-            prisma.analisisRisiko.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
-            prisma.evaluasiRisiko.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
-            prisma.rencanaPenanganan.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
-            prisma.kri.count({ where: { identifikasiRisiko: { archivedAt: null } } }),
-            prisma.sasaran.count(),
-            prisma.prosesBisnis.count(),
+            prisma.identifikasiRisiko.findMany({
+              where: riskScope,
+              select: { sasaranId: true, prosesBisnisId: true },
+            }),
+            prisma.analisisRisiko.count({ where: relatedRiskScope }),
+            prisma.evaluasiRisiko.count({ where: relatedRiskScope }),
+            prisma.rencanaPenanganan.count({ where: relatedRiskScope }),
+            prisma.kri.count({ where: relatedRiskScope }),
             prisma.analisisRisiko.findMany({
-              where: { identifikasiRisiko: { archivedAt: null } },
+              where: relatedRiskScope,
               select: {
                 id: true,
                 levelKemungkinanId: true,
@@ -72,14 +82,14 @@ export async function GET() {
               },
             }),
             prisma.evaluasiRisiko.findMany({
-              where: { identifikasiRisiko: { archivedAt: null } },
+              where: relatedRiskScope,
               select: { responRisiko: true },
             }),
             prisma.rencanaPenanganan.findMany({
-              where: { identifikasiRisiko: { archivedAt: null } },
+              where: relatedRiskScope,
             }),
             prisma.kri.findMany({
-              where: { identifikasiRisiko: { archivedAt: null } },
+              where: relatedRiskScope,
               select: {
                 id: true,
                 namaIndikator: true,
@@ -90,6 +100,14 @@ export async function GET() {
               },
             }),
           ]);
+
+          const countIdentifikasi = identifikasiScope.length;
+          const countSasaran = new Set(
+            identifikasiScope.map((item) => item.sasaranId).filter((id) => id != null)
+          ).size;
+          const countProsesBisnis = new Set(
+            identifikasiScope.map((item) => item.prosesBisnisId).filter((id) => id != null)
+          ).size;
 
           // ---- Matrix lookup helpers ----
           const matriksKey = (k: number, d: number) => k + "-" + d;

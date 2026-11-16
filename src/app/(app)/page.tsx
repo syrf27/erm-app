@@ -10,6 +10,7 @@ import {
   IconActivity, IconTargetArrow, IconListCheck, IconArrowDownRight,
   IconArrowUpRight, IconRefresh, IconGauge,
 } from "@tabler/icons-react";
+import { useYear } from "@/lib/year-context";
 
 type Stats = any;
 
@@ -43,6 +44,7 @@ function KpiCard({ icon, label, value, sub, color }: any) {
 }
 
 export default function DashboardPage() {
+  const { tahunDari, tahunSampai } = useYear();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,11 @@ export default function DashboardPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/dashboard-stats");
+      const params = new URLSearchParams({
+        tahunDari: String(tahunDari),
+        tahunSampai: String(tahunSampai),
+      });
+      const res = await fetch(`/api/dashboard-stats?${params.toString()}`);
       if (!res.ok) throw new Error("Gagal memuat statistik (" + res.status + ")");
       setStats(await res.json());
       setError(null);
@@ -61,7 +67,7 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [tahunDari, tahunSampai]);
 
   const maxCat = useMemo(() => Math.max(1, ...((stats?.byCategory ?? []).map((c: any) => c.count))), [stats]);
   const maxType = useMemo(() => Math.max(1, ...((stats?.byType ?? []).map((c: any) => c.count))), [stats]);
@@ -85,6 +91,9 @@ export default function DashboardPage() {
           <Title order={2}>Dashboard Manajemen Risiko</Title>
           <Text c="dimmed" size="sm">
             Ringkasan eksekutif penerapan MR berbasis ISO 31000 / SNI 8615
+          </Text>
+          <Text size="xs" c="blue" mt={4}>
+            Periode risiko: {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`}
           </Text>
         </Box>
         <Badge size="lg" variant="light" leftSection={<IconRefresh size={14} />}>
