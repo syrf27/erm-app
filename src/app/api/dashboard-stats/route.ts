@@ -285,7 +285,12 @@ export async function GET(request: Request) {
             byCategory,
             byType,
             byResponse,
-            inherentVsResidual: { inherentAvg, residualAvg, residualN },
+            inherentVsResidual: {
+              inherentAvg,
+              residualAvg,
+              residualN,
+              rencanaN: rencana.length,
+            },
             kriStatus,
             kriSummary,
             topRisks,

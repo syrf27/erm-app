@@ -79,9 +79,10 @@ export default function DashboardPage() {
 
   const k = stats.kpi;
   // const totalKri = stats.kriSummary.hijau + stats.kriSummary.kuning + stats.kriSummary.merah + stats.kriSummary.belum;
-  const riskReduction = stats.inherentVsResidual.inherentAvg > 0
+  const hasResidualTarget = stats.inherentVsResidual.residualN > 0;
+  const riskReduction = hasResidualTarget && stats.inherentVsResidual.inherentAvg > 0
     ? Math.round((1 - stats.inherentVsResidual.residualAvg / stats.inherentVsResidual.inherentAvg) * 100)
-    : 0;
+    : null;
 
   return (
     <Stack gap="lg">
@@ -183,24 +184,37 @@ export default function DashboardPage() {
           <Paper withBorder radius="md" p="lg" shadow="xs">
             <Group justify="space-between">
               <Box>
-                <Text fw={700}>Inheren vs Residual</Text>
-                <Text size="xs" c="dimmed">Rata-rata besaran risiko {stats.inherentVsResidual.residualN} rencana</Text>
+                <Text fw={700}>Aktual vs Residual Harapan</Text>
+              <Text size="xs" c="dimmed">
+                Target risiko residual harapan: {stats.inherentVsResidual.residualN} dari {stats.inherentVsResidual.rencanaN} rencana sudah diisi
+              </Text>
               </Box>
-              <Badge color={riskReduction >= 0 ? "teal" : "red"} variant="light"
-                leftSection={riskReduction >= 0 ? <IconArrowDownRight size={14} /> : <IconArrowUpRight size={14} />}>
-                {Math.abs(riskReduction)}% {riskReduction >= 0 ? "penurunan" : "kenaikan"}
-              </Badge>
+              {riskReduction === null ? (
+                <Badge color="gray" variant="light">Belum dapat dihitung</Badge>
+              ) : (
+                <Badge color={riskReduction >= 0 ? "teal" : "red"} variant="light"
+                  leftSection={riskReduction >= 0 ? <IconArrowDownRight size={14} /> : <IconArrowUpRight size={14} />}>
+                  {Math.abs(riskReduction)}% {riskReduction >= 0 ? "penurunan" : "kenaikan"}
+                </Badge>
+              )}
             </Group>
             <Group mt="md" grow>
               <Box>
-                <Text size="xs" c="dimmed">Inheren</Text>
+                <Text size="xs" c="dimmed">Aktual</Text>
                 <Text fw={800} fz={26} c="red">{stats.inherentVsResidual.inherentAvg}</Text>
               </Box>
               <Box>
-                <Text size="xs" c="dimmed">Residual</Text>
-                <Text fw={800} fz={26} c="teal">{stats.inherentVsResidual.residualAvg}</Text>
+                <Text size="xs" c="dimmed">Residual Harapan</Text>
+                <Text fw={800} fz={26} c={hasResidualTarget ? "teal" : "dimmed"}>
+                  {hasResidualTarget ? stats.inherentVsResidual.residualAvg : "-"}
+                </Text>
               </Box>
             </Group>
+            {!hasResidualTarget && (
+              <Text size="xs" c="orange" mt="md">
+                Nilai belum tersedia karena belum ada Risiko Residual Harapan yang diisi pada Rencana Penanganan.
+              </Text>
+            )}
           </Paper>
         </Stack>
       </SimpleGrid>
