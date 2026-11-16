@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Button, Group, Loader, Stack, Text, TextInput } from "@mantine/core";
 import { useList } from "@refinedev/core";
 import { notifications } from "@mantine/notifications";
+import { useYear } from "@/lib/year-context";
 import { IconDeviceFloppy, IconSearch } from "@tabler/icons-react";
 import { createUniver, LocaleType } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -31,13 +32,25 @@ const normalizeRow = (row: unknown[] = []) => headers.map((_, index) => String(r
 type SearchMatch = { row: number; column: number };
 
 export function UniverIdentifikasiPoc() {
+  const { tahunDari, tahunSampai } = useYear();
+  return <UniverIdentifikasiSheet key={`${tahunDari}-${tahunSampai}`} tahunDari={tahunDari} tahunSampai={tahunSampai} />;
+}
+
+function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number; tahunSampai: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<any>(null);
   const univerRef = useRef<{ dispose: () => void } | null>(null);
   const savedRowsRef = useRef<string[][]>([]);
   const rowIdsRef = useRef<(number | undefined)[]>([]);
-  const records = useList({ resource: "identifikasi-risiko", pagination: { pageSize: 1000 } });
+  const records = useList({
+    resource: "identifikasi-risiko",
+    pagination: { pageSize: 1000 },
+    filters: [
+      { field: "tahun", operator: "gte", value: tahunDari },
+      { field: "tahun", operator: "lte", value: tahunSampai },
+    ],
+  });
   const sasaran = useList({ resource: "sasaran", pagination: { mode: "off" } });
   const kegiatan = useList({ resource: "kegiatan", pagination: { mode: "off" } });
   const prosesBisnis = useList({ resource: "proses-bisnis", pagination: { mode: "off" } });
@@ -172,14 +185,21 @@ export function UniverIdentifikasiPoc() {
     sheetRef.current = sheet;
     savedRowsRef.current = rows.map(normalizeRow);
     rowIdsRef.current = data.map((item) => item.id);
-    const values = [headers, ...rows, Array(headers.length).fill("")];
+    const values = [headers, ...rows, [...Array(headers.length - 1).fill(""), String(tahunDari)]];
+    // Univer defaults to a larger grid. Show only the filtered records and one draft row.
+    sheet.setRowCount(values.length);
+    sheet.setColumnCount(headers.length);
     sheet.getRange(`A1:K${values.length}`).setValues(values);
-    sheet.getRange("A1:K1").setFontWeight("bold").setBackgroundColor("#e8f1fb"); sheet.getRange(`A1:K${values.length}`).setWrap(true);
-    sheet.setColumnWidths(0, 11, 180); sheet.setColumnWidth(3, 280); sheet.setColumnWidths(8, 2, 220); sheet.setFrozenRows(1);
+    sheet.getRange("A1:K1").setFontWeight("bold").setBackgroundColor("#e8f1fb");
+    sheet.getRange(`A1:K${values.length}`).setWrap(true);
+    [320, 320, 370, 500, 180, 190, 260, 250, 380, 380, 110].forEach((width, index) => sheet.setColumnWidth(index, width));
+    sheet.setRowHeight(0, 40);
+    sheet.setFrozenRows(1);
     const optionLists = [(sasaran.result?.data ?? []).map((x: any) => x.nama), (kegiatan.result?.data ?? []).map((x: any) => x.nama), (prosesBisnis.result?.data ?? []).map((x: any) => x.nama), [], (jenisRisiko.result?.data ?? []).map((x: any) => x.nama), (sumberRisiko.result?.data ?? []).map((x: any) => x.nama), (kategoriRisiko.result?.data ?? []).map((x: any) => x.nama), (areaDampak.result?.data ?? []).map((x: any) => x.nama)];
     dropdownColumns.forEach((column) => { const options = optionLists[column]; if (!options?.length) return; const letter = String.fromCharCode(65 + column); sheet.getRange(`${letter}2:${letter}${values.length}`).setDataValidation(univerAPI.newDataValidation().requireValueInList(options, false, true).setOptions({ showDropDown: true, showErrorMessage: true, error: "Pilih nilai dari daftar." }).build()); });
+    sheet.autoResizeRows(1, values.length - 1);
     setSheetReady(true);
-  }, [loading, rows, sasaran.result?.data, kegiatan.result?.data, prosesBisnis.result?.data, jenisRisiko.result?.data, sumberRisiko.result?.data, kategoriRisiko.result?.data, areaDampak.result?.data]);
+  }, [loading, rows, tahunDari, sasaran.result?.data, kegiatan.result?.data, prosesBisnis.result?.data, jenisRisiko.result?.data, sumberRisiko.result?.data, kategoriRisiko.result?.data, areaDampak.result?.data]);
 
   useEffect(() => () => {
     sheetRef.current = null;
@@ -188,5 +208,5 @@ export function UniverIdentifikasiPoc() {
   }, []);
 
   if (loading) return <Loader />;
-  return <Stack gap="md"><Alert color="blue" title="Univer — Identifikasi Risiko">Cari isi tabel dengan kolom pencarian atau Ctrl/Cmd+F. Hasil pencarian akan ditandai dan tabel berpindah ke sel yang cocok.</Alert><Group justify="space-between" align="end"><TextInput ref={searchInputRef} leftSection={<IconSearch size={16} />} label="Cari di tabel" placeholder="Risiko, kegiatan, kategori..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); nextMatch(event.shiftKey ? -1 : 1); } }} style={{ flex: 1 }} /><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(-1)}>Sebelumnya</Button><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(1)}>Berikutnya</Button><Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan ke Database"}</Button></Group>{search.trim() && <Text size="sm" c="dimmed">{matches.length ? `Hasil ${matchIndex + 1} dari ${matches.length} sel` : "Tidak ada hasil yang cocok"}</Text>}<Box ref={containerRef} style={{ height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} /><Text size="sm" c="dimmed">Dropdown tersedia pada Sasaran, Kegiatan, Proses Bisnis, Jenis Risiko, Sumber Risiko, Kategori, dan Area Dampak.</Text></Stack>;
+  return <Stack gap="md"><Alert color="blue" title="Univer — Identifikasi Risiko">Cari isi tabel dengan kolom pencarian atau Ctrl/Cmd+F. Hasil pencarian akan ditandai dan tabel berpindah ke sel yang cocok.</Alert><Group justify="space-between" align="end"><TextInput ref={searchInputRef} leftSection={<IconSearch size={16} />} label="Cari di tabel" placeholder="Risiko, kegiatan, kategori..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); nextMatch(event.shiftKey ? -1 : 1); } }} style={{ flex: 1 }} /><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(-1)}>Sebelumnya</Button><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(1)}>Berikutnya</Button><Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan ke Database"}</Button></Group><Text size="sm" c="dimmed">Periode risiko {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`} · {data.length} risiko · 1 baris kosong untuk data baru</Text>{search.trim() && <Text size="sm" c="dimmed">{matches.length ? `Hasil ${matchIndex + 1} dari ${matches.length} sel` : "Tidak ada hasil yang cocok"}</Text>}<Box ref={containerRef} style={{ height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} /><Text size="sm" c="dimmed">Dropdown tersedia pada Sasaran, Kegiatan, Proses Bisnis, Jenis Risiko, Sumber Risiko, Kategori, dan Area Dampak.</Text></Stack>;
 }
