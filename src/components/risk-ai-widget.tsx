@@ -6,10 +6,10 @@ export function RiskAiWidget() {
   const pathname = usePathname();
   const router = useRouter();
   const openAssistant = () => {
-    if (pathname === "/manajemen-risiko/identifikasi") {
+    if (pathname === "/manajemen-risiko/risk-register" || pathname === "/manajemen-risiko/identifikasi") {
       window.dispatchEvent(new CustomEvent("open-risk-ai-assistant"));
     } else {
-      router.push("/manajemen-risiko/identifikasi?openAiAssist=1");
+      router.push("/manajemen-risiko/risk-register?openAiAssist=1");
     }
   };
   useEffect(() => {

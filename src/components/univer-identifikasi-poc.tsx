@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Badge, Box, Button, FileButton, Group, Loader, Modal, SegmentedControl, Select, Stack, Switch, Table, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Box, Button, FileButton, Group, Loader, Menu, Modal, SegmentedControl, Select, Stack, Switch, Table, Text, Textarea, TextInput } from "@mantine/core";
 import { useList } from "@refinedev/core";
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
-import { IconArchive, IconDatabase, IconDeviceFloppy, IconDownload, IconPlus, IconSearch, IconSparkles, IconUpload } from "@tabler/icons-react";
+import { IconArchive, IconDatabase, IconDeviceFloppy, IconDots, IconDownload, IconPlus, IconSearch, IconSparkles, IconUpload } from "@tabler/icons-react";
 import { useGetIdentity } from "@refinedev/core";
 import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 import { createUniver, LocaleType } from "@univerjs/presets";
@@ -20,7 +20,7 @@ type RiskRecord = Record<string, any>;
 export type RiskRegisterStage = "identifikasi" | "analisis" | "evaluasi" | "rencana";
 
 const headers = [
-  "Unit Kerja", "Sasaran", "Kegiatan", "Proses Bisnis", "Risiko", "Jenis Risiko", "Sumber Risiko", "Kategori", "Area Dampak", "Penyebab", "Dampak", "Tahun",
+  "Unit Kerja", "Sasaran", "Kegiatan", "Proses Bisnis", "Pernyataan Risiko", "Jenis Risiko", "Sumber Risiko", "Kategori", "Area Dampak", "Penyebab", "Dampak", "Tahun",
   "Aktual: Level Kemungkinan", "Aktual: Level Dampak", "Aktual: Besaran Risiko", "Aktual: Level Risiko", "Pengendalian: Uraian", "Pengendalian: Keefektifan",
   "Residual: Level Kemungkinan", "Residual: Level Dampak", "Residual: Besaran Risiko", "Residual: Level Risiko", "Selera Risiko", "Respon Risiko", "Prioritas Risiko",
   "Harapan: Level Kemungkinan", "Harapan: Level Dampak", "Harapan: Besaran Risiko", "Harapan: Level Risiko", "Rencana Tindak Penanganan", "Jenis Penanganan", "Target Output", "Target Waktu", "Penanggung Jawab",
@@ -260,6 +260,18 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     return () => window.removeEventListener("keydown", onFind, true);
   }, []);
 
+  useEffect(() => {
+    const openAssistant = () => {
+      setView("active");
+      setStage("identifikasi");
+      setAssistSuggestion(null);
+      setAssistOpen(true);
+    };
+    window.addEventListener("open-risk-ai-assistant", openAssistant);
+    if (new URLSearchParams(window.location.search).get("openAiAssist") === "1") openAssistant();
+    return () => window.removeEventListener("open-risk-ai-assistant", openAssistant);
+  }, []);
+
   const nextMatch = (direction: number) => {
     if (!matches.length) return;
     const next = (matchIndex + direction + matches.length) % matches.length;
@@ -430,6 +442,27 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       notifications.show({ title: "Berhasil", message: archiveAction === "archive" ? "Risiko diarsipkan." : archiveAction === "restore" ? "Risiko dipulihkan." : "Risiko dihapus permanen.", color: "green" });
     } catch (error: any) { notifications.show({ title: "Aksi gagal", message: error.message, color: "red" }); }
     finally { setArchiveSubmitting(false); }
+  };
+
+  const archiveSelectedRisk = () => {
+    const selected = sheetRef.current?.getActiveRange()?.getRow();
+    if (selected == null || selected < 1) {
+      notifications.show({ title: "Pilih risiko", message: "Pilih sel pada baris risiko dahulu.", color: "blue" });
+      return;
+    }
+    const id = rowIdsRef.current[selected - 1];
+    if (!id) {
+      const sheet = sheetRef.current;
+      sheet.deleteRows(selected, 1);
+      rowIdsRef.current.splice(selected - 1, 1);
+      analysisIdsRef.current.splice(selected - 1, 1);
+      evaluationIdsRef.current.splice(selected - 1, 1);
+      treatmentIdsRef.current.splice(selected - 1, 1);
+      savedRowsRef.current.splice(selected - 1, 1);
+      notifications.show({ title: "Draf dihapus", message: "Baris baru dibuang.", color: "green" });
+      return;
+    }
+    void openArchive(id, "archive");
   };
 
   const save = async () => {
@@ -605,7 +638,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     sheet.getRange(`S1:Y1`).setBackgroundColor("#fff3e0");
     sheet.getRange(`Z1:${lastColumn}1`).setBackgroundColor("#f3e5f5");
     sheet.getRange(`A1:${lastColumn}${values.length}`).setWrap(true);
-    [220, 300, 300, 320, 480, 170, 170, 220, 220, 380, 380, 100, 220, 200, 160, 180, 420, 190, 220, 200, 170, 180, 150, 190, 140, 230, 210, 170, 180, 460, 180, 320, 170, 260].forEach((width, index) => sheet.setColumnWidth(index, width));
+    [220, 300, 300, 320, 680, 170, 170, 220, 220, 380, 380, 100, 220, 200, 160, 180, 420, 190, 220, 200, 170, 180, 150, 190, 140, 230, 210, 170, 180, 460, 180, 320, 170, 260].forEach((width, index) => sheet.setColumnWidth(index, width));
     sheet.setRowHeight(0, 40);
     sheet.setFrozenRows(1);
     const optionLists: Record<number, string[]> = {
@@ -698,20 +731,31 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   if (loading) return <Loader />;
   const identificationStage = stage === "identifikasi";
   return <Stack gap="md">
-    <Group justify="space-between" align="end"><Box><Text size="xl" fw={700}>{view === "active" ? stageLabels[stage] : "Arsip Risiko"}</Text><Text size="sm" c="dimmed">Satu Risk Register terpadu · Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`} · {data.length} risiko.</Text></Box>{identificationStage && <SegmentedControl value={view} onChange={(value) => { if (hasUnsavedChanges()) { notifications.show({ title: "Perubahan belum disimpan", message: "Simpan perubahan sebelum membuka arsip.", color: "orange" }); return; } setView(value); }} data={[{ value: "active", label: "Risiko Aktif" }, { value: "archived", label: "Arsip" }]} />}</Group>
-    {view === "active" && <Box style={{ position: "sticky", top: 60, zIndex: 10, background: "var(--mantine-color-body)", paddingBlock: 8, borderBottom: "1px solid var(--mantine-color-default-border)" }}><Group gap="xs" wrap="wrap">
-      <SegmentedControl value={stage} onChange={(value) => switchStage(value as RiskRegisterStage)} data={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))} />
-      <Switch checked={fullRegister} onChange={(event) => setFullRegister(event.currentTarget.checked)} label="Full Register" />
-      {identificationStage && <Button variant="light" leftSection={<IconPlus size={16} />} onClick={addRow} disabled={!sheetReady}>Tambah Risiko</Button>}
-      {identificationStage && <Button variant="light" color="gray" onClick={jumpIncomplete} disabled={!sheetReady}>Lanjutkan Data Belum Lengkap</Button>}
-      {identificationStage && <Button variant="light" color="violet" leftSection={<IconSparkles size={16} />} onClick={() => { setAssistSuggestion(null); setAssistOpen(true); }}>Bantu Isi dengan AI</Button>}
-      {identificationStage && <Button variant="light" leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Cari dari Bank Risiko</Button>}
-      {identificationStage && <Button variant="light" color="indigo" leftSection={<IconDownload size={16} />} onClick={downloadTemplate}>Unduh Template</Button>}
-      {identificationStage && <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={importExcel}>{(props) => <Button {...props} variant="light" color="green" leftSection={<IconUpload size={16} />} loading={importing}>Import Excel</Button>}</FileButton>}
-      {identificationStage && canArchive && <Button variant="light" color="orange" leftSection={<IconArchive size={16} />} onClick={() => { const selected = sheetRef.current?.getActiveRange()?.getRow(); if (selected == null || selected < 1) { notifications.show({ title: "Pilih risiko", message: "Pilih sel pada baris risiko dahulu.", color: "blue" }); return; } const id = rowIdsRef.current[selected - 1]; if (!id) { const sheet = sheetRef.current; sheet.deleteRows(selected, 1); rowIdsRef.current.splice(selected - 1, 1); analysisIdsRef.current.splice(selected - 1, 1); evaluationIdsRef.current.splice(selected - 1, 1); treatmentIdsRef.current.splice(selected - 1, 1); savedRowsRef.current.splice(selected - 1, 1); notifications.show({ title: "Draf dihapus", message: "Baris baru dibuang.", color: "green" }); return; } void openArchive(id, "archive"); }}>Arsipkan Risiko</Button>}
-      <Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan Perubahan"}</Button>
-      {dirtyCount > 0 && <Badge color="orange">{dirtyCount} baris belum disimpan</Badge>}
-    </Group><Group mt="xs" gap="xs"><TextInput ref={searchInputRef} leftSection={<IconSearch size={16} />} placeholder="Cari & tandai sel..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); nextMatch(event.shiftKey ? -1 : 1); } }} style={{ flex: 1 }} /><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(-1)}>Sebelumnya</Button><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(1)}>Berikutnya</Button>{search.trim() && <Text size="sm" c="dimmed">{matches.length ? `${matchIndex + 1}/${matches.length}` : "Tidak ada hasil"}</Text>}</Group></Box>}
+    <Group justify="space-between" align="end"><Box><Text size="xl" fw={700}>{view === "active" ? "Register Risiko" : "Arsip Risiko"}</Text><Text size="sm" c="dimmed">{view === "active" ? `Tahap aktif: ${stageLabels[stage]} · ` : ""}Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`} · {data.length} risiko.</Text></Box>{identificationStage && <SegmentedControl value={view} onChange={(value) => { if (hasUnsavedChanges()) { notifications.show({ title: "Perubahan belum disimpan", message: "Simpan perubahan sebelum membuka arsip.", color: "orange" }); return; } setView(value); }} data={[{ value: "active", label: "Risiko Aktif" }, { value: "archived", label: "Arsip" }]} />}</Group>
+    {view === "active" && <Box style={{ position: "sticky", top: 60, zIndex: 10, background: "var(--mantine-color-body)", paddingBlock: 8, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+      <Group justify="space-between" gap="md" wrap="wrap">
+        <Group gap="xs" wrap="wrap"><SegmentedControl value={stage} onChange={(value) => switchStage(value as RiskRegisterStage)} data={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))} /><Switch checked={fullRegister} onChange={(event) => setFullRegister(event.currentTarget.checked)} label="Full Register" /></Group>
+        <Group gap="xs">
+          {identificationStage && <Button variant="light" leftSection={<IconPlus size={16} />} onClick={addRow} disabled={!sheetReady}>Tambah Risiko</Button>}
+          <Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan Perubahan"}</Button>
+          {dirtyCount > 0 && <Badge color="orange">{dirtyCount} belum disimpan</Badge>}
+        </Group>
+      </Group>
+      <Group mt="xs" gap="xs" wrap="nowrap">
+        <TextInput ref={searchInputRef} leftSection={<IconSearch size={16} />} placeholder={`Cari di ${stageLabels[stage]}...`} value={search} onChange={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); nextMatch(event.shiftKey ? -1 : 1); } }} style={{ flex: 1 }} />
+        <Button variant="default" disabled={!matches.length} onClick={() => nextMatch(-1)}>Sebelumnya</Button><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(1)}>Berikutnya</Button>
+        {identificationStage && <Menu shadow="md" width={250} position="bottom-end"><Menu.Target><Button variant="default" leftSection={<IconDots size={16} />}>Fitur Lainnya</Button></Menu.Target><Menu.Dropdown>
+          <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => { setAssistSuggestion(null); setAssistOpen(true); }}>Bantu Isi dengan AI</Menu.Item>
+          <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Cari dari Bank Risiko</Menu.Item>
+          <Menu.Item onClick={jumpIncomplete}>Lanjutkan Data Belum Lengkap</Menu.Item>
+          <Menu.Divider />
+          <Menu.Item leftSection={<IconDownload size={16} />} onClick={downloadTemplate}>Unduh Template</Menu.Item>
+          <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={importExcel}>{(props) => <Menu.Item {...props} leftSection={<IconUpload size={16} />} disabled={importing}>Import Excel</Menu.Item>}</FileButton>
+          {canArchive && <><Menu.Divider /><Menu.Item color="orange" leftSection={<IconArchive size={16} />} onClick={archiveSelectedRisk}>Arsipkan Risiko</Menu.Item></>}
+        </Menu.Dropdown></Menu>}
+        {search.trim() && <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>{matches.length ? `${matchIndex + 1}/${matches.length}` : "Tidak ada hasil"}</Text>}
+      </Group>
+    </Box>}
     <Box ref={containerRef} style={{ display: view === "active" ? "block" : "none", height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} />
     {view === "archived" && <Stack><TextInput placeholder="Cari risiko arsip..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} /><Table striped withTableBorder><Table.Thead><Table.Tr><Table.Th>ID</Table.Th><Table.Th>Risiko</Table.Th><Table.Th>Tahun</Table.Th><Table.Th>Alasan</Table.Th><Table.Th>Aksi</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{(archived.result?.data ?? []).filter((item: any) => String(item.risiko).toLowerCase().includes(search.toLowerCase())).map((item: any) => <Table.Tr key={item.id}><Table.Td>{item.id}</Table.Td><Table.Td>{item.risiko}</Table.Td><Table.Td>{item.tahun}</Table.Td><Table.Td>{item.archiveReason || "-"}</Table.Td><Table.Td><Group gap="xs"><Button size="xs" variant="light" onClick={() => void openArchive(item.id, "restore")}>Pulihkan</Button>{isAdmin && <Button size="xs" color="red" variant="light" onClick={() => void openArchive(item.id, "permanent-delete")}>Hapus Permanen</Button>}</Group></Table.Td></Table.Tr>)}</Table.Tbody></Table></Stack>}
     <Modal opened={bankOpen} onClose={() => setBankOpen(false)} title="Cari dari Bank Risiko" size="xl"><Stack><Group><TextInput value={bankQuery} onChange={(event) => setBankQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchBank(); }} placeholder="Ketik kata kunci risiko..." style={{ flex: 1 }} /><Button loading={bankLoading} onClick={searchBank}>Cari</Button></Group>{bankMethod && <Text size="sm">Metode pencarian: {bankMethod === "semantic" ? "Semantik" : "Teks"}</Text>}{bankResults.map((risk) => <Group key={risk.id} justify="space-between" align="start" p="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}><Box style={{ flex: 1 }}><Text size="sm">{risk.risiko}</Text><Badge size="xs">{risk.kategori_risiko_nama}</Badge></Box><Button size="xs" onClick={() => void importBankRisk(risk)}>Tambahkan</Button></Group>)}</Stack></Modal>

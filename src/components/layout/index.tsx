@@ -42,9 +42,6 @@ import {
   IconFolders,
   IconSettings,
   IconListSearch,
-  IconCalculator,
-  IconScale,
-  IconFileCheck,
   IconHeartRateMonitor,
   IconSun,
   IconMoon,
@@ -111,48 +108,33 @@ const menuItems: MenuItem[] = [
         href: "/manajemen-risiko/penetapan-konteks",
       },
       {
-        label: "Identifikasi Risiko",
+        label: "Register Risiko",
         icon: <IconListSearch size={16} />,
-        href: "/manajemen-risiko/identifikasi",
+        href: "/manajemen-risiko/risk-register",
       },
       {
-        label: "Analisis Risiko",
-        icon: <IconCalculator size={16} />,
-        href: "/manajemen-risiko/analisis",
+        label: "Pemantauan Risiko",
+        icon: <IconActivity size={16} />,
+        href: "/pemantauan-risiko",
+        dataTour: "nav-pemantauan-risiko",
       },
       {
-        label: "Evaluasi Risiko",
-        icon: <IconScale size={16} />,
-        href: "/manajemen-risiko/evaluasi",
+        label: "Pelaporan Risiko",
+        icon: <IconTargetArrow size={16} />,
+        href: "/pelaporan-risiko",
       },
       {
-        label: "Rencana Penanganan",
-        icon: <IconFileCheck size={16} />,
-        href: "/manajemen-risiko/rencana",
+        label: "Matriks Risiko",
+        icon: <IconHeartRateMonitor size={16} />,
+        href: "/manajemen-risiko/matriks-risiko",
+      },
+      {
+        label: "Bank Risiko",
+        icon: <IconDatabase size={16} />,
+        href: "/bank-risiko",
+        dataTour: "nav-bank-risiko",
       },
     ],
-  },
-  {
-    label: "Pemantauan Risiko",
-    icon: <IconActivity size={18} />,
-    href: "/pemantauan-risiko",
-    dataTour: "nav-pemantauan-risiko",
-  },
-  {
-    label: "Pelaporan Risiko",
-    icon: <IconTargetArrow size={18} />,
-    href: "/pelaporan-risiko",
-  },
-  {
-    label: "Matriks Risiko",
-    icon: <IconHeartRateMonitor size={18} />,
-    href: "/manajemen-risiko/matriks-risiko",
-  },
-  {
-    label: "Bank Risiko",
-    icon: <IconDatabase size={18} />,
-    href: "/bank-risiko",
-    dataTour: "nav-bank-risiko",
   },
   {
     label: "Repositori Dokumen",
@@ -601,11 +583,15 @@ function LayoutContent({ children }: PropsWithChildren) {
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const shouldShowBreadcrumb =
     pathname.startsWith("/manajemen-risiko/penetapan-konteks") ||
+    pathname.startsWith("/manajemen-risiko/risk-register") ||
     pathname.startsWith("/manajemen-risiko/identifikasi") ||
     pathname.startsWith("/manajemen-risiko/analisis") ||
     pathname.startsWith("/manajemen-risiko/evaluasi") ||
     pathname.startsWith("/manajemen-risiko/rencana") ||
     pathname.startsWith("/manajemen-risiko/matriks-risiko") ||
+    pathname.startsWith("/pemantauan-risiko") ||
+    pathname.startsWith("/pelaporan-risiko") ||
+    pathname.startsWith("/bank-risiko") ||
     pathname.startsWith("/notification-center") ||
     pathname.startsWith("/users") ||
     pathname.startsWith("/roles");

@@ -210,6 +210,14 @@ export default async function RootLayout({
                       },
                     },
                     {
+                      name: "risk-register",
+                      list: "/manajemen-risiko/risk-register",
+                      meta: {
+                        label: "Register Risiko",
+                        parent: "manajemen-risiko",
+                      },
+                    },
+                    {
                       name: "identifikasi-risiko",
                       list: "/manajemen-risiko/identifikasi",
                       meta: {
@@ -246,12 +254,13 @@ export default async function RootLayout({
                       list: "/manajemen-risiko/matriks-risiko",
                       meta: {
                         label: "Matriks Risiko",
+                        parent: "manajemen-risiko",
                       },
                     },
                     {
                       name: "pemantauan-risiko",
                       list: "/pemantauan-risiko",
-                      meta: { label: "Pemantauan Risiko" },
+                      meta: { label: "Pemantauan Risiko", parent: "manajemen-risiko" },
                     },
                     // {
                     //   name: "kri",
@@ -261,7 +270,12 @@ export default async function RootLayout({
                     {
                       name: "pelaporan-risiko",
                       list: "/pelaporan-risiko",
-                      meta: { label: "Pelaporan Risiko" },
+                      meta: { label: "Pelaporan Risiko", parent: "manajemen-risiko" },
+                    },
+                    {
+                      name: "bank-risiko",
+                      list: "/bank-risiko",
+                      meta: { label: "Bank Risiko", parent: "manajemen-risiko" },
                     },
                     {
                       name: "repositori",
