@@ -119,6 +119,11 @@ const menuItems: MenuItem[] = [
         dataTour: "nav-pemantauan-risiko",
       },
       {
+        label: "Notifikasi & Pengingat",
+        icon: <IconBell size={16} />,
+        href: "/notification-center",
+      },
+      {
         label: "Pelaporan Risiko",
         icon: <IconTargetArrow size={16} />,
         href: "/pelaporan-risiko",
@@ -143,28 +148,23 @@ const menuItems: MenuItem[] = [
     dataTour: "nav-repositori",
   },
   {
-    label: "Audit Log",
-    icon: <IconFileAnalytics size={18} />,
-    href: "/audit-log",
-  },
-  {
-    label: "Manajemen Akses",
+    label: "Administrasi Sistem",
     icon: <IconShieldCheck size={18} />,
     children: [
-      {
-        label: "Pusat Notifikasi",
-        icon: <IconBell size={16} />,
-        href: "/notification-center",
-      },
       {
         label: "Pengguna",
         icon: <IconUsers size={16} />,
         href: "/users",
       },
       {
-        label: "Role Permissions",
+        label: "Role & Hak Akses",
         icon: <IconSettings size={16} />,
         href: "/roles",
+      },
+      {
+        label: "Audit Log",
+        icon: <IconFileAnalytics size={16} />,
+        href: "/audit-log",
       },
     ],
   },
@@ -593,6 +593,7 @@ function LayoutContent({ children }: PropsWithChildren) {
     pathname.startsWith("/pelaporan-risiko") ||
     pathname.startsWith("/bank-risiko") ||
     pathname.startsWith("/notification-center") ||
+    pathname.startsWith("/audit-log") ||
     pathname.startsWith("/users") ||
     pathname.startsWith("/roles");
 

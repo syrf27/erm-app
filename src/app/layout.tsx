@@ -284,14 +284,14 @@ export default async function RootLayout({
                     },
                     {
                       name: "manajemen-akses",
-                      meta: { label: "Manajemen Akses" },
+                      meta: { label: "Administrasi Sistem" },
                     },
                     {
                       name: "notification-center",
                       list: "/notification-center",
                       meta: {
-                        label: "Pusat Notifikasi",
-                        parent: "manajemen-akses",
+                        label: "Notifikasi & Pengingat",
+                        parent: "manajemen-risiko",
                       },
                     },
                     {
@@ -306,7 +306,15 @@ export default async function RootLayout({
                       name: "roles",
                       list: "/roles",
                       meta: {
-                        label: "Role Permissions",
+                        label: "Role & Hak Akses",
+                        parent: "manajemen-akses",
+                      },
+                    },
+                    {
+                      name: "audit-log",
+                      list: "/audit-log",
+                      meta: {
+                        label: "Audit Log",
                         parent: "manajemen-akses",
                       },
                     },

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Badge, Box, Button, FileButton, Group, Loader, Menu, Modal, SegmentedControl, Select, Stack, Switch, Table, Text, Textarea, TextInput } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Box, Button, FileButton, Group, Loader, Menu, Modal, SegmentedControl, Select, Stack, Switch, Table, Text, Textarea, TextInput, Tooltip } from "@mantine/core";
 import { useList } from "@refinedev/core";
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
-import { IconArchive, IconDatabase, IconDeviceFloppy, IconDots, IconDownload, IconPlus, IconSearch, IconSparkles, IconUpload } from "@tabler/icons-react";
+import { IconAdjustments, IconArchive, IconChevronDown, IconChevronUp, IconDatabase, IconDeviceFloppy, IconDownload, IconListCheck, IconPlus, IconSearch, IconSparkles, IconUpload } from "@tabler/icons-react";
 import { useGetIdentity } from "@refinedev/core";
 import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 import { createUniver, LocaleType } from "@univerjs/presets";
@@ -736,24 +736,26 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       <Group justify="space-between" gap="md" wrap="wrap">
         <Group gap="xs" wrap="wrap"><SegmentedControl value={stage} onChange={(value) => switchStage(value as RiskRegisterStage)} data={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))} /><Switch checked={fullRegister} onChange={(event) => setFullRegister(event.currentTarget.checked)} label="Full Register" /></Group>
         <Group gap="xs">
-          {identificationStage && <Button variant="light" leftSection={<IconPlus size={16} />} onClick={addRow} disabled={!sheetReady}>Tambah Risiko</Button>}
+          {identificationStage && <Menu shadow="md" width={270} position="bottom-end"><Menu.Target><Button variant="light" leftSection={<IconPlus size={16} />} rightSection={<IconChevronDown size={14} />} disabled={!sheetReady}>Tambah Risiko</Button></Menu.Target><Menu.Dropdown>
+            <Menu.Label>Pilih cara menambahkan risiko</Menu.Label>
+            <Menu.Item leftSection={<IconPlus size={16} />} onClick={addRow}>Isi Manual</Menu.Item>
+            <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Pilih dari Bank Risiko</Menu.Item>
+            <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => { setAssistSuggestion(null); setAssistOpen(true); }}>Bantu Isi dengan AI</Menu.Item>
+          </Menu.Dropdown></Menu>}
           <Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan Perubahan"}</Button>
           {dirtyCount > 0 && <Badge color="orange">{dirtyCount} belum disimpan</Badge>}
         </Group>
       </Group>
       <Group mt="xs" gap="xs" wrap="nowrap">
         <TextInput ref={searchInputRef} leftSection={<IconSearch size={16} />} placeholder={`Cari di ${stageLabels[stage]}...`} value={search} onChange={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); nextMatch(event.shiftKey ? -1 : 1); } }} style={{ flex: 1 }} />
-        <Button variant="default" disabled={!matches.length} onClick={() => nextMatch(-1)}>Sebelumnya</Button><Button variant="default" disabled={!matches.length} onClick={() => nextMatch(1)}>Berikutnya</Button>
-        {identificationStage && <Menu shadow="md" width={250} position="bottom-end"><Menu.Target><Button variant="default" leftSection={<IconDots size={16} />}>Fitur Lainnya</Button></Menu.Target><Menu.Dropdown>
-          <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => { setAssistSuggestion(null); setAssistOpen(true); }}>Bantu Isi dengan AI</Menu.Item>
-          <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Cari dari Bank Risiko</Menu.Item>
-          <Menu.Item onClick={jumpIncomplete}>Lanjutkan Data Belum Lengkap</Menu.Item>
-          <Menu.Divider />
+        {search.trim() && <Group gap={4} wrap="nowrap"><Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>{matches.length ? `${matchIndex + 1}/${matches.length}` : "Tidak ada hasil"}</Text><Tooltip label="Hasil sebelumnya"><ActionIcon variant="default" size="lg" disabled={!matches.length} onClick={() => nextMatch(-1)} aria-label="Hasil sebelumnya"><IconChevronUp size={18} /></ActionIcon></Tooltip><Tooltip label="Hasil berikutnya"><ActionIcon variant="default" size="lg" disabled={!matches.length} onClick={() => nextMatch(1)} aria-label="Hasil berikutnya"><IconChevronDown size={18} /></ActionIcon></Tooltip></Group>}
+        {identificationStage && <Menu shadow="md" width={260} position="bottom-end"><Menu.Target><Button variant="default" leftSection={<IconAdjustments size={16} />} rightSection={<IconChevronDown size={14} />}>Kelola Data</Button></Menu.Target><Menu.Dropdown>
+          <Menu.Label>Kelengkapan dan pertukaran data</Menu.Label>
+          <Menu.Item leftSection={<IconListCheck size={16} />} onClick={jumpIncomplete}>Lanjutkan Data Belum Lengkap</Menu.Item>
           <Menu.Item leftSection={<IconDownload size={16} />} onClick={downloadTemplate}>Unduh Template</Menu.Item>
           <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={importExcel}>{(props) => <Menu.Item {...props} leftSection={<IconUpload size={16} />} disabled={importing}>Import Excel</Menu.Item>}</FileButton>
-          {canArchive && <><Menu.Divider /><Menu.Item color="orange" leftSection={<IconArchive size={16} />} onClick={archiveSelectedRisk}>Arsipkan Risiko</Menu.Item></>}
+          {canArchive && <><Menu.Divider /><Menu.Label>Pengelolaan risiko</Menu.Label><Menu.Item color="orange" leftSection={<IconArchive size={16} />} onClick={archiveSelectedRisk}>Arsipkan Risiko Terpilih</Menu.Item></>}
         </Menu.Dropdown></Menu>}
-        {search.trim() && <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>{matches.length ? `${matchIndex + 1}/${matches.length}` : "Tidak ada hasil"}</Text>}
       </Group>
     </Box>}
     <Box ref={containerRef} style={{ display: view === "active" ? "block" : "none", height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} />
