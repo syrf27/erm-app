@@ -23,9 +23,13 @@ const label = (value: unknown) => {
   const item = value as Record<string, unknown>;
   return String(item.nama ?? item.name ?? item.label ?? "");
 };
-const relation = (item: RiskRecord, key: string) => item[key] ?? item[`${key}Nama`];
-function toRow(item: RiskRecord) {
-  return [label(relation(item, "sasaran")), label(relation(item, "kegiatan")), label(relation(item, "prosesBisnis")), label(item.risiko), label(relation(item, "jenisRisiko")), label(relation(item, "sumberRisiko")), label(relation(item, "kategoriRisiko")), label(relation(item, "areaDampak")), label(item.penyebab), label(item.dampak), label(item.tahun)];
+function toRow(item: RiskRecord, lists: Record<string, any[]>) {
+  const byId = (key: string, id: unknown) => lists[key]?.find((entry) => entry.id === id);
+  const proses = item.prosesBisnis ?? byId("prosesBisnis", item.prosesBisnisId);
+  const kegiatan = item.kegiatan ?? byId("kegiatan", item.kegiatanId) ?? byId("kegiatan", proses?.kegiatanId);
+  const sasaran = item.sasaran ?? byId("sasaran", item.sasaranId) ?? byId("sasaran", kegiatan?.sasaranId);
+  const related = (key: string, idKey: string) => label(item[key] ?? byId(key, item[idKey]));
+  return [label(sasaran), label(kegiatan), label(proses), label(item.risiko), related("jenisRisiko", "jenisRisikoId"), related("sumberRisiko", "sumberRisikoId"), related("kategoriRisiko", "kategoriRisikoId"), related("areaDampak", "areaDampakId"), label(item.penyebab), label(item.dampak), label(item.tahun)];
 }
 const findByName = (list: any[], name: string) => list.find((item) => item.nama === name);
 const normalizeRow = (row: unknown[] = []) => headers.map((_, index) => String(row[index] ?? "").trim());
@@ -51,13 +55,14 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
       { field: "tahun", operator: "lte", value: tahunSampai },
     ],
   });
-  const sasaran = useList({ resource: "sasaran", pagination: { mode: "off" } });
-  const kegiatan = useList({ resource: "kegiatan", pagination: { mode: "off" } });
-  const prosesBisnis = useList({ resource: "proses-bisnis", pagination: { mode: "off" } });
-  const jenisRisiko = useList({ resource: "jenis-risiko", pagination: { mode: "off" } });
-  const sumberRisiko = useList({ resource: "sumber-risiko", pagination: { mode: "off" } });
-  const kategoriRisiko = useList({ resource: "kategori-risiko", pagination: { mode: "off" } });
-  const areaDampak = useList({ resource: "area-dampak", pagination: { mode: "off" } });
+  // The API defaults to ten records if pagination parameters are omitted.
+  const sasaran = useList({ resource: "sasaran", pagination: { pageSize: 1000 } });
+  const kegiatan = useList({ resource: "kegiatan", pagination: { pageSize: 1000 } });
+  const prosesBisnis = useList({ resource: "proses-bisnis", pagination: { pageSize: 1000 } });
+  const jenisRisiko = useList({ resource: "jenis-risiko", pagination: { pageSize: 1000 } });
+  const sumberRisiko = useList({ resource: "sumber-risiko", pagination: { pageSize: 1000 } });
+  const kategoriRisiko = useList({ resource: "kategori-risiko", pagination: { pageSize: 1000 } });
+  const areaDampak = useList({ resource: "area-dampak", pagination: { pageSize: 1000 } });
   const [search, setSearch] = useState("");
   const [matches, setMatches] = useState<SearchMatch[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
@@ -65,7 +70,11 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
   const [saving, setSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const data = useMemo(() => (records.result?.data ?? []) as RiskRecord[], [records.result?.data]);
-  const rows = useMemo(() => data.map(toRow), [data]);
+  const referenceLists = useMemo(() => ({
+    sasaran: (sasaran.result?.data ?? []) as any[], kegiatan: (kegiatan.result?.data ?? []) as any[], prosesBisnis: (prosesBisnis.result?.data ?? []) as any[],
+    jenisRisiko: (jenisRisiko.result?.data ?? []) as any[], sumberRisiko: (sumberRisiko.result?.data ?? []) as any[], kategoriRisiko: (kategoriRisiko.result?.data ?? []) as any[], areaDampak: (areaDampak.result?.data ?? []) as any[],
+  }), [sasaran.result?.data, kegiatan.result?.data, prosesBisnis.result?.data, jenisRisiko.result?.data, sumberRisiko.result?.data, kategoriRisiko.result?.data, areaDampak.result?.data]);
+  const rows = useMemo(() => data.map((item) => toRow(item, referenceLists)), [data, referenceLists]);
   const loading = records.query?.isPending;
 
   const goToMatch = (match: SearchMatch) => {
@@ -85,8 +94,9 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
     const timer = window.setTimeout(() => {
       const sheet = sheetRef.current;
       if (!sheet) return;
-      const lastRow = Math.max(sheet.getLastRow(), savedRowsRef.current.length + 1);
-      const values = sheet.getRange(`A2:K${lastRow + 1}`).getValues() as unknown[][];
+      const values = sheet.getMaxRows() > 1
+        ? sheet.getRange(`A2:K${sheet.getMaxRows()}`).getValues() as unknown[][]
+        : [];
       const needle = search.trim().toLocaleLowerCase();
       const found: SearchMatch[] = [];
       values.forEach((row, index) => row.forEach((cell, column) => {
@@ -126,13 +136,11 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
     setSaving(true);
     setSaveProgress(0);
     try {
-      const lastRow = Math.max(sheet.getLastRow(), savedRowsRef.current.length + 1);
-      const values = sheet.getRange(`A2:K${lastRow + 1}`).getValues() as unknown[][];
+      const values = sheet.getMaxRows() > 1
+        ? sheet.getRange(`A2:K${sheet.getMaxRows()}`).getValues() as unknown[][]
+        : [];
       const pending: { kind: "create" | "update"; index: number; item: any; row: string[] }[] = [];
-      const lists = {
-        sasaran: (sasaran.result?.data ?? []) as any[], kegiatan: (kegiatan.result?.data ?? []) as any[], prosesBisnis: (prosesBisnis.result?.data ?? []) as any[],
-        jenisRisiko: (jenisRisiko.result?.data ?? []) as any[], sumberRisiko: (sumberRisiko.result?.data ?? []) as any[], kategoriRisiko: (kategoriRisiko.result?.data ?? []) as any[], areaDampak: (areaDampak.result?.data ?? []) as any[],
-      };
+      const lists = referenceLists;
       for (let index = 0; index < values.length; index++) {
         const row = normalizeRow(values[index]);
         const risiko = row[3];
@@ -142,15 +150,18 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
           continue;
         }
         if (id && row.every((value, column) => value === savedRowsRef.current[index]?.[column])) continue;
-        const selectedSasaran = findByName(lists.sasaran, String(row[0] ?? ""));
-        const selectedKegiatan = findByName(lists.kegiatan, String(row[1] ?? ""));
-        const selectedProses = findByName(lists.prosesBisnis, String(row[2] ?? ""));
+        const selectedSasaran = findByName(lists.sasaran, row[0]);
+        const selectedKegiatan = lists.kegiatan.find((item) => item.nama === row[1] && (!selectedSasaran || !item.sasaranId || item.sasaranId === selectedSasaran.id));
+        const selectedProses = lists.prosesBisnis.find((item) => item.nama === row[2] && (!selectedKegiatan || !item.kegiatanId || item.kegiatanId === selectedKegiatan.id));
+        if (row[0] && !selectedSasaran) throw new Error(`Sasaran pada baris ${index + 1} tidak ada dalam daftar pilihan`);
+        if (row[1] && !selectedKegiatan) throw new Error(`Kegiatan pada baris ${index + 1} tidak sesuai dengan Sasaran yang dipilih`);
+        if (row[2] && !selectedProses) throw new Error(`Proses Bisnis pada baris ${index + 1} tidak sesuai dengan Kegiatan yang dipilih`);
         const required: [string, any][] = [["Jenis Risiko", findByName(lists.jenisRisiko, String(row[4] ?? ""))], ["Sumber Risiko", findByName(lists.sumberRisiko, String(row[5] ?? ""))], ["Kategori", findByName(lists.kategoriRisiko, String(row[6] ?? ""))], ["Area Dampak", findByName(lists.areaDampak, String(row[7] ?? ""))]];
         const missing = required.find(([, value]) => !value);
         if (missing) throw new Error(`Kolom ${missing[0]} pada baris ${index + 1} belum valid`);
         const payload = {
           risiko, jenisRisikoId: required[0][1].id, sumberRisikoId: required[1][1].id, kategoriRisikoId: required[2][1].id, areaDampakId: required[3][1].id,
-          ...(selectedSasaran?.id ? { sasaranId: selectedSasaran.id } : {}), ...(selectedKegiatan?.id ? { kegiatanId: selectedKegiatan.id, unitKerjaId: selectedKegiatan.unitKerjaId } : {}), ...(selectedProses?.id ? { prosesBisnisId: selectedProses.id } : {}),
+          ...(selectedSasaran?.id ? { sasaranId: selectedSasaran.id } : {}), ...(selectedKegiatan?.id ? { kegiatanId: selectedKegiatan.id, ...(selectedKegiatan.unitKerjaId ? { unitKerjaId: selectedKegiatan.unitKerjaId } : {}) } : {}), ...(selectedProses?.id ? { prosesBisnisId: selectedProses.id } : {}),
           penyebab: String(row[8] ?? "") || null, dampak: String(row[9] ?? "") || null, tahun: Number(row[10]) || new Date().getFullYear(),
         };
         pending.push({ kind: id ? "update" : "create", index, item: id ? { id, data: payload } : { data: payload }, row });
@@ -160,7 +171,10 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
         const chunk = pending.slice(offset, offset + 25);
         const response = await fetch("/api/identifikasi-risiko/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creates: chunk.filter((entry) => entry.kind === "create").map((entry) => entry.item), updates: chunk.filter((entry) => entry.kind === "update").map((entry) => entry.item) }) });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result?.error ?? "Gagal menyimpan data");
+        if (!response.ok) {
+          const details = Object.entries(result?.details ?? {}).flatMap(([field, messages]) => Array.isArray(messages) ? messages.map((message) => `${field}: ${message}`) : []);
+          throw new Error(details.length ? details.join("; ") : result?.error ?? "Gagal menyimpan data");
+        }
         const created = chunk.filter((entry) => entry.kind === "create");
         if (created.length && (!Array.isArray(result.created) || result.created.length !== created.length || result.created.some((item: any) => !item?.id))) {
           throw new Error("Simpan berhasil tetapi ID baris baru tidak diterima. Muat ulang halaman sebelum menyimpan lagi.");
@@ -195,11 +209,11 @@ function UniverIdentifikasiSheet({ tahunDari, tahunSampai }: { tahunDari: number
     [320, 320, 370, 500, 180, 190, 260, 250, 380, 380, 110].forEach((width, index) => sheet.setColumnWidth(index, width));
     sheet.setRowHeight(0, 40);
     sheet.setFrozenRows(1);
-    const optionLists = [(sasaran.result?.data ?? []).map((x: any) => x.nama), (kegiatan.result?.data ?? []).map((x: any) => x.nama), (prosesBisnis.result?.data ?? []).map((x: any) => x.nama), [], (jenisRisiko.result?.data ?? []).map((x: any) => x.nama), (sumberRisiko.result?.data ?? []).map((x: any) => x.nama), (kategoriRisiko.result?.data ?? []).map((x: any) => x.nama), (areaDampak.result?.data ?? []).map((x: any) => x.nama)];
+    const optionLists = [referenceLists.sasaran.map((x: any) => x.nama), referenceLists.kegiatan.map((x: any) => x.nama), referenceLists.prosesBisnis.map((x: any) => x.nama), [], referenceLists.jenisRisiko.map((x: any) => x.nama), referenceLists.sumberRisiko.map((x: any) => x.nama), referenceLists.kategoriRisiko.map((x: any) => x.nama), referenceLists.areaDampak.map((x: any) => x.nama)];
     dropdownColumns.forEach((column) => { const options = optionLists[column]; if (!options?.length) return; const letter = String.fromCharCode(65 + column); sheet.getRange(`${letter}2:${letter}${values.length}`).setDataValidation(univerAPI.newDataValidation().requireValueInList(options, false, true).setOptions({ showDropDown: true, showErrorMessage: true, error: "Pilih nilai dari daftar." }).build()); });
     sheet.autoResizeRows(1, values.length - 1);
     setSheetReady(true);
-  }, [loading, rows, tahunDari, sasaran.result?.data, kegiatan.result?.data, prosesBisnis.result?.data, jenisRisiko.result?.data, sumberRisiko.result?.data, kategoriRisiko.result?.data, areaDampak.result?.data]);
+  }, [loading, rows, tahunDari, referenceLists, sasaran.query?.isPending, kegiatan.query?.isPending, prosesBisnis.query?.isPending, jenisRisiko.query?.isPending, sumberRisiko.query?.isPending, kategoriRisiko.query?.isPending, areaDampak.query?.isPending]);
 
   useEffect(() => () => {
     sheetRef.current = null;
