@@ -51,8 +51,8 @@ export function UniverIdentifikasiPoc() {
     if (!sheet) return;
     const needle = value.trim().toLowerCase();
     data.forEach((_, index) => {
-      const row = sheet.getRange(`A${index + 2}:K${index + 2}`).getValues()[0] ?? [];
-      const matched = !needle || row.some((cell: unknown) => String(cell ?? "").toLowerCase().includes(needle));
+      const row = rows[index] ?? [];
+      const matched = !needle || row.some((cell) => String(cell ?? "").toLowerCase().includes(needle));
       sheet.setRowHeight(index + 1, matched ? 34 : 0);
     });
   };
