@@ -120,7 +120,7 @@ export default function DashboardPage() {
         <Paper withBorder radius="md" p="lg" shadow="xs" data-tour="tour-heatmap">
           <Group justify="space-between" mb="md">
             <Box>
-              <Text fw={700}>Matrix Risiko (Inheren)</Text>
+              <Text fw={700}>Matrix Risiko Aktual</Text>
               <Text size="xs" c="dimmed">Kemungkinan (vertikal) × Dampak (horizontal)</Text>
             </Box>
             <ThemeIcon variant="light" color="orange" radius="md"><IconGauge size={18} /></ThemeIcon>
