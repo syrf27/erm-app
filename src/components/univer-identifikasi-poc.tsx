@@ -62,7 +62,7 @@ export function UniverIdentifikasiPoc() {
     if (!sheet) return;
     setSaving(true);
     try {
-      const values = sheet.getRange(`A2:K${Math.max(data.length + 1, 2)}`).getValues() as unknown[][];
+      const values = sheet.getRange(`A2:K${Math.max(data.length + 2, 2)}`).getValues() as unknown[][];
       const creates: any[] = [], updates: any[] = [];
       const lists = {
         sasaran: (sasaran.result?.data ?? []) as any[], kegiatan: (kegiatan.result?.data ?? []) as any[], prosesBisnis: (prosesBisnis.result?.data ?? []) as any[],
@@ -87,8 +87,12 @@ export function UniverIdentifikasiPoc() {
         if (data[index]?.id) updates.push({ id: data[index].id, data: payload }); else creates.push({ data: payload });
       }
       if (!creates.length && !updates.length) { notifications.show({ title: "Tidak ada data", message: "Tidak ada baris yang perlu disimpan", color: "orange" }); return; }
-      const response = await fetch("/api/identifikasi-risiko/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creates, updates }) });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.error ?? "Gagal menyimpan data");
+      const pending = [...creates.map((item) => ({ kind: "create", item })), ...updates.map((item) => ({ kind: "update", item }))];
+      for (let offset = 0; offset < pending.length; offset += 100) {
+        const chunk = pending.slice(offset, offset + 100);
+        const response = await fetch("/api/identifikasi-risiko/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creates: chunk.filter((entry) => entry.kind === "create").map((entry) => entry.item), updates: chunk.filter((entry) => entry.kind === "update").map((entry) => entry.item) }) });
+        if (!response.ok) throw new Error((await response.json().catch(() => ({})))?.error ?? "Gagal menyimpan data");
+      }
       notifications.show({ title: "Tersimpan", message: "Data Univer berhasil disimpan ke database", color: "green" });
       await records.query?.refetch?.();
     } catch (error: any) { notifications.show({ title: "Gagal menyimpan", message: error?.message ?? "Periksa kembali data", color: "red" }); } finally { setSaving(false); }
