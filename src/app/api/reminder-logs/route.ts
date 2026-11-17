@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -9,12 +9,19 @@ export async function GET(request: NextRequest) {
     if (!(await checkPermission("rencana-penanganan", "read", { ipAddress, userAgent }))) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const searchParams = request.nextUrl.searchParams;
     const rtpId = Number(searchParams.get("rtpId"));
     const take = Math.min(Math.max(Number(searchParams.get("limit")) || 100, 1), 500);
     const logs = await prisma.reminderLog.findMany({
-      where: Number.isInteger(rtpId) && rtpId > 0 ? { rencanaPenangananId: rtpId } : undefined,
+      where: {
+        ...(Number.isInteger(rtpId) && rtpId > 0 ? { rencanaPenangananId: rtpId } : {}),
+        ...(!isAdminRole(authContext.roleName)
+          ? { rencanaPenanganan: { is: { identifikasiRisiko: { is: { teamId: { in: authContext.teamIds } } } } } }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take,
       include: {

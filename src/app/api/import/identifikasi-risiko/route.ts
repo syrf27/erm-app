@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-control";
 import { logAudit } from "@/lib/audit-log";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import { invalidateResourceCache } from "@/lib/cache";
@@ -168,6 +168,14 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    if (!isAdminRole(authContext.roleName) && authContext.teamIds.length !== 1) {
+      return NextResponse.json(
+        { error: "Akun harus memiliki tepat satu Tim Kerja sebelum mengimpor Register Risiko." },
+        { status: 403 }
+      );
+    }
 
     // ---------- reference data ----------
     const [
@@ -273,6 +281,7 @@ export async function POST(request: NextRequest) {
               prosesBisnisId: prosesBisnis?.id ?? null,
               unitKerjaId: kegiatan?.unitKerjaId ?? null,
               tahun: defaultTahun,
+              ...(!isAdminRole(authContext.roleName) ? { teamId: authContext.teamIds[0] } : {}),
             };
             const parsed = createIdentifikasiRisikoSchema.safeParse(stripNulls(payload));
             if (!parsed.success) {
@@ -290,6 +299,9 @@ export async function POST(request: NextRequest) {
             });
             if (!existing) {
               throw new Error(`ID Sistem ${row.idSistem} tidak ditemukan`);
+            }
+            if (!isAdminRole(authContext.roleName) && !authContext.teamIds.includes(existing.teamId ?? -1)) {
+              throw new Error(`ID Sistem ${row.idSistem} berada di luar Tim Kerja Anda`);
             }
             if (existing.archivedAt) {
               throw new Error(

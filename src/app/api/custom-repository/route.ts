@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-control";
 import { generateEmbedding } from "@/lib/embedding";
 import { REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
@@ -194,7 +194,8 @@ async function canUseDocumentSemanticSearch() {
 async function findDocumentsBySemanticSearch(
   search: string,
   tahunVal: string | null,
-  category: string
+  category: string,
+  teamIds: number[] | null
 ): Promise<UnifiedRepositoryDocument[]> {
   const queryEmbedding = await generateEmbedding(search, "query");
   const queryVector = `[${queryEmbedding.join(",")}]`;
@@ -215,6 +216,11 @@ async function findDocumentsBySemanticSearch(
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const riskTeamClause = teamIds === null
+    ? ""
+    : teamIds.length
+      ? `AND ir."teamId" IN (${teamIds.map((id) => Number(id)).join(",")})`
+      : "AND 1 = 0";
 
   return prisma.$queryRawUnsafe<UnifiedRepositoryDocument[]>(
     `
@@ -256,6 +262,7 @@ async function findDocumentsBySemanticSearch(
           ON de.document_type = 'bukti'
           AND de.document_id = d.id
         WHERE ir."archivedAt" IS NULL
+          ${riskTeamClause}
       ) docs
       ${whereClause}
       ORDER BY similarity DESC, "createdAt" DESC
@@ -275,6 +282,9 @@ export async function GET(request: NextRequest) {
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    const teamIds = isAdminRole(authContext.roleName) ? null : authContext.teamIds;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.toLowerCase() || "";
@@ -288,7 +298,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       try {
         if (await canUseDocumentSemanticSearch()) {
-          const semanticDocs = await findDocumentsBySemanticSearch(search, tahunVal, category);
+          const semanticDocs = await findDocumentsBySemanticSearch(search, tahunVal, category, teamIds);
           if (semanticDocs.length > 0) {
             searchMethod = "semantic";
             return NextResponse.json(
@@ -317,6 +327,7 @@ export async function GET(request: NextRequest) {
       where: {
         rencanaPenanganan: {
           identifikasiRisiko: { archivedAt: null },
+          ...(teamIds === null ? {} : { identifikasiRisiko: { archivedAt: null, teamId: { in: teamIds } } }),
         },
       },
       include: {

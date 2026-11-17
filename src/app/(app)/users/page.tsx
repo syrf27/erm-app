@@ -24,7 +24,6 @@ import {
   PasswordInput,
   SegmentedControl,
   ScrollArea,
-  MultiSelect,
 } from "@mantine/core";
 import { IconSearch, IconPlus, IconPencil, IconTrash, IconLock, IconShield } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
@@ -445,7 +444,7 @@ export default function UserManagementPage() {
                       <Table.Th>Nama</Table.Th>
                       <Table.Th>Email</Table.Th>
                       <Table.Th style={{ width: 120, textAlign: "center" }}>Role</Table.Th>
-                      <Table.Th>Unit Kerja / Tim</Table.Th>
+                      <Table.Th>Tim Kerja</Table.Th>
                       <Table.Th style={{ width: 180 }}>Dibuat Pada</Table.Th>
                       <Table.Th style={{ width: 140, textAlign: "center" }}>Aksi</Table.Th>
                     </Table.Tr>
@@ -470,14 +469,12 @@ export default function UserManagementPage() {
                           </Table.Td>
                           <Table.Td>
                             <Group gap="xs">
-                              {user.teams && user.teams.length > 0 ? (
-                                user.teams.map((ut) => (
-                                  <Badge key={ut.team.id} color="cyan" variant="outline" size="sm">
-                                    {ut.team.nama}
-                                  </Badge>
-                                ))
+                              {user.teams?.[0] ? (
+                                <Badge color="cyan" variant="outline" size="sm">
+                                  {user.teams[0].team.nama}
+                                </Badge>
                               ) : (
-                                <Text size="xs" c="dimmed">-</Text>
+                                <Badge color="orange" variant="light" size="sm">Belum ditetapkan</Badge>
                               )}
                             </Group>
                           </Table.Td>
@@ -550,12 +547,13 @@ export default function UserManagementPage() {
             value={roleId}
             onChange={(val) => setRoleId(val ?? "0")}
           />
-          <MultiSelect
-            label="Unit Kerja / Tim"
-            placeholder="Pilih satu atau beberapa tim"
+          <Select
+            label="Tim Kerja"
+            placeholder="Belum ditetapkan"
+            description="Pengguna non-admin tanpa Tim Kerja tidak dapat mengakses Register Risiko."
             data={dbTeams.map((t) => ({ value: t.id.toString(), label: t.nama }))}
-            value={teamIds}
-            onChange={setTeamIds}
+            value={teamIds[0] ?? null}
+            onChange={(value) => setTeamIds(value ? [value] : [])}
             searchable
             clearable
           />
@@ -606,12 +604,13 @@ export default function UserManagementPage() {
             onChange={(val) => setRoleId(val ?? "0")}
             disabled={selectedUser?.email === identity?.email}
           />
-          <MultiSelect
-            label="Unit Kerja / Tim"
-            placeholder="Pilih satu atau beberapa tim"
+          <Select
+            label="Tim Kerja"
+            placeholder="Belum ditetapkan"
+            description="Pengguna non-admin tanpa Tim Kerja tidak dapat mengakses Register Risiko."
             data={dbTeams.map((t) => ({ value: t.id.toString(), label: t.nama }))}
-            value={teamIds}
-            onChange={setTeamIds}
+            value={teamIds[0] ?? null}
+            onChange={(value) => setTeamIds(value ? [value] : [])}
             searchable
             clearable
           />

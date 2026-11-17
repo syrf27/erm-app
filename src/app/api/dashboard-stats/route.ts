@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
+import { getAuthUserContext, isAdminRole } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 // Cached in Redis for 300s (5 min) to reduce DB load.
 export async function GET(request: Request) {
   try {
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
     const url = new URL(request.url);
     const currentYear = new Date().getFullYear();
     const tahunDari = Number(url.searchParams.get("tahunDari")) || currentYear;
@@ -17,11 +20,12 @@ export async function GET(request: Request) {
       gte: Math.min(tahunDari, tahunSampai),
       lte: Math.max(tahunDari, tahunSampai),
     };
-    const riskScope = { tahun: yearRange, archivedAt: null };
+    const teamScope = isAdminRole(authContext.roleName) ? {} : { teamId: { in: authContext.teamIds } };
+    const riskScope = { tahun: yearRange, archivedAt: null, ...teamScope };
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
-        `dashboard:stats:${yearRange.gte}:${yearRange.lte}`,
+        `dashboard:stats:${yearRange.gte}:${yearRange.lte}:${isAdminRole(authContext.roleName) ? "admin" : authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team"}`,
         async () => {
           const [
             levelKemungkinan,

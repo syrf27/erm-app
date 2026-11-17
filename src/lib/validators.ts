@@ -62,6 +62,7 @@ export const createIdentifikasiRisikoSchema = z.object({
   kegiatanId: optionalPositiveInt,
   prosesBisnisId: optionalPositiveInt,
   unitKerjaId: optionalPositiveInt,
+  teamId: optionalPositiveInt,
   tahun: z.number().int().min(2020).max(2030).default(new Date().getFullYear()),
 });
 
@@ -273,7 +274,7 @@ export const createUserSchema = z.object({
   whatsappNumber: z.string().regex(/^\+?[1-9]\d{7,14}$/, "Nomor WhatsApp harus menggunakan format internasional").optional().nullable(),
   password: z.string().min(8, "Password minimal 8 karakter").max(100),
   roleId: positiveInt,
-  teamIds: z.array(z.number()).optional(),
+  teamIds: z.array(z.number()).max(1, "Setiap pengguna hanya dapat memiliki satu Tim Kerja").optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -282,7 +283,7 @@ export const updateUserSchema = z.object({
   whatsappNumber: z.string().regex(/^\+?[1-9]\d{7,14}$/, "Nomor WhatsApp harus menggunakan format internasional").optional().nullable(),
   roleId: optionalPositiveInt,
   password: z.string().min(8, "Password minimal 8 karakter").max(100).optional(),
-  teamIds: z.array(z.number()).optional(),
+  teamIds: z.array(z.number()).max(1, "Setiap pengguna hanya dapat memiliki satu Tim Kerja").optional(),
   permissions: z.array(z.object({
     permissionId: z.number(),
     value: z.string(),

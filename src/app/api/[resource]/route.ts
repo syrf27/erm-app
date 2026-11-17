@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resourceMap, includeMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
-import { checkPermission } from "@/lib/access-control";
+import { canAccessRiskIds, checkPermission, getAuthUserContext, isAdminRole, mergeRiskTeamWhere } from "@/lib/access-control";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import {
   getOrSet,
@@ -73,9 +73,11 @@ export async function GET(
       if (!isAllowed) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 });
       }
+      const authContext = await getAuthUserContext();
+      if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
       const risks = await prisma.identifikasiRisiko.findMany({
-        where: { archivedAt: null },
+        where: mergeRiskTeamWhere("identifikasi-risiko", { archivedAt: null }, authContext),
         orderBy: { id: "asc" },
         select: {
           id: true,
@@ -113,6 +115,8 @@ export async function GET(
       if (!isAllowed) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 });
       }
+      const authContext = await getAuthUserContext();
+      if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
       const { searchParams } = new URL(request.url);
       const tahunDari = parseInt(searchParams.get("tahunDari") || "0", 10);
@@ -120,13 +124,13 @@ export async function GET(
 
       const [allRisksForYear, matriks] = await Promise.all([
         prisma.identifikasiRisiko.findMany({
-        where: {
+        where: mergeRiskTeamWhere("identifikasi-risiko", {
           tahun: {
             gte: tahunDari,
             lte: tahunSampai,
           },
           archivedAt: null,
-        },
+        }, authContext),
         include: {
           analisisRisiko: {
             include: {
@@ -204,6 +208,8 @@ export async function GET(
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
     const { searchParams } = new URL(request.url);
 
     const ids = searchParams.getAll("id");
@@ -228,7 +234,7 @@ export async function GET(
         idWhere.identifikasiRisiko = { is: { archivedAt: null } };
       }
       const data = await delegate.findMany({
-        where: idWhere,
+        where: mergeRiskTeamWhere(resource, idWhere, authContext),
       });
       return NextResponse.json(data, { headers: getCacheHeaders() });
     }
@@ -307,8 +313,9 @@ export async function GET(
     const shouldSkipExactCount =
       searchParams.get("_skipCount") === "true" || take >= 1000;
 
+    const scopedWhere = mergeRiskTeamWhere(resource, where, authContext);
     const data = await delegate.findMany({
-      where,
+      where: scopedWhere,
       skip: _start,
       take,
       orderBy: { [_sort]: _order },
@@ -317,7 +324,7 @@ export async function GET(
 
     const total = shouldSkipExactCount
       ? _start + data.length
-      : await delegate.count({ where });
+      : await delegate.count({ where: scopedWhere });
 
     return NextResponse.json(data, {
       headers: {
@@ -359,6 +366,8 @@ export async function POST(
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     // Validate input with Zod
     const body = await request.json();
@@ -463,6 +472,29 @@ export async function POST(
         );
       }
       throw error;
+    }
+
+    if (resource === "identifikasi-risiko" && !isAdminRole(authContext.roleName)) {
+      if (authContext.teamIds.length === 0) {
+        return NextResponse.json({ error: "Akun belum memiliki Tim Kerja. Hubungi administrator." }, { status: 403 });
+      }
+      const requestedTeamId = Number(validatedData.teamId);
+      if (requestedTeamId && !authContext.teamIds.includes(requestedTeamId)) {
+        return NextResponse.json({ error: "Tim Kerja tidak sesuai dengan akun." }, { status: 403 });
+      }
+      if (!requestedTeamId && authContext.teamIds.length > 1) {
+        return NextResponse.json({ error: "Pilih Tim Kerja untuk risiko ini." }, { status: 400 });
+      }
+      validatedData.teamId = requestedTeamId || authContext.teamIds[0];
+    }
+    if (RISK_LINKED_RESOURCES.has(resource)) {
+      const riskId = Number(validatedData?.identifikasiRisikoId);
+      if (!await canAccessRiskIds(authContext, [riskId])) {
+        return NextResponse.json({ error: "Risiko berada di luar Tim Kerja Anda." }, { status: 403 });
+      }
+    }
+    if (resource === "users" && validatedData.teamIds?.length && !isAdminRole(authContext.roleName)) {
+      return NextResponse.json({ error: "Hanya Admin yang dapat menetapkan Tim Kerja pengguna." }, { status: 403 });
     }
 
     if (

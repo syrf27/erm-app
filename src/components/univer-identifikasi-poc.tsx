@@ -5,7 +5,7 @@ import { ActionIcon, Alert, Badge, Box, Button, FileButton, Group, Loader, Menu,
 import { useList } from "@refinedev/core";
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
-import { IconAdjustments, IconArchive, IconChevronDown, IconChevronUp, IconDatabase, IconDeviceFloppy, IconDownload, IconListCheck, IconPlus, IconSearch, IconSparkles, IconUpload } from "@tabler/icons-react";
+import { IconAdjustments, IconArchive, IconChevronDown, IconChevronUp, IconDatabase, IconDeviceFloppy, IconDownload, IconListCheck, IconPlus, IconSearch, IconSparkles, IconUpload, IconUsersGroup } from "@tabler/icons-react";
 import { useGetIdentity } from "@refinedev/core";
 import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 import { createUniver, LocaleType } from "@univerjs/presets";
@@ -170,6 +170,10 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const [archiveReason, setArchiveReason] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState("");
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [teamAssignOpen, setTeamAssignOpen] = useState(false);
+  const [teamAssignRiskIds, setTeamAssignRiskIds] = useState<number[]>([]);
+  const [teamAssignId, setTeamAssignId] = useState<string | null>(null);
+  const [teamAssigning, setTeamAssigning] = useState(false);
   const { data: identity } = useGetIdentity<any>();
   const canArchive = hasClientPermission(identity, "identifikasi-risiko:delete");
   const isAdmin = isAdminIdentity(identity);
@@ -465,6 +469,60 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     void openArchive(id, "archive");
   };
 
+  const openTeamAssignment = () => {
+    const range = sheetRef.current?.getActiveRange?.();
+    const startRow = Number(range?.getRow?.());
+    const rowCount = Math.max(1, Number(range?.getRowCount?.()) || 1);
+    if (!Number.isInteger(startRow) || startRow < 1) {
+      notifications.show({ title: "Pilih risiko", message: "Pilih satu atau beberapa baris risiko terlebih dahulu.", color: "blue" });
+      return;
+    }
+    const ids = Array.from(
+      new Set(
+        rowIdsRef.current
+          .slice(startRow - 1, startRow - 1 + rowCount)
+          .filter((id): id is number => Number.isInteger(id) && Number(id) > 0)
+      )
+    );
+    if (!ids.length) {
+      notifications.show({ title: "Belum dapat ditetapkan", message: "Simpan baris risiko baru sebelum menetapkan Tim Kerja.", color: "orange" });
+      return;
+    }
+    const currentTeams = new Set(
+      ids.map((id) => data.find((item) => item.id === id)?.teamId).filter(Boolean)
+    );
+    setTeamAssignRiskIds(ids);
+    setTeamAssignId(currentTeams.size === 1 ? String(Array.from(currentTeams)[0]) : null);
+    setTeamAssignOpen(true);
+  };
+
+  const submitTeamAssignment = async () => {
+    if (!teamAssignId || !teamAssignRiskIds.length) return;
+    setTeamAssigning(true);
+    try {
+      for (let offset = 0; offset < teamAssignRiskIds.length; offset += 20) {
+        const chunk = teamAssignRiskIds.slice(offset, offset + 20);
+        const responses = await Promise.all(chunk.map((id) => fetch(`/api/identifikasi-risiko/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId: Number(teamAssignId) }),
+        })));
+        const failed = responses.find((response) => !response.ok);
+        if (failed) {
+          const result = await failed.json().catch(() => ({}));
+          throw new Error(result.error || "Gagal menetapkan Tim Kerja");
+        }
+      }
+      setTeamAssignOpen(false);
+      await refresh();
+      notifications.show({ title: "Tim Kerja ditetapkan", message: `${teamAssignRiskIds.length} risiko berhasil diperbarui.`, color: "green" });
+    } catch (error: any) {
+      notifications.show({ title: "Gagal menetapkan Tim Kerja", message: error.message, color: "red" });
+    } finally {
+      setTeamAssigning(false);
+    }
+  };
+
   const save = async () => {
     const sheet = sheetRef.current;
     if (!sheet) return;
@@ -754,6 +812,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
           <Menu.Item leftSection={<IconListCheck size={16} />} onClick={jumpIncomplete}>Lanjutkan Data Belum Lengkap</Menu.Item>
           <Menu.Item leftSection={<IconDownload size={16} />} onClick={downloadTemplate}>Unduh Template</Menu.Item>
           <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={importExcel}>{(props) => <Menu.Item {...props} leftSection={<IconUpload size={16} />} disabled={importing}>Import Excel</Menu.Item>}</FileButton>
+          {isAdmin && <><Menu.Divider /><Menu.Label>Administrasi Tim Kerja</Menu.Label><Menu.Item leftSection={<IconUsersGroup size={16} />} onClick={openTeamAssignment}>Tetapkan Tim pada Risiko Terpilih</Menu.Item></>}
           {canArchive && <><Menu.Divider /><Menu.Label>Pengelolaan risiko</Menu.Label><Menu.Item color="orange" leftSection={<IconArchive size={16} />} onClick={archiveSelectedRisk}>Arsipkan Risiko Terpilih</Menu.Item></>}
         </Menu.Dropdown></Menu>}
       </Group>
@@ -763,6 +822,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     <Modal opened={bankOpen} onClose={() => setBankOpen(false)} title="Cari dari Bank Risiko" size="xl"><Stack><Group><TextInput value={bankQuery} onChange={(event) => setBankQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchBank(); }} placeholder="Ketik kata kunci risiko..." style={{ flex: 1 }} /><Button loading={bankLoading} onClick={searchBank}>Cari</Button></Group>{bankMethod && <Text size="sm">Metode pencarian: {bankMethod === "semantic" ? "Semantik" : "Teks"}</Text>}{bankResults.map((risk) => <Group key={risk.id} justify="space-between" align="start" p="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}><Box style={{ flex: 1 }}><Text size="sm">{risk.risiko}</Text><Badge size="xs">{risk.kategori_risiko_nama}</Badge></Box><Button size="xs" onClick={() => void importBankRisk(risk)}>Tambahkan</Button></Group>)}</Stack></Modal>
     <Modal opened={assistOpen} onClose={() => setAssistOpen(false)} title="Bantu Isi dengan AI" size="lg"><Stack><Textarea label="Ceritakan kondisi atau risiko" minRows={4} value={assistDescription} onChange={(event) => setAssistDescription(event.currentTarget.value)} /><Button loading={assistLoading} onClick={suggestRisk}>Buat Saran</Button>{assistSuggestion && <><Text fw={600}>{assistSuggestion.risiko}</Text><Text size="sm">Penyebab: {assistSuggestion.penyebab || "-"}</Text><Text size="sm">Dampak: {assistSuggestion.dampak || "-"}</Text><Button color="violet" onClick={applySuggestion}>Terapkan ke Baris Baru</Button><Select label="Level Kemungkinan Aktual" data={(levelKemungkinan.result?.data ?? []).map((item: any) => item.nama)} value={assistLikelihood} onChange={(value) => setAssistLikelihood(value || "")} /><Select label="Level Dampak Aktual" data={(levelDampak.result?.data ?? []).map((item: any) => item.nama)} value={assistImpact} onChange={(value) => setAssistImpact(value || "")} /><Textarea label="Pengendalian yang pernah dilakukan" value={assistControl} onChange={(event) => setAssistControl(event.currentTarget.value)} /><Select label="Efektivitas Pengendalian" clearable data={[{ value: "efektif", label: "Efektif" }, { value: "cukup_efektif", label: "Cukup Efektif" }, { value: "kurang_efektif", label: "Kurang Efektif" }, { value: "tidak_efektif", label: "Tidak Efektif" }]} value={assistEffectiveness} onChange={setAssistEffectiveness} /><Select label="Respons Risiko" data={[{ value: "mengurangi", label: "Mengurangi" }, { value: "menerima", label: "Menerima" }, { value: "menghindari", label: "Menghindari" }, { value: "mentransfer", label: "Mentransfer" }]} value={assistResponse} onChange={(value) => setAssistResponse(value || "mengurangi")} /><Button color="green" loading={assistWorkflowLoading} onClick={createThroughEvaluation}>Simpan sampai Evaluasi</Button></>}</Stack></Modal>
     <Modal opened={archiveOpen} onClose={() => setArchiveOpen(false)} title={archiveAction === "archive" ? "Arsipkan Risiko" : archiveAction === "restore" ? "Pulihkan Risiko" : "Hapus Risiko Permanen"}><Stack><Alert color={archiveAction === "permanent-delete" ? "red" : "orange"}>{archiveAction === "permanent-delete" ? "Risiko dan seluruh data terkait akan dihapus permanen." : "Data terkait tetap tersimpan dan dapat dipulihkan."}</Alert><Text fw={600}>#{archiveItem?.id} · {archiveItem?.risiko}</Text>{archiveItem && <Group><Badge>Analisis: {archiveItem.hasAnalisis ? "Ada" : "Tidak"}</Badge><Badge>Evaluasi: {archiveItem.hasEvaluasi ? "Ada" : "Tidak"}</Badge><Badge>Rencana: {archiveItem.hasRencana ? "Ada" : "Tidak"}</Badge><Badge>{archiveItem.dokumenCount} dokumen</Badge></Group>}{archiveAction !== "restore" && <Textarea label="Alasan" required value={archiveReason} onChange={(event) => setArchiveReason(event.currentTarget.value)} />}{archiveAction === "permanent-delete" && <TextInput label={`Ketik ID ${archiveItem?.id} untuk konfirmasi`} value={archiveConfirm} onChange={(event) => setArchiveConfirm(event.currentTarget.value)} />}<Button color={archiveAction === "permanent-delete" ? "red" : "blue"} loading={archiveSubmitting} disabled={(archiveAction !== "restore" && !archiveReason.trim()) || (archiveAction === "permanent-delete" && archiveConfirm !== String(archiveItem?.id))} onClick={submitArchive}>Konfirmasi</Button></Stack></Modal>
+    <Modal opened={teamAssignOpen} onClose={() => setTeamAssignOpen(false)} title="Tetapkan Tim Kerja"><Stack><Alert color="blue">Risiko hanya dapat diakses oleh anggota Tim Kerja yang dipilih. Admin tetap dapat mengakses seluruh risiko.</Alert><Text size="sm">Risiko terpilih: <b>{teamAssignRiskIds.length}</b></Text><Select label="Tim Kerja" placeholder="Pilih Tim Kerja" searchable data={referenceLists.teams.map((team) => ({ value: String(team.id), label: team.nama }))} value={teamAssignId} onChange={setTeamAssignId} /><Group justify="flex-end"><Button variant="default" onClick={() => setTeamAssignOpen(false)}>Batal</Button><Button loading={teamAssigning} disabled={!teamAssignId} onClick={submitTeamAssignment}>Tetapkan Tim</Button></Group></Stack></Modal>
     <Modal opened={Boolean(importResult)} onClose={() => setImportResult(null)} title="Hasil Import Excel"><Stack><Text>{importResult?.created ?? 0} dibuat · {importResult?.updated ?? 0} diperbarui · {importResult?.failed ?? 0} gagal</Text>{importResult?.details?.filter((item: any) => item.error).map((item: any, index: number) => <Text size="sm" key={index}>Baris {item.row}: {item.error}</Text>)}</Stack></Modal>
   </Stack>;
 }

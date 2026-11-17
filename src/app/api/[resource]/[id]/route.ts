@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resourceMap } from "@/lib/resource-map";
 import { logAudit } from "@/lib/audit-log";
 import { cookies } from "next/headers";
-import { checkPermission, checkRecordPermission, getUserPermissions, canGrantPermissions } from "@/lib/access-control";
+import { canAccessRiskIds, checkPermission, checkRecordPermission, getAuthUserContext, getUserPermissions, canGrantPermissions, isAdminRole } from "@/lib/access-control";
 import { deleteDocumentEmbedding, generateAndStoreEmbedding } from "@/lib/embedding";
 import { deleteFile } from "@/lib/storage";
 import {
@@ -211,6 +211,23 @@ export async function PATCH(
         );
       }
       throw error;
+    }
+
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    if (resource === "identifikasi-risiko" && !isAdminRole(authContext.roleName) && validatedData.teamId !== undefined) {
+      const requestedTeamId = Number(validatedData.teamId);
+      if (!requestedTeamId || !authContext.teamIds.includes(requestedTeamId)) {
+        return NextResponse.json({ error: "Risiko tidak dapat dipindahkan ke Tim Kerja lain." }, { status: 403 });
+      }
+    }
+    if (RISK_LINKED_RESOURCES.has(resource) && validatedData.identifikasiRisikoId !== undefined) {
+      if (!await canAccessRiskIds(authContext, [Number(validatedData.identifikasiRisikoId)])) {
+        return NextResponse.json({ error: "Risiko berada di luar Tim Kerja Anda." }, { status: 403 });
+      }
+    }
+    if (resource === "users" && validatedData.teamIds !== undefined && !isAdminRole(authContext.roleName)) {
+      return NextResponse.json({ error: "Hanya Admin yang dapat menetapkan Tim Kerja pengguna." }, { status: 403 });
     }
 
     const delegate = getDelegate(resource);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, mergeRiskTeamWhere } from "@/lib/access-control";
 import { REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const tahunDari = Number(searchParams.get("tahun_gte") ?? 0);
@@ -25,13 +27,13 @@ export async function GET(request: NextRequest) {
 
     const [risks, matrix] = await Promise.all([
       prisma.identifikasiRisiko.findMany({
-        where: {
+        where: mergeRiskTeamWhere("identifikasi-risiko", {
           tahun: {
             gte: Number.isFinite(tahunDari) ? tahunDari : 0,
             lte: Number.isFinite(tahunSampai) ? tahunSampai : 9999,
           },
           archivedAt: null,
-        },
+        }, authContext),
         orderBy: { id: "asc" },
         include: {
           sasaran: { select: { id: true, nama: true } },

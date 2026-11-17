@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
-import { checkPermission, getAuthUserContext } from "@/lib/access-control";
+import { checkPermission, checkRecordPermission, getAuthUserContext, mergeRiskTeamWhere } from "@/lib/access-control";
 import { logAudit } from "@/lib/audit-log";
 import { invalidateResourceCache } from "@/lib/cache";
 import { deleteFile } from "@/lib/storage";
@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const { searchParams } = request.nextUrl;
     const rawId = searchParams.get("id");
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       const rawTahunSampai = searchParams.get("tahun_lte");
       const tahunDari = rawTahunDari === null ? Number.NaN : Number(rawTahunDari);
       const tahunSampai = rawTahunSampai === null ? Number.NaN : Number(rawTahunSampai);
-      const where: Prisma.IdentifikasiRisikoWhereInput = {
+      const baseWhere: Prisma.IdentifikasiRisikoWhereInput = {
         archivedAt: { not: null },
         ...(Number.isFinite(tahunDari) || Number.isFinite(tahunSampai)
           ? {
@@ -43,6 +45,11 @@ export async function GET(request: NextRequest) {
             }
           : {}),
       };
+      const where = mergeRiskTeamWhere(
+        "identifikasi-risiko",
+        baseWhere as Record<string, unknown>,
+        authContext
+      ) as Prisma.IdentifikasiRisikoWhereInput;
 
       const [risks, total] = await Promise.all([
         prisma.identifikasiRisiko.findMany({
@@ -74,6 +81,9 @@ export async function GET(request: NextRequest) {
     const id = Number(rawId);
     if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json({ error: "Parameter id tidak valid" }, { status: 400 });
+    }
+    if (!await checkRecordPermission("identifikasi-risiko", "read", id, { ipAddress, userAgent })) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     const risk = await prisma.identifikasiRisiko.findUnique({
@@ -156,6 +166,9 @@ export async function POST(request: NextRequest) {
 
     const isAllowed = await checkPermission("identifikasi-risiko", "delete", { ipAddress, userAgent });
     if (!isAllowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    if (!await checkRecordPermission("identifikasi-risiko", "delete", id, { ipAddress, userAgent })) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

@@ -18,6 +18,7 @@ import {
   updateRencanaPenangananSchema,
 } from "@/lib/validators";
 import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
+import { canAccessRiskIds, getAuthUserContext, isAdminRole } from "@/lib/access-control";
 
 const batchSchemas = {
   "identifikasi-risiko": {
@@ -71,6 +72,8 @@ export async function POST(
     if (!canCreate || !canUpdate) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const validatedCreates = creates.map((item) => schemas.create.parse(item.data));
     const validatedUpdates = updates.map((item) => {
@@ -79,6 +82,42 @@ export async function POST(
       }
       return { id: Number(item.id), data: schemas.update.parse(item.data) };
     });
+
+    if (resource === "identifikasi-risiko" && !isAdminRole(authContext.roleName)) {
+      if (authContext.teamIds.length === 0) {
+        return NextResponse.json({ error: "Akun belum memiliki Tim Kerja. Hubungi administrator." }, { status: 403 });
+      }
+      for (const data of validatedCreates as any[]) {
+        const requestedTeamId = Number(data.teamId);
+        if (requestedTeamId && !authContext.teamIds.includes(requestedTeamId)) {
+          return NextResponse.json({ error: "Tim Kerja tidak sesuai dengan akun." }, { status: 403 });
+        }
+        if (!requestedTeamId && authContext.teamIds.length > 1) {
+          return NextResponse.json({ error: "Pilih Tim Kerja untuk setiap risiko baru." }, { status: 400 });
+        }
+        data.teamId = requestedTeamId || authContext.teamIds[0];
+      }
+      for (const item of validatedUpdates as any[]) {
+        if (item.data.teamId && !authContext.teamIds.includes(Number(item.data.teamId))) {
+          return NextResponse.json({ error: "Risiko tidak dapat dipindahkan ke Tim Kerja lain." }, { status: 403 });
+        }
+      }
+    }
+
+    const scopedRiskIds: number[] = [];
+    if (resource === "identifikasi-risiko") {
+      scopedRiskIds.push(...validatedUpdates.map((item) => item.id));
+    } else if (RISK_LINKED_RESOURCES.has(resource)) {
+      scopedRiskIds.push(...validatedCreates.map((data: any) => Number(data.identifikasiRisikoId)));
+      if (validatedUpdates.length) {
+        const delegate = (prisma as any)[modelName];
+        const linked = await delegate.findMany({ where: { id: { in: validatedUpdates.map((item) => item.id) } }, select: { identifikasiRisikoId: true } });
+        scopedRiskIds.push(...linked.map((item: any) => Number(item.identifikasiRisikoId)));
+      }
+    }
+    if (!await canAccessRiskIds(authContext, scopedRiskIds)) {
+      return NextResponse.json({ error: "Batch memuat risiko di luar Tim Kerja Anda." }, { status: 403 });
+    }
 
     if (resource === "identifikasi-risiko" || RISK_LINKED_RESOURCES.has(resource)) {
       const createRiskIds = RISK_LINKED_RESOURCES.has(resource)

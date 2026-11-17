@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { checkPermission } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, mergeRiskTeamWhere } from "@/lib/access-control";
 import { logAudit } from "@/lib/audit-log";
 import {
   buildImportTemplateWorkbook,
@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
+    const authContext = await getAuthUserContext();
+    if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const tahunDari = parseInt(searchParams.get("tahunDari") || "0", 10) || new Date().getFullYear();
@@ -45,10 +47,10 @@ export async function GET(request: NextRequest) {
     // Existing risk data for the selected year window (mirrors the pelaporan export assembly)
     const [records, matriksList] = await Promise.all([
       prisma.identifikasiRisiko.findMany({
-        where: {
+        where: mergeRiskTeamWhere("identifikasi-risiko", {
           tahun: { gte: tahunDari, lte: tahunSampai },
           archivedAt: null,
-        },
+        }, authContext),
         orderBy: { id: "asc" },
         include: {
           sasaran: true,
