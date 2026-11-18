@@ -210,9 +210,9 @@ async function main() {
   // 3. Seed LevelRisiko
   const levelRisikoData = [
     { id: 1, nama: "Sangat Rendah", rentang: "1 - 5", tindakan: "Tidak diperlukan Tindakan", warna: "Biru" },
-    { id: 2, nama: "Rendah", rentang: "6 - 10", tindakan: "Diambil tindakan jika diperlukan", warna: "Hijau" },
-    { id: 3, nama: "Sedang", rentang: "11 - 14", tindakan: "Diambil tindakan jika sumber daya tersedia", warna: "Kuning" },
-    { id: 4, nama: "Tinggi", rentang: "15 - 19", tindakan: "Diperlukan tindakan untuk mengelola risiko", warna: "Jingga" },
+    { id: 2, nama: "Rendah", rentang: "6 - 11", tindakan: "Diambil tindakan jika diperlukan", warna: "Hijau" },
+    { id: 3, nama: "Sedang", rentang: "12 - 15", tindakan: "Diambil tindakan jika sumber daya tersedia", warna: "Kuning" },
+    { id: 4, nama: "Tinggi", rentang: "16 - 19", tindakan: "Diperlukan tindakan untuk mengelola risiko", warna: "Jingga" },
     { id: 5, nama: "Sangat Tinggi", rentang: "20 - 25", tindakan: "Diperlukan tindakan segera untuk mengelola risiko", warna: "Merah" },
   ];
 
@@ -542,11 +542,11 @@ async function main() {
   };
 
   const getLevelRisikoId = (besaran: number) => {
-    if (besaran >= 1 && besaran <= 5) return 1; // Sangat Rendah
-    if (besaran >= 6 && besaran <= 10) return 2; // Rendah
-    if (besaran >= 11 && besaran <= 14) return 3; // Sedang
-    if (besaran >= 15 && besaran <= 19) return 4; // Tinggi
-    return 5; // Sangat Tinggi
+    if (besaran >= 1 && besaran <= 5) return 1; // Sangat Rendah - Biru
+    if (besaran >= 6 && besaran <= 11) return 2; // Rendah - Hijau (11 is still green per newest matrix)
+    if (besaran >= 12 && besaran <= 15) return 3; // Sedang - Kuning
+    if (besaran >= 16 && besaran <= 19) return 4; // Tinggi - Jingga
+    return 5; // Sangat Tinggi - Merah (20-25)
   };
 
   let matrixId = 1;
