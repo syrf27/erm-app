@@ -794,6 +794,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       <Group justify="space-between" gap="md" wrap="wrap">
         <Group gap="xs" wrap="wrap"><SegmentedControl value={stage} onChange={(value) => switchStage(value as RiskRegisterStage)} data={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))} /><Switch checked={fullRegister} onChange={(event) => setFullRegister(event.currentTarget.checked)} label="Full Register" /></Group>
         <Group gap="xs">
+          <Button variant="light" color="teal" component="a" href="/manajemen-risiko/register" leftSection={<IconSparkles size={16} />}>Mode Panduan (Wizard)</Button>
           {identificationStage && <Menu shadow="md" width={270} position="bottom-end"><Menu.Target><Button variant="light" leftSection={<IconPlus size={16} />} rightSection={<IconChevronDown size={14} />} disabled={!sheetReady}>Tambah Risiko</Button></Menu.Target><Menu.Dropdown>
             <Menu.Label>Pilih cara menambahkan risiko</Menu.Label>
             <Menu.Item leftSection={<IconPlus size={16} />} onClick={addRow}>Isi Manual</Menu.Item>
