@@ -1,7 +1,7 @@
 "use client";
 
 import { useList } from "@refinedev/core";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Title,
   Loader,
@@ -174,15 +174,17 @@ export default function MatriksRisikoPage() {
     setPage(1);
   };
 
-  // Set default selected risk
+  // Set default selected risk only once on initial load; allow empty selection afterwards
+  const hasAutoSelectedRef = useRef(false);
   useEffect(() => {
-    if (processedRisks.length > 0 && selectedRiskIds.length === 0) {
+    if (!hasAutoSelectedRef.current && processedRisks.length > 0 && selectedRiskIds.length === 0) {
       const firstValid = processedRisks.find((r) => r.aktual && r.residual);
       if (firstValid) {
         setSelectedRiskIds([firstValid.id]);
       } else {
         setSelectedRiskIds([processedRisks[0].id]);
       }
+      hasAutoSelectedRef.current = true;
     }
   }, [processedRisks, selectedRiskIds]);
 
@@ -193,7 +195,6 @@ export default function MatriksRisikoPage() {
   const toggleRiskSelection = (id: number) => {
     setSelectedRiskIds((prev) => {
       if (prev.includes(id)) {
-        if (prev.length === 1) return prev;
         return prev.filter((x) => x !== id);
       }
       return [...prev, id];
@@ -818,25 +819,15 @@ export default function MatriksRisikoPage() {
             <Card withBorder padding="md" radius="md">
               <Group justify="space-between" mb="sm">
                 <Title order={5}>Visualisasi Perpindahan</Title>
-                <Group gap="xs">
-                  <Button
-                    size="compact-xs"
-                    variant="light"
-                    onClick={() => setSelectedRiskIds(filteredRisks.map((r) => r.id))}
-                    disabled={filteredRisks.length === 0 || selectedRiskIds.length === filteredRisks.length}
-                  >
-                    Pilih Semua
-                  </Button>
-                  <Button
-                    size="compact-xs"
-                    variant="subtle"
-                    color="gray"
-                    onClick={() => setSelectedRiskIds([])}
-                    disabled={selectedRiskIds.length === 0}
-                  >
-                    Hapus Semua
-                  </Button>
-                </Group>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setSelectedRiskIds([])}
+                  disabled={selectedRiskIds.length === 0}
+                >
+                  Hapus Semua
+                </Button>
               </Group>
               <Text size="xs" c="dimmed" mb="md">
                 Klik baris pada tabel di bawah untuk melihat perpindahan selera risiko di matriks heatmap.
