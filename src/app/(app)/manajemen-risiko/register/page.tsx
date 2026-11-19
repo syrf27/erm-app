@@ -225,29 +225,43 @@ export default function RegisterRisikoPage() {
         </Group>
       </Group>
 
-      <Tabs value={tab} onChange={(v) => { setTab((v as TabKey) ?? "identifikasi"); setPage(1); }}>
-        <Tabs.List>
-          <Tabs.Tab value="identifikasi">Identifikasi Risiko</Tabs.Tab>
-          <Tabs.Tab value="analisis">Analisis Risiko</Tabs.Tab>
-          <Tabs.Tab value="evaluasi">Evaluasi Risiko</Tabs.Tab>
-          <Tabs.Tab value="rencana">Rencana Penanganan</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+      <Box style={{ borderBottom: "1px solid var(--mantine-color-default-border)", marginBottom: 4 }}>
+        <ScrollArea type="scroll" offsetScrollbars scrollbarSize={6}>
+          <Tabs
+            value={tab}
+            onChange={(v) => { setTab((v as TabKey) ?? "identifikasi"); setPage(1); }}
+            variant="default"
+            color="blue"
+            keepMounted={false}
+          >
+            <Tabs.List style={{ flexWrap: "nowrap", gap: 4 }}>
+              <Tabs.Tab value="identifikasi" style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>Identifikasi Risiko</Tabs.Tab>
+              <Tabs.Tab value="analisis" style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>Analisis Risiko</Tabs.Tab>
+              <Tabs.Tab value="evaluasi" style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>Evaluasi Risiko</Tabs.Tab>
+              <Tabs.Tab value="rencana" style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>Rencana Penanganan</Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
+        </ScrollArea>
+      </Box>
 
-      <Group>
+      <Group justify="space-between" align="center">
+        <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>{total} risiko</Text>
         <TextInput
           placeholder={`Cari di ${tab}...`}
           value={search}
           onChange={(e) => { setSearch(e.currentTarget.value); setPage(1); }}
-          style={{ flex: 1 }}
+          maw={360}
+          w="100%"
+          style={{ maxWidth: 360 }}
         />
       </Group>
 
-      <Card withBorder padding="0" radius="md">
-        <ScrollArea type="auto" offsetScrollbars>
-          <Box style={{ minWidth: tab === "identifikasi" ? 1200 : 1100 }}>
+      <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
+        <ScrollArea type="auto" offsetScrollbars scrollbarSize={8}>
+          <Box style={{ minWidth: 1100 }}>
+          <style>{`.register-table th{white-space:nowrap;font-size:12px;font-weight:700;padding:10px 12px;vertical-align:middle;}.register-table td{font-size:13px;padding:10px 12px;vertical-align:top;line-height:1.5;}.register-table td:first-child{text-align:center;}`}</style>
           {tab === "identifikasi" && (
-          <Table striped highlightOnHover withTableBorder>
+          <Table striped highlightOnHover withTableBorder className="register-table" withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
@@ -281,7 +295,7 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "analisis" && (
-          <Table striped highlightOnHover withTableBorder>
+          <Table striped highlightOnHover withTableBorder className="register-table" withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
@@ -319,7 +333,7 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "evaluasi" && (
-          <Table striped highlightOnHover withTableBorder>
+          <Table striped highlightOnHover withTableBorder className="register-table" withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
@@ -353,7 +367,7 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "rencana" && (
-          <Table striped highlightOnHover withTableBorder>
+          <Table striped highlightOnHover withTableBorder className="register-table" withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
