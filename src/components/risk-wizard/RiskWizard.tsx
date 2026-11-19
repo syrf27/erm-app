@@ -33,7 +33,7 @@ function getLevelFromBesaran(besaran: number) {
 
 const DRAFT_KEY = "risk-wizard-draft-v1";
 
-export function RiskWizard() {
+export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
   const { tahunDari } = useYear();
   const [active, setActive] = useState(0);
@@ -293,8 +293,13 @@ export function RiskWizard() {
         setRisiko(""); setPenyebab(""); setDampak("");
         setRencanaTidakPenanganan(""); setTargetOutput(""); setTargetWaktu(""); setPenanggungJawab("");
         setActive(0);
+        if (onSuccess) onSuccess();
       } else {
-        router.push("/manajemen-risiko/identifikasi");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/manajemen-risiko/risk-register");
+        }
       }
     } catch (e: any) {
       notifications.show({ title: "Gagal", message: e?.message || "Gagal menyimpan", color: "red" });
