@@ -18,9 +18,9 @@ import {
   Center,
 } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import Link from "next/link";
 import { useYear } from "@/lib/year-context";
 import { RiskWizard } from "@/components/risk-wizard/RiskWizard";
+import { RegisterModeSwitcher } from "@/components/register-mode-switcher";
 import { Pagination } from "@/components/pagination";
 
 type TabKey = "identifikasi" | "analisis" | "evaluasi" | "rencana";
@@ -132,9 +132,7 @@ export default function RegisterRisikoPage() {
           </Text>
         </div>
         <Group>
-          <Button component={Link} href="/manajemen-risiko/risk-register" variant="light">
-            ← Mode Spreadsheet
-          </Button>
+          <RegisterModeSwitcher />
           <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpened(true)}>
             Tambah Risiko
           </Button>
