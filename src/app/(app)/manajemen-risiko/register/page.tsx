@@ -16,8 +16,13 @@ import {
   Card,
   Loader,
   Center,
+  ScrollArea,
+  Menu,
+  Box,
+  FileButton,
 } from "@mantine/core";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconChevronDown, IconDatabase, IconSparkles, IconDeviceFloppy, IconAdjustments, IconDownload, IconUpload } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
 import { RiskWizard } from "@/components/risk-wizard/RiskWizard";
 import { RegisterModeSwitcher } from "@/components/register-mode-switcher";
@@ -30,6 +35,12 @@ export default function RegisterRisikoPage() {
   const [tab, setTab] = useState<TabKey>("identifikasi");
   const [search, setSearch] = useState("");
   const [modalOpened, setModalOpened] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankQuery, setBankQuery] = useState("");
+  const [bankResults, setBankResults] = useState<any[]>([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankMethod, setBankMethod] = useState("");
+  const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -118,6 +129,54 @@ export default function RegisterRisikoPage() {
     refetchAll();
   };
 
+  const searchBank = async () => {
+    if (!bankQuery.trim()) return;
+    setBankLoading(true);
+    try {
+      const res = await fetch("/api/bank-risiko/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: bankQuery.trim(), limit: 15, tahun: tahunDari }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Pencarian gagal");
+      setBankResults(data.results ?? []);
+      setBankMethod(data.method ?? "text");
+    } catch (e: any) { notifications.show({ title: "Gagal", message: e.message, color: "red" }); }
+    finally { setBankLoading(false); }
+  };
+
+  const importBankRisk = async (risk: any) => {
+    try {
+      const payload = { risiko: risk.risiko, jenisRisikoId: risk.jenis_risiko_id, sumberRisikoId: risk.sumber_risiko_id, kategoriRisikoId: risk.kategori_risiko_id, areaDampakId: risk.area_dampak_id, penyebab: risk.penyebab, dampak: risk.dampak, ...(risk.sasaran_id != null && { sasaranId: risk.sasaran_id }), ...(risk.kegiatan_id != null && { kegiatanId: risk.kegiatan_id }), ...(risk.proses_bisnis_id != null && { prosesBisnisId: risk.proses_bisnis_id }), ...(risk.unit_kerja_id != null && { unitKerjaId: risk.unit_kerja_id }), tahun: tahunDari };
+      const res = await fetch("/api/identifikasi-risiko", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gagal menambahkan");
+      setBankOpen(false);
+      refetchAll();
+      notifications.show({ title: "Ditambahkan", message: "Risiko dari Bank Risiko berhasil ditambahkan", color: "green" });
+    } catch (e: any) { notifications.show({ title: "Gagal", message: e.message, color: "red" }); }
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      const res = await fetch(`/api/import/identifikasi-risiko/template?tahunDari=${tahunDari}&tahunSampai=${tahunSampai}`);
+      if (!res.ok) throw new Error("Gagal mengunduh template");
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a"); a.href = url; a.download = `Template_Import_Identifikasi_Risiko_${tahunDari}.xlsx`; a.click(); URL.revokeObjectURL(url);
+    } catch (e: any) { notifications.show({ title: "Gagal", message: e.message, color: "red" }); }
+  };
+
+  const importExcel = async (file: File | null) => {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const fd = new FormData(); fd.append("file", file); fd.append("tahunDari", String(tahunDari));
+      const res = await fetch("/api/import/identifikasi-risiko", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Impor gagal");
+      refetchAll();
+      notifications.show({ title: "Berhasil", message: `${data.created ?? 0} dibuat, ${data.updated ?? 0} diperbarui`, color: "green" });
+    } catch (e: any) { notifications.show({ title: "Impor gagal", message: e.message, color: "red" }); }
+    finally { setImporting(false); }
+  };
+
   if (loading) {
     return <Center h={300}><Loader /></Center>;
   }
@@ -128,14 +187,41 @@ export default function RegisterRisikoPage() {
         <div>
           <Title order={3}>Register Risiko — Mode Panduan</Title>
           <Text size="sm" c="dimmed" mt={4}>
-            Tampilan tabel biasa per tahap. Klik Tambah Risiko untuk form multistep. Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}-${tahunSampai}`} · {total} risiko.
+            Tabel biasa per tahap (scroll horizontal). Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}-${tahunSampai}`} · {total} risiko.
           </Text>
         </div>
-        <Group>
+        <Group gap="xs">
           <RegisterModeSwitcher />
-          <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpened(true)}>
-            Tambah Risiko
+          <Menu shadow="md" width={270} position="bottom-end">
+            <Menu.Target>
+              <Button leftSection={<IconPlus size={16} />} rightSection={<IconChevronDown size={14} />}>
+                Tambah Risiko
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Pilih cara menambahkan risiko</Menu.Label>
+              <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => setModalOpened(true)}>Isi Manual (Wizard)</Menu.Item>
+              <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Pilih dari Bank Risiko</Menu.Item>
+              <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => setModalOpened(true)}>Bantu Isi dengan AI</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+          <Button variant="light" leftSection={<IconDeviceFloppy size={16} />} onClick={refetchAll}>
+            Muat Ulang
           </Button>
+          <Menu shadow="md" width={260} position="bottom-end">
+            <Menu.Target>
+              <Button variant="default" leftSection={<IconAdjustments size={16} />} rightSection={<IconChevronDown size={14} />}>
+                Kelola Data
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Kelengkapan dan pertukaran data</Menu.Label>
+              <Menu.Item leftSection={<IconDownload size={16} />} onClick={downloadTemplate}>Unduh Template</Menu.Item>
+              <FileButton accept=".xlsx,.xlsm,.xls,.xlsb,.csv" onChange={importExcel}>
+                {(props) => <Menu.Item {...props} leftSection={<IconUpload size={16} />} disabled={importing}>Import Excel</Menu.Item>}
+              </FileButton>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </Group>
 
@@ -157,32 +243,34 @@ export default function RegisterRisikoPage() {
         />
       </Group>
 
-      <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>
-        {tab === "identifikasi" && (
-          <Table striped highlightOnHover withTableBorder style={{ minWidth: 1200 }}>
+      <Card withBorder padding="0" radius="md">
+        <ScrollArea type="auto" offsetScrollbars>
+          <Box style={{ minWidth: tab === "identifikasi" ? 1200 : 1100 }}>
+          {tab === "identifikasi" && (
+          <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
-                <Table.Th>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Risiko</Table.Th>
                 <Table.Th>Sasaran</Table.Th>
                 <Table.Th>Kegiatan</Table.Th>
                 <Table.Th>Jenis</Table.Th>
                 <Table.Th>Kategori</Table.Th>
-                <Table.Th>Penyebab</Table.Th>
-                <Table.Th>Dampak</Table.Th>
+                <Table.Th style={{ minWidth: 220 }}>Penyebab</Table.Th>
+                <Table.Th style={{ minWidth: 220 }}>Dampak</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {paged.map((r: any, i: number) => (
                 <Table.Tr key={r.id}>
                   <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                  <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                  <Table.Td style={{ fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word" }}>{r.risiko}</Table.Td>
                   <Table.Td>{r.sasaran?.nama ?? "-"}</Table.Td>
                   <Table.Td>{r.kegiatan?.nama ?? "-"}</Table.Td>
                   <Table.Td>{r.jenisRisiko?.nama ?? "-"}</Table.Td>
                   <Table.Td>{r.kategoriRisiko?.nama ?? "-"}</Table.Td>
-                  <Table.Td>{r.penyebab ?? "-"}</Table.Td>
-                  <Table.Td>{r.dampak ?? "-"}</Table.Td>
+                  <Table.Td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>{r.penyebab ?? "-"}</Table.Td>
+                  <Table.Td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>{r.dampak ?? "-"}</Table.Td>
                 </Table.Tr>
               ))}
               {paged.length === 0 && (
@@ -193,16 +281,16 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "analisis" && (
-          <Table striped highlightOnHover withTableBorder style={{ minWidth: 1100 }}>
+          <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
-                <Table.Th>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Risiko</Table.Th>
                 <Table.Th>Kemungkinan</Table.Th>
                 <Table.Th>Dampak</Table.Th>
                 <Table.Th>Besaran</Table.Th>
                 <Table.Th>Level</Table.Th>
-                <Table.Th>Pengendalian</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Pengendalian</Table.Th>
                 <Table.Th>Efektivitas</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -213,12 +301,12 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td style={{ fontWeight: 600, whiteSpace: "normal" }}>{r.risiko}</Table.Td>
                     <Table.Td>{an ? lkById.get(an.levelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{an ? ldById.get(an.levelDampakId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{b.besaran > 0 ? <Badge color={getBadgeColor(b.warna)}>{b.besaran}</Badge> : "-"}</Table.Td>
                     <Table.Td>{b.besaran > 0 ? <Badge color={getBadgeColor(b.warna)}>{b.level}</Badge> : "-"}</Table.Td>
-                    <Table.Td>{an?.pengendalianUraian ?? "-"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal" }}>{an?.pengendalianUraian ?? "-"}</Table.Td>
                     <Table.Td>{an?.pengendalianEfektivitas ?? "-"}</Table.Td>
                   </Table.Tr>
                 );
@@ -231,11 +319,11 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "evaluasi" && (
-          <Table striped highlightOnHover withTableBorder style={{ minWidth: 1000 }}>
+          <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
-                <Table.Th>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Risiko</Table.Th>
                 <Table.Th>Respon</Table.Th>
                 <Table.Th>Residual Kemungkinan</Table.Th>
                 <Table.Th>Residual Dampak</Table.Th>
@@ -265,12 +353,12 @@ export default function RegisterRisikoPage() {
         )}
 
         {tab === "rencana" && (
-          <Table striped highlightOnHover withTableBorder style={{ minWidth: 1100 }}>
+          <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>No</Table.Th>
-                <Table.Th>Risiko</Table.Th>
-                <Table.Th>RTP</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 300 }}>RTP</Table.Th>
                 <Table.Th>Target Output</Table.Th>
                 <Table.Th>Target Waktu</Table.Th>
                 <Table.Th>PJ</Table.Th>
@@ -283,7 +371,7 @@ export default function RegisterRisikoPage() {
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
                     <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
-                    <Table.Td>{rp?.rencanaTidakPenanganan ?? "-"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal" }}>{rp?.rencanaTidakPenanganan ?? "-"}</Table.Td>
                     <Table.Td>{rp?.targetOutput ?? "-"}</Table.Td>
                     <Table.Td>{rp?.targetWaktu ?? "-"}</Table.Td>
                     <Table.Td>{rp?.penanggungJawab ?? "-"}</Table.Td>
@@ -296,6 +384,8 @@ export default function RegisterRisikoPage() {
             </Table.Tbody>
           </Table>
         )}
+          </Box>
+        </ScrollArea>
       </Card>
 
       {total > 0 && (
@@ -314,10 +404,27 @@ export default function RegisterRisikoPage() {
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
         title="Tambah Risiko — Form Multistep"
-        size="lg"
-        styles={{ body: { maxHeight: "75vh", overflowY: "auto" } }}
+        size="xl"
+        styles={{ content: { maxWidth: 980 }, body: { maxHeight: "78vh", overflowY: "auto" } }}
       >
         <RiskWizard onSuccess={handleWizardSuccess} />
+      </Modal>
+
+      <Modal opened={bankOpen} onClose={() => setBankOpen(false)} title="Cari dari Bank Risiko" size="xl">
+        <Stack gap="md">
+          <Group>
+            <TextInput value={bankQuery} onChange={(e) => setBankQuery(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === "Enter") void searchBank(); }} placeholder="Ketik kata kunci risiko..." style={{ flex: 1 }} />
+            <Button loading={bankLoading} onClick={searchBank}>Cari</Button>
+          </Group>
+          {bankMethod && <Text size="sm">Metode: {bankMethod === "semantic" ? "Semantik" : "Teks"}</Text>}
+          {bankResults.map((risk) => (
+            <Group key={risk.id} justify="space-between" align="start" p="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+              <Box style={{ flex: 1 }}><Text size="sm">{risk.risiko}</Text><Badge size="xs">{risk.kategori_risiko_nama}</Badge></Box>
+              <Button size="xs" onClick={() => void importBankRisk(risk)}>Tambahkan</Button>
+            </Group>
+          ))}
+          {bankResults.length === 0 && <Text size="sm" c="dimmed">Belum ada hasil</Text>}
+        </Stack>
       </Modal>
     </Stack>
   );
