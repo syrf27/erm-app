@@ -826,14 +826,34 @@ export default function PemantauanRisikoPage() {
                 disabled={!canEdit}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Target output (RTP)" value={form.targetOutput} readOnly />
+            <Grid.Col span={12}>
+              <Divider label="Informasi target RTP" labelPosition="left" />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Target waktu (RTP)" value={form.targetWaktu} readOnly />
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Textarea
+                label="Target output (RTP)"
+                value={form.targetOutput}
+                readOnly
+                minRows={2}
+                autosize
+                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
+              />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Penanggung jawab (RTP)" value={form.penanggungJawab} readOnly />
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <TextInput
+                label="Target waktu (RTP)"
+                value={form.targetWaktu}
+                readOnly
+                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <TextInput
+                label="Penanggung jawab (RTP)"
+                value={form.penanggungJawab}
+                readOnly
+                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
+              />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Select
