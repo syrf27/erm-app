@@ -275,6 +275,8 @@ export async function GET(request: NextRequest) {
         riskId: risk.id,
         risiko: risk.risiko,
         team: risk.team,
+        teamLabel:
+          risk.team?.nama ?? risk.rencanaPenanganan?.penanggungJawab ?? null,
         tahun: risk.tahun,
         statusSiklus: risk.statusSiklus,
         parentRiskId: risk.parentRiskId,

@@ -59,6 +59,7 @@ interface MonitoringRow {
   riskId: number;
   risiko: string;
   team?: { id: number; nama: string } | null;
+  teamLabel?: string | null;
   tahun: number;
   triwulan: number | null;
   statusSiklus: string;
@@ -621,7 +622,7 @@ export default function PemantauanRisikoPage() {
                       <Text size="10px" c="dimmed">ID {row.riskId}</Text>
                     </Group>
                   </Table.Td>
-                  <Table.Td>{row.team?.nama ?? "-"}</Table.Td>
+                  <Table.Td>{row.team?.nama ?? row.teamLabel ?? row.rtp?.penanggungJawab ?? "-"}</Table.Td>
                   <Table.Td ta="center">{row.triwulan ? `TW ${row.triwulan}` : "-"}</Table.Td>
                   <Table.Td style={{ maxWidth: 260 }}>{row.rtp?.uraian ?? "-"}</Table.Td>
                   <Table.Td ta="center">{m?.targetWaktu ?? row.rtp?.targetWaktu ?? "-"}</Table.Td>
@@ -697,16 +698,29 @@ export default function PemantauanRisikoPage() {
       <Modal
         opened={opened}
         onClose={() => setOpened(false)}
-        title={selected ? `Pemantauan — ${selected.risiko.slice(0, 60)}` : "Pemantauan"}
+        title={
+          selected ? (
+            <Stack gap={2} maw="calc(100% - 28px)">
+              <Text fw={700} size="lg">Pemantauan Risiko</Text>
+              <Text size="sm" c="dimmed" lineClamp={2} fw={400}>
+                ID {selected.riskId} · TW {selected.triwulan ?? "-"} · {selected.risiko}
+              </Text>
+            </Stack>
+          ) : "Pemantauan Risiko"
+        }
         size="xl"
-        styles={{ body: { maxHeight: "78vh", overflowY: "auto" } }}
+        centered
+        styles={{
+          title: { flex: 1, minWidth: 0 },
+          body: { maxHeight: "78vh", overflowY: "auto", paddingTop: 8 },
+        }}
       >
         <Stack gap="md">
           {selected && (
             <Card withBorder padding="sm">
-              <Text size="xs" c="dimmed" fw={700}>RTP yang dipantau</Text>
+              <Text size="sm" fw={700}>Rencana tindak penanganan yang dipantau</Text>
               <Text size="sm">{selected.rtp?.uraian ?? "-"}</Text>
-              <Group gap="lg" mt={6}>
+              <Group gap="lg" mt="md" wrap="wrap">
                 <Text size="xs">Target waktu: {selected.rtp?.targetWaktu ?? "-"}</Text>
                 <Text size="xs">Target output: {selected.rtp?.targetOutput ?? "-"}</Text>
                 <Text size="xs">PJ: {selected.rtp?.penanggungJawab ?? "-"}</Text>
@@ -714,6 +728,7 @@ export default function PemantauanRisikoPage() {
             </Card>
           )}
 
+          <Divider label="Pelaksanaan dan residual hasil pemantauan" labelPosition="left" />
           <Grid>
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Select
@@ -726,7 +741,7 @@ export default function PemantauanRisikoPage() {
             </Grid.Col>
             <Grid.Col span={{ base: 6, md: 3 }}>
               <Select
-                label="Kemungkinan"
+                label="Residual hasil — kemungkinan"
                 value={form.levelKemungkinanId}
                 onChange={(v) => setForm({ ...form, levelKemungkinanId: v ?? "" })}
                 data={lkData.map((x) => ({ value: String(x.id), label: x.nama }))}
@@ -736,7 +751,7 @@ export default function PemantauanRisikoPage() {
             </Grid.Col>
             <Grid.Col span={{ base: 6, md: 3 }}>
               <Select
-                label="Dampak"
+                label="Residual hasil — dampak"
                 value={form.levelDampakId}
                 onChange={(v) => setForm({ ...form, levelDampakId: v ?? "" })}
                 data={ldData.map((x) => ({ value: String(x.id), label: x.nama }))}
@@ -751,7 +766,7 @@ export default function PemantauanRisikoPage() {
                     <Badge color={warnaToMantine(assessment.warna)}>Besaran {assessment.besaran}</Badge>
                     <Badge variant="light">{assessment.level}</Badge>
                     <Text size="xs" c="dimmed">
-                      Selera: {monitoringId ? (selected?.monitoring?.seleraSnapshot ?? selera ?? "-") : (selera ?? "belum tersedia")}
+                      Selera risiko: {monitoringId ? (selected?.monitoring?.seleraSnapshot ?? selera ?? "-") : (selera ?? "belum tersedia")}
                     </Text>
                     <Badge color={comparison === "BELUM_DI_BAWAH" ? "red" : comparison === "DI_BAWAH" ? "green" : "gray"} variant="light">
                       {comparison === "BELUM_DI_BAWAH"
@@ -812,13 +827,13 @@ export default function PemantauanRisikoPage() {
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Target output (snapshot RTP)" value={form.targetOutput} readOnly />
+              <TextInput label="Target output (RTP)" value={form.targetOutput} readOnly />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Target waktu (snapshot RTP)" value={form.targetWaktu} readOnly />
+              <TextInput label="Target waktu (RTP)" value={form.targetWaktu} readOnly />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput label="Penanggung jawab (snapshot RTP)" value={form.penanggungJawab} readOnly />
+              <TextInput label="Penanggung jawab (RTP)" value={form.penanggungJawab} readOnly />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Select
