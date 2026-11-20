@@ -796,7 +796,9 @@ export async function finalizeMonitoring({
               unitKerjaId: origin.unitKerjaId,
               teamId: origin.teamId,
               tahun: target.tahun,
-              statusSiklus: RISK_CYCLE.FOLLOW_UP_DRAFT,
+              // Risiko lanjutan langsung masuk register aktif setelah hasil
+              // pemantauan final, tanpa antrean wajib atau persetujuan kedua.
+              statusSiklus: RISK_CYCLE.ACTIVE,
               parentRiskId: origin.id,
               rootRiskId: origin.rootRiskId ?? origin.id,
               sourceMonitoringId: monitoring.id,
@@ -804,6 +806,13 @@ export async function finalizeMonitoring({
               followUpTriwulan: target.triwulan,
             },
             select: { id: true },
+          });
+
+          // Tutup siklus risiko asal. Penerus langsung menjadi risiko aktif
+          // untuk periode berikutnya dan tetap tertaut pada asalnya.
+          await tx.identifikasiRisiko.updateMany({
+            where: { id: origin.id, statusSiklus: RISK_CYCLE.ACTIVE },
+            data: { statusSiklus: RISK_CYCLE.CONTINUED },
           });
 
           await tx.analisisRisiko.create({
@@ -817,14 +826,38 @@ export async function finalizeMonitoring({
             },
           });
 
+          if (origin.rencanaPenanganan) {
+            const rtp = origin.rencanaPenanganan;
+            await tx.rencanaPenanganan.create({
+              data: {
+                identifikasiRisikoId: followUp.id,
+                rencanaTidakPenanganan: rtp.rencanaTidakPenanganan,
+                targetOutput: rtp.targetOutput,
+                targetWaktu: rtp.targetWaktu,
+                penanggungJawab: rtp.penanggungJawab,
+                residualLevelKemungkinanId: rtp.residualLevelKemungkinanId,
+                residualLevelDampakId: rtp.residualLevelDampakId,
+                targetResidualLevelKemungkinanId:
+                  rtp.targetResidualLevelKemungkinanId,
+                targetResidualLevelDampakId: rtp.targetResidualLevelDampakId,
+                dokumenPendukung: rtp.dokumenPendukung,
+                jenisPenanganan: rtp.jenisPenanganan,
+                alasanPenguatan: rtp.alasanPenguatan,
+                keterjadiRisiko: rtp.keterjadiRisiko,
+              },
+            });
+          }
+
           const obligation = await tx.kewajibanTindakLanjut.create({
             data: {
               monitoringId: monitoring.id,
               riskId: origin.id,
               followUpRiskId: followUp.id,
               teamId: origin.teamId,
-              status: KEWAJIBAN_STATUS.WAJIB,
-              catatan: `Residual ${assessment.besaran} belum di bawah selera ${assessment.seleraSnapshot}.`,
+              status: KEWAJIBAN_STATUS.SELESAI,
+              resolution: "AUTO_CONTINUED",
+              completedAt: new Date(),
+              catatan: `Risiko diteruskan otomatis ke TW ${target.triwulan} ${target.tahun}; residual ${assessment.besaran} belum di bawah selera ${assessment.seleraSnapshot}.`,
             },
             select: { id: true },
           });

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGetIdentity, useList } from "@refinedev/core";
-import Link from "next/link";
 import {
   ActionIcon,
   Alert,
@@ -45,7 +44,6 @@ import {
   currentPeriode,
 } from "@/lib/risk-assessment";
 import {
-  KEWAJIBAN_STATUS_LABEL,
   PEMANTAUAN_STATUS_LABEL,
   PELAKSANAAN_LABEL,
   RISK_CYCLE_LABEL,
@@ -76,11 +74,6 @@ interface MonitoringRow {
   residualHarapan: { besaran: number | null; level: string | null; warna: string | null };
   monitoring: any | null;
   statusPemantauan: string;
-  kewajibanTerbuka: Array<{
-    id: number;
-    status: string;
-    followUpRisk?: { id: number; statusSiklus: string } | null;
-  }>;
 }
 
 interface MonitoringData {
@@ -93,7 +86,6 @@ interface MonitoringData {
     menungguValidasi: number;
     kembali: number;
     final: number;
-    tindakLanjutWajib: number;
   };
 }
 
@@ -563,13 +555,6 @@ export default function PemantauanRisikoPage() {
         </Group>
       </Group>
 
-      {(counts?.tindakLanjutWajib ?? 0) > 0 && (
-        <Alert color="red" icon={<IconAlertTriangle />} title="Tindak lanjut wajib">
-          Ada {counts?.tindakLanjutWajib} risiko lanjutan yang wajib dilengkapi.{" "}
-          <Link href="/manajemen-risiko/risiko-lanjutan">Buka daftar tindak lanjut</Link>.
-        </Alert>
-      )}
-
       <SimpleGrid cols={{ base: 2, md: 5 }}>
         {[
           ["Wajib pantau", counts?.totalWajibPantau ?? 0, "gray"],
@@ -596,21 +581,19 @@ export default function PemantauanRisikoPage() {
               <Table.Th ta="center">Hasil</Table.Th>
               <Table.Th ta="center">Harapan</Table.Th>
               <Table.Th ta="center">Status</Table.Th>
-              <Table.Th ta="center">Tindak Lanjut</Table.Th>
               <Table.Th ta="center">Aksi</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={9} ta="center" c="dimmed" py="md">
+                <Table.Td colSpan={8} ta="center" c="dimmed" py="md">
                   Tidak ada risiko aktif dengan RTP pada periode ini.
                 </Table.Td>
               </Table.Tr>
             )}
             {rows.map((row) => {
               const m = row.monitoring;
-              const obligation = row.kewajibanTerbuka?.[0];
               return (
                 <Table.Tr key={row.riskId}>
                   <Table.Td style={{ minWidth: 240 }}>
@@ -635,22 +618,6 @@ export default function PemantauanRisikoPage() {
                     <Badge color={statusColor(row.statusPemantauan)} variant="light">
                       {PEMANTAUAN_STATUS_LABEL[row.statusPemantauan] ?? row.statusPemantauan}
                     </Badge>
-                  </Table.Td>
-                  <Table.Td ta="center">
-                    {obligation ? (
-                      <Stack gap={2} align="center">
-                        <Badge color="red" variant="light">
-                          {KEWAJIBAN_STATUS_LABEL[obligation.status] ?? obligation.status}
-                        </Badge>
-                        {obligation.followUpRisk && (
-                          <Link href={`/manajemen-risiko/risiko-lanjutan/${obligation.followUpRisk.id}`}>
-                            <Text size="xs" c="blue">Lengkapi</Text>
-                          </Link>
-                        )}
-                      </Stack>
-                    ) : (
-                      <Text size="xs" c="dimmed">-</Text>
-                    )}
                   </Table.Td>
                   <Table.Td ta="center">
                     <Group gap={4} justify="center" wrap="nowrap">

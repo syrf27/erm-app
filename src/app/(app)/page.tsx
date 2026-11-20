@@ -116,7 +116,7 @@ export default function DashboardPage() {
       </SimpleGrid>
 
       {/* Siklus pemantauan triwulanan */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 2 }} spacing="md">
         <Paper withBorder radius="md" p="md" component="a" href="/pemantauan-risiko" style={{ textDecoration: "none" }}>
           <Text size="xs" tt="uppercase" fw={700} c="dimmed">Belum Dipantau</Text>
           <Text fw={800} fz={26}>{stats.riskCycle?.belumDipantau ?? 0}</Text>
@@ -126,18 +126,6 @@ export default function DashboardPage() {
           <Text size="xs" tt="uppercase" fw={700} c="dimmed">Menunggu Validasi</Text>
           <Text fw={800} fz={26}>{stats.riskCycle?.menungguValidasi ?? 0}</Text>
           <Text size="xs" c="dimmed">Pemantauan diajukan ke Admin</Text>
-        </Paper>
-        <Paper withBorder radius="md" p="md" component="a" href="/manajemen-risiko/risiko-lanjutan" style={{ textDecoration: "none" }}>
-          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Tindak Lanjut Wajib</Text>
-          <Text fw={800} fz={26} c={(stats.riskCycle?.tindakLanjutWajib ?? 0) > 0 ? "red" : undefined}>
-            {stats.riskCycle?.tindakLanjutWajib ?? 0}
-          </Text>
-          <Text size="xs" c="dimmed">Risiko lanjutan yang harus dilengkapi</Text>
-        </Paper>
-        <Paper withBorder radius="md" p="md" component="a" href="/manajemen-risiko/register?tab=draft" style={{ textDecoration: "none" }}>
-          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Draf Lanjutan</Text>
-          <Text fw={800} fz={26}>{stats.riskCycle?.followUpDrafts ?? 0}</Text>
-          <Text size="xs" c="dimmed">Belum disahkan Admin</Text>
         </Paper>
       </SimpleGrid>
 
