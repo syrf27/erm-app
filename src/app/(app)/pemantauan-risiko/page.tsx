@@ -33,7 +33,6 @@ import {
   IconFileText,
   IconPencil,
   IconRefresh,
-  IconRoute,
 } from "@tabler/icons-react";
 import { FileDropUpload } from "@/components/file-drop-upload";
 import { useYear } from "@/lib/year-context";
@@ -131,9 +130,6 @@ export default function PemantauanRisikoPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [mode, setMode] = useState<"active" | "history">("active");
-  const [chainOpen, setChainOpen] = useState(false);
-  const [chainRows, setChainRows] = useState<any[]>([]);
-  const [chainLoading, setChainLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState<
     | null
     | {
@@ -431,26 +427,6 @@ export default function PemantauanRisikoPage() {
     });
   };
 
-  const openChain = async (riskId: number) => {
-    setChainOpen(true);
-    setChainLoading(true);
-    setChainRows([]);
-    try {
-      const res = await fetch(`/api/risiko-lanjutan/chain/${riskId}`);
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || "Gagal memuat rantai");
-      setChainRows(payload.chain ?? []);
-    } catch (e: any) {
-      notifications.show({
-        title: "Gagal",
-        message: e?.message ?? "Gagal memuat rantai",
-        color: "red",
-      });
-    } finally {
-      setChainLoading(false);
-    }
-  };
-
   const submitActionModal = async () => {
     if (!monitoringId || !actionModal) return;
     if (!actionReason.trim()) {
@@ -621,13 +597,6 @@ export default function PemantauanRisikoPage() {
                   </Table.Td>
                   <Table.Td ta="center">
                     <Group gap={4} justify="center" wrap="nowrap">
-                      <ActionIcon
-                        variant="subtle"
-                        onClick={() => openChain(row.riskId)}
-                        title="Lihat rantai risiko"
-                      >
-                        <IconRoute size={15} />
-                      </ActionIcon>
                       {mode === "active" ? (
                         <ActionIcon variant="light" onClick={() => openForm(row)} title="Isi pemantauan">
                           <IconPencil size={15} />
@@ -985,46 +954,6 @@ export default function PemantauanRisikoPage() {
               <Button onClick={confirmFinalize}>Simpan &amp; Finalisasi</Button>
             </Group>
           </Stack>
-        )}
-      </Modal>
-
-      <Modal opened={chainOpen} onClose={() => setChainOpen(false)} title="Rantai Risiko" size="lg">
-        {chainLoading ? (
-          <Center h={120}><Loader /></Center>
-        ) : (
-          <Table withTableBorder withColumnBorders>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>ID</Table.Th>
-                <Table.Th>Risiko</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Target</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {chainRows.map((item) => (
-                <Table.Tr key={item.id}>
-                  <Table.Td>{item.id}</Table.Td>
-                  <Table.Td>{item.risiko}</Table.Td>
-                  <Table.Td>
-                    {RISK_CYCLE_LABEL[item.statusSiklus] ?? item.statusSiklus}
-                  </Table.Td>
-                  <Table.Td>
-                    {item.followUpTriwulan
-                      ? `TW ${item.followUpTriwulan} ${item.followUpTahun ?? ""}`
-                      : "-"}
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-              {chainRows.length === 0 && (
-                <Table.Tr>
-                  <Table.Td colSpan={4} ta="center" c="dimmed">
-                    Tidak ada data rantai.
-                  </Table.Td>
-                </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
         )}
       </Modal>
 
