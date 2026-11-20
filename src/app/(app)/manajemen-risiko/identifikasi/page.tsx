@@ -220,7 +220,7 @@ const BankRisikoModal = memo(function BankRisikoModal({
         {loading && <Center h={150}><Loader /></Center>}
 
         {!loading && searched && results.length === 0 && (
-          <Center h={100}><Text c="dimmed">Tidak ada hasil untuk "{query}"</Text></Center>
+          <Center h={100}><Text c="dimmed">Tidak ada hasil untuk “{query}”</Text></Center>
         )}
 
         {!loading && results.length > 0 && (

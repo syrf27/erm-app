@@ -330,6 +330,91 @@ export const createAuditLogSchema = z.object({
   userAgent: z.string().optional().nullable(),
 });
 
+// Pemantauan triwulanan
+export const monitoringResponSchema = z.enum([
+  "menerima",
+  "menghindari",
+  "mengurangi",
+  "mentransfer",
+]);
+
+export const savePemantauanSchema = z.object({
+  statusPelaksanaan: z.enum(["belum", "sebagian", "selesai"]).optional().nullable(),
+  uraianPelaksanaan: safePlainText(5000).optional().nullable(),
+  pekerjaanTertunda: safePlainText(5000).optional().nullable(),
+  realisasiWaktu: safePlainText(500).optional().nullable(),
+  realisasiOutput: safePlainText(5000).optional().nullable(),
+  keterjadianRisiko: z.enum(["Terjadi", "Tidak Terjadi"]).optional().nullable(),
+  efektivitas: safePlainText(100).optional().nullable(),
+  catatanEfektivitas: safePlainText(5000).optional().nullable(),
+  levelKemungkinanId: optionalPositiveInt.nullable(),
+  levelDampakId: optionalPositiveInt.nullable(),
+  responRisiko: monitoringResponSchema.optional().nullable(),
+  responAlasan: safePlainText(2000).optional().nullable(),
+  targetOutput: safePlainText(5000).optional().nullable(),
+  targetWaktu: safePlainText(500).optional().nullable(),
+  penanggungJawab: safePlainText(500).optional().nullable(),
+  dokumens: documentReferenceSchema.array().max(20).optional(),
+  version: z.number().int().nonnegative().optional(),
+});
+
+export const createPemantauanSchema = savePemantauanSchema.extend({
+  riskId: positiveInt,
+  tahun: z.number().int().min(2020).max(2100),
+  triwulan: z.number().int().min(1).max(4),
+});
+
+export const savePemantauanPatchSchema = savePemantauanSchema.extend({
+  version: z.number().int().nonnegative(),
+});
+
+export const monitoringActionSchema = z.object({
+  action: z.enum(["submit", "return", "finalize", "revise", "cancel-obligation"]),
+  version: z.number().int().nonnegative().optional(),
+  reason: safePlainText(2000).optional().nullable(),
+  acknowledgeChanges: z.boolean().optional(),
+  reconciliation: z
+    .object({
+      decision: z.enum(["KEEP_ACTIVE_CHAIN", "MARK_FOR_REVIEW", "CANCELLED"]),
+      note: safePlainText(2000, "Catatan rekonsiliasi wajib diisi"),
+    })
+    .optional()
+    .nullable(),
+  correctionMonitoringId: z.number().int().positive().optional(),
+});
+
+const followUpIdentifikasiSchema = createIdentifikasiRisikoSchema.extend({
+  sasaranId: optionalPositiveInt.nullable(),
+  kegiatanId: optionalPositiveInt.nullable(),
+  prosesBisnisId: optionalPositiveInt.nullable(),
+  unitKerjaId: optionalPositiveInt.nullable(),
+  teamId: optionalPositiveInt.nullable(),
+});
+
+export const followUpStageSchema = z.object({
+  identifikasi: followUpIdentifikasiSchema,
+  analisis: createAnalisisRisikoSchema
+    .omit({ identifikasiRisikoId: true })
+    .optional()
+    .nullable(),
+  evaluasi: createEvaluasiRisikoSchema
+    .omit({ identifikasiRisikoId: true })
+    .optional()
+    .nullable(),
+  rencana: createRencanaPenangananSchema
+    .omit({ identifikasiRisikoId: true })
+    .extend({ alasanPenguatan: safePlainText(5000).optional().nullable() })
+    .optional()
+    .nullable(),
+  version: z.number().int().nonnegative().optional(),
+});
+
+export const followUpActionSchema = z.object({
+  action: z.enum(["submit", "return", "approve"]),
+  version: z.number().int().nonnegative().optional(),
+  reason: safePlainText(2000).optional().nullable(),
+});
+
 // Search schemas
 export const searchSchema = z.object({
   query: z.string().min(1).max(500),

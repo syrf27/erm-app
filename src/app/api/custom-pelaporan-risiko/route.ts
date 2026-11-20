@@ -108,14 +108,14 @@ export async function GET(request: NextRequest) {
           actual: {
             likelihood: actualLikelihood,
             impact: actualImpact,
-            besaran: actualMatrix?.besaran ?? 0,
+            besaran: actualMatrix?.besaran ?? null,
             level: actualMatrix?.levelRisiko ?? null,
           },
           residual: {
             source: evaluationHasResidual ? "evaluasi" : "rencana-legacy",
             likelihood: residualLikelihood,
             impact: residualImpact,
-            besaran: residualMatrix?.besaran ?? 0,
+            besaran: residualMatrix?.besaran ?? null,
             level: residualMatrix?.levelRisiko ?? null,
           },
         },

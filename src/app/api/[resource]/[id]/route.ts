@@ -34,6 +34,11 @@ import {
 } from "@/lib/validators";
 import { ZodError } from "zod";
 import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
+import {
+  assertResidualMutable,
+  touchesResidual,
+} from "@/lib/pemantauan-integrity";
+import { DomainError } from "@/lib/risk-register-service";
 
 function getDelegate(resource: string) {
   const model = resourceMap[resource];
@@ -229,6 +234,37 @@ export async function PATCH(
     if (resource === "users" && validatedData.teamIds !== undefined && !isAdminRole(authContext.roleName)) {
       return NextResponse.json({ error: "Hanya Admin yang dapat menetapkan Tim Kerja pengguna." }, { status: 403 });
     }
+    if (resource === "evaluasi-risiko" && touchesResidual(validatedData)) {
+      // Guard dan penulisan berada dalam transaksi yang sama. Field lain pada
+      // Evaluasi (mis. respons/prioritas) tetap dapat diedit.
+      const item = await prisma.$transaction(async (tx) => {
+        const evaluasi = await tx.evaluasiRisiko.findUnique({
+          where: { id: Number(id) },
+          select: { identifikasiRisikoId: true },
+        });
+        if (!evaluasi) {
+          throw new DomainError("Evaluasi risiko tidak ditemukan.", 404);
+        }
+        await assertResidualMutable(tx as never, evaluasi.identifikasiRisikoId);
+        return tx.evaluasiRisiko.update({
+          where: { id: Number(id) },
+          data: validatedData,
+        });
+      });
+
+      await logAudit({
+        userId,
+        userName,
+        action: "UPDATE",
+        resource: resourceMap[resource] || resource,
+        resourceId: Number(id),
+        details: validatedData,
+        ipAddress,
+        userAgent,
+      });
+      await invalidateResourceCache(resource);
+      return NextResponse.json(item);
+    }
 
     const delegate = getDelegate(resource);
     let item;
@@ -387,6 +423,12 @@ export async function PATCH(
 
     return NextResponse.json(item);
   } catch (e: any) {
+    if (e instanceof DomainError) {
+      return NextResponse.json(
+        { error: e.message, details: e.details },
+        { status: e.status }
+      );
+    }
     console.error("API PATCH error:", e);
     return NextResponse.json(
       { error: "Internal server error" },

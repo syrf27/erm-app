@@ -19,6 +19,11 @@ import {
 } from "@/lib/validators";
 import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
 import { canAccessRiskIds, getAuthUserContext, isAdminRole } from "@/lib/access-control";
+import {
+  assertResidualMutable,
+  touchesResidual,
+} from "@/lib/pemantauan-integrity";
+import { DomainError } from "@/lib/domain-error";
 
 const batchSchemas = {
   "identifikasi-risiko": {
@@ -158,9 +163,24 @@ export async function POST(
         const created = [];
         const updated = [];
         for (const data of validatedCreates) {
+          if (resource === "evaluasi-risiko") {
+            await assertResidualMutable(
+              tx as never,
+              Number((data as { identifikasiRisikoId?: number }).identifikasiRisikoId)
+            );
+          }
           created.push(await txDelegate.create({ data }));
         }
         for (const item of validatedUpdates) {
+          if (resource === "evaluasi-risiko" && touchesResidual(item.data)) {
+            const existing = await tx.evaluasiRisiko.findUnique({
+              where: { id: item.id },
+              select: { identifikasiRisikoId: true },
+            });
+            if (existing) {
+              await assertResidualMutable(tx as never, existing.identifikasiRisikoId);
+            }
+          }
           updated.push(
             await txDelegate.update({ where: { id: item.id }, data: item.data })
           );
@@ -216,6 +236,12 @@ export async function POST(
       return NextResponse.json(
         { error: "Validation failed", details: error.flatten().fieldErrors },
         { status: 400 }
+      );
+    }
+    if (error instanceof DomainError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: error.status }
       );
     }
     console.error("API batch error:", error);

@@ -119,21 +119,17 @@ export async function GET(request: NextRequest) {
         jenisRisiko: r.jenisRisiko?.nama ?? "",
         lvlKemungkinan: an?.levelKemungkinan?.nama ?? "",
         lvlDampak: an?.levelDampak?.nama ?? "",
-        besaranAktual:
-          matriksAktual?.besaran ??
-          (an?.levelKemungkinan && an?.levelDampak
-            ? an.levelKemungkinan.skala * an.levelDampak.skala
-            : 0),
+        besaranAktual: matriksAktual?.besaran ?? null,
         levelAktual: matriksAktual?.levelRisiko?.nama ?? "",
         pengendalian: an?.pengendalianUraian ?? "",
         efektivitas: an?.pengendalianEfektivitas ?? "",
         residualKemungkinan: ev?.residualLevelKemungkinan?.nama ?? "",
         residualDampak: ev?.residualLevelDampak?.nama ?? "",
-        besaranResidual: matriksResidual?.besaran ?? 0,
+        besaranResidual: matriksResidual?.besaran ?? null,
         levelResidual: matriksResidual?.levelRisiko?.nama ?? "",
         targetResidualKemungkinan: rp?.targetResidualLevelKemungkinan?.nama ?? "",
         targetResidualDampak: rp?.targetResidualLevelDampak?.nama ?? "",
-        targetBesaranResidual: matriksTargetResidual?.besaran ?? 0,
+        targetBesaranResidual: matriksTargetResidual?.besaran ?? null,
         targetLevelResidual: matriksTargetResidual?.levelRisiko?.nama ?? "",
         respon: r.evaluasiRisiko?.responRisiko ?? "",
         rencanaPenanganan: rp?.rencanaTidakPenanganan ?? "",

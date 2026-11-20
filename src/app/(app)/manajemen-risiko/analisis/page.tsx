@@ -133,8 +133,14 @@ export default function AnalisisRisikoPage() {
       const a = analisisById.get(r.id);
       const lk = kemungkinanData.find((o: any) => o.id === a?.levelKemungkinanId);
       const ld = dampakData.find((o: any) => o.id === a?.levelDampakId);
-      const besaran = lk?.skala != null && ld?.skala != null ? lk.skala * ld.skala : "";
-      const lrNama = besaran !== "" ? getLevelRisikoFromBesaran(besaran) : "";
+      const matriks = lk && ld
+        ? matriksData.find(
+            (m: any) =>
+              m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
+          )
+        : null;
+      const besaran = matriks?.besaran ?? "";
+      const lrNama = matriks?.levelRisiko?.nama ?? (lk && ld ? "Belum dapat dihitung" : "");
 
       return [
         r.id,
@@ -431,16 +437,6 @@ export default function AnalisisRisikoPage() {
   );
 }
 
-function getLevelRisikoFromBesaran(besaran: number | string): string {
-  const score = typeof besaran === "string" ? parseInt(besaran, 10) : besaran;
-  if (isNaN(score) || score <= 0) return "";
-  if (score >= 1 && score <= 5) return "Sangat Rendah";
-  if (score >= 6 && score <= 11) return "Rendah";
-  if (score >= 12 && score <= 15) return "Sedang";
-  if (score >= 16 && score <= 19) return "Tinggi";
-  return "Sangat Tinggi"; // 20 - 25
-}
-
 function recalcAnalisisRow(
   hot: Handsontable,
   row: number,
@@ -455,11 +451,14 @@ function recalcAnalisisRow(
   
   if (!lk || !ld) return;
 
-  const besaran = lk.skala != null && ld.skala != null ? lk.skala * ld.skala : "";
-  hot.setDataAtCell(row, 8, besaran, "recalc");
-
-  if (besaran !== "") {
-    const lrNama = getLevelRisikoFromBesaran(besaran);
-    hot.setDataAtCell(row, 7, lrNama, "recalc");
+  const matriks = matriksData.find(
+    (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
+  );
+  if (!matriks) {
+    hot.setDataAtCell(row, 8, "", "recalc");
+    hot.setDataAtCell(row, 7, "Belum dapat dihitung", "recalc");
+    return;
   }
+  hot.setDataAtCell(row, 8, matriks.besaran, "recalc");
+  hot.setDataAtCell(row, 7, matriks.levelRisiko?.nama ?? "Belum dapat dihitung", "recalc");
 }

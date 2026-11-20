@@ -115,6 +115,32 @@ export default function DashboardPage() {
           label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} /> */}
       </SimpleGrid>
 
+      {/* Siklus pemantauan triwulanan */}
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+        <Paper withBorder radius="md" p="md" component="a" href="/pemantauan-risiko" style={{ textDecoration: "none" }}>
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Belum Dipantau</Text>
+          <Text fw={800} fz={26}>{stats.riskCycle?.belumDipantau ?? 0}</Text>
+          <Text size="xs" c="dimmed">Risiko aktif dengan RTP tanpa hasil final</Text>
+        </Paper>
+        <Paper withBorder radius="md" p="md" component="a" href="/pemantauan-risiko" style={{ textDecoration: "none" }}>
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Menunggu Validasi</Text>
+          <Text fw={800} fz={26}>{stats.riskCycle?.menungguValidasi ?? 0}</Text>
+          <Text size="xs" c="dimmed">Pemantauan diajukan ke Admin</Text>
+        </Paper>
+        <Paper withBorder radius="md" p="md" component="a" href="/manajemen-risiko/risiko-lanjutan" style={{ textDecoration: "none" }}>
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Tindak Lanjut Wajib</Text>
+          <Text fw={800} fz={26} c={(stats.riskCycle?.tindakLanjutWajib ?? 0) > 0 ? "red" : undefined}>
+            {stats.riskCycle?.tindakLanjutWajib ?? 0}
+          </Text>
+          <Text size="xs" c="dimmed">Risiko lanjutan yang harus dilengkapi</Text>
+        </Paper>
+        <Paper withBorder radius="md" p="md" component="a" href="/manajemen-risiko/register?tab=draft" style={{ textDecoration: "none" }}>
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Draf Lanjutan</Text>
+          <Text fw={800} fz={26}>{stats.riskCycle?.followUpDrafts ?? 0}</Text>
+          <Text size="xs" c="dimmed">Belum disahkan Admin</Text>
+        </Paper>
+      </SimpleGrid>
+
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         {/* Risk Heatmap */}
         <Paper withBorder radius="md" p="lg" shadow="xs" data-tour="tour-heatmap">
@@ -139,7 +165,7 @@ export default function DashboardPage() {
                     {row.map((cell: any, ci: number) => {
                       const bg = fmtColor(cell.warna, "#e9ecef");
                       return (
-                        <Tooltip key={"c" + ri + ci} label={(cell.levelRisikoNama ?? "-") + " • Besaran " + cell.besaran + " • " + cell.count + " risiko"}>
+                        <Tooltip key={"c" + ri + ci} label={(cell.levelRisikoNama ?? "-") + " • Besaran " + (cell.besaran ?? "Belum dapat dihitung") + " • " + cell.count + " risiko"}>
                           <Center style={{ background: bg, borderRadius: 6, aspectRatio: "1.6 / 1", minHeight: 44, color: "#fff", fontWeight: 700, position: "relative" }}>
                             <Text fz={18} fw={800}>{cell.count || ""}</Text>
                           </Center>
@@ -274,7 +300,7 @@ export default function DashboardPage() {
         {/* Top risks table */}
         <Paper withBorder radius="md" p="lg" shadow="xs" style={{ gridColumn: "span 2" }}>
           <Group justify="space-between" mb="md">
-            <Text fw={700}>Risiko Prioritas Tertinggi</Text>
+            <Text fw={700}>Risiko Residual Prioritas Tertinggi</Text>
             <ThemeIcon variant="light" color="red" radius="md"><IconListCheck size={18} /></ThemeIcon>
           </Group>
           <ScrollArea>
@@ -283,7 +309,7 @@ export default function DashboardPage() {
                 <Table.Tr>
                   <Table.Th>Risiko</Table.Th>
                   <Table.Th>Kategori</Table.Th>
-                  <Table.Th ta="center">Besaran</Table.Th>
+                  <Table.Th ta="center">Besaran Residual</Table.Th>
                   <Table.Th>Level</Table.Th>
                 </Table.Tr>
               </Table.Thead>
@@ -297,7 +323,7 @@ export default function DashboardPage() {
                   </Table.Tr>
                 ))}
                 {stats.topRisks.length === 0 && (
-                  <Table.Tr><Table.Td colSpan={4}><Text size="sm" c="dimmed" ta="center">Belum ada analisis risiko</Text></Table.Td></Table.Tr>
+                  <Table.Tr><Table.Td colSpan={4}><Text size="sm" c="dimmed" ta="center">Belum ada risiko residual yang dapat diprioritaskan</Text></Table.Td></Table.Tr>
                 )}
               </Table.Tbody>
             </Table>

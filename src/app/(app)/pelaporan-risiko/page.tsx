@@ -50,7 +50,7 @@ interface ReportRow {
   // Analisis Aktual
   kemungkinanAktual: string;
   dampakAktual: string;
-  besaranAktual: number;
+  besaranAktual: number | null;
   levelAktual: string;
   warnaAktual: string;
   pengendalian: string;
@@ -66,7 +66,7 @@ interface ReportRow {
   // Residual
   kemungkinanResidual: string;
   dampakResidual: string;
-  besaranResidual: number;
+  besaranResidual: number | null;
   levelResidual: string;
   warnaResidual: string;
 
@@ -150,7 +150,7 @@ export default function PelaporanRisikoPage() {
         dampak: r.dampak ?? "",
         kemungkinanAktual: actual?.likelihood?.nama ?? "-",
         dampakAktual: actual?.impact?.nama ?? "-",
-        besaranAktual: actual?.besaran ?? 0,
+        besaranAktual: actual?.besaran ?? null,
         levelAktual: actual?.level?.nama ?? "-",
         warnaAktual: actual?.level?.warna ?? "gray",
         pengendalian: an?.pengendalianUraian ?? "",
@@ -166,7 +166,7 @@ export default function PelaporanRisikoPage() {
         penanggungJawab: rp?.penanggungJawab ?? "",
         kemungkinanResidual: residual?.likelihood?.nama ?? "-",
         dampakResidual: residual?.impact?.nama ?? "-",
-        besaranResidual: residual?.besaran ?? 0,
+        besaranResidual: residual?.besaran ?? null,
         levelResidual: residual?.level?.nama ?? "-",
         warnaResidual: residual?.level?.warna ?? "gray",
         keterjadiRisiko: rp?.keterjadiRisiko ?? "",
@@ -180,7 +180,7 @@ export default function PelaporanRisikoPage() {
         kategori: r.kategoriRisiko?.nama ?? "",
         areaDampak: r.areaDampak?.nama ?? "",
         sumberRisiko: r.sumberRisiko?.nama ?? "",
-        prioritas: actual?.besaran ?? 0,
+        prioritas: actual?.besaran ?? null,
       };
     });
   }, [
@@ -554,14 +554,14 @@ export default function PelaporanRisikoPage() {
           sumberRisiko: row.sumberRisiko || "-",
           kemungkinanAktual: row.kemungkinanAktual,
           dampakAktual: row.dampakAktual,
-          besaranAktual: row.besaranAktual > 0 ? row.besaranAktual : "-",
-          levelAktual: row.besaranAktual > 0 ? row.levelAktual : "-",
+          besaranAktual: row.besaranAktual != null ? row.besaranAktual : "Belum dapat dihitung",
+          levelAktual: row.besaranAktual != null ? row.levelAktual : "-",
           pengendalian: row.pengendalian || "-",
           efektivitas: row.efektivitas || "-",
           kemungkinanResidual: row.kemungkinanResidual,
           dampakResidual: row.dampakResidual,
           levelResidual: row.levelResidual,
-          besaranResidual: row.besaranResidual > 0 ? row.besaranResidual : "-",
+          besaranResidual: row.besaranResidual != null ? row.besaranResidual : "Belum dapat dihitung",
           respon: row.respon,
           rencanaPenanganan: row.rencanaPenanganan || "-",
           targetWaktu: row.targetWaktu || "-",
@@ -612,7 +612,7 @@ export default function PelaporanRisikoPage() {
         );
 
         // Color coding for Besaran Aktual (Col 13 / M)
-        if (row.besaranAktual > 0) {
+        if (row.besaranAktual != null) {
           const cellM = dataRow.getCell(13);
           const colorObj = getExcelBadgeColor(row.warnaAktual);
           cellM.fill = {
@@ -629,7 +629,7 @@ export default function PelaporanRisikoPage() {
         }
 
         // Color coding for Risiko Residual - Besaran Risiko (Col 29 / AC)
-        if (row.besaranResidual > 0) {
+        if (row.besaranResidual != null) {
           const cellAC = dataRow.getCell(29);
           const colorObj = getExcelBadgeColor(row.warnaResidual);
           cellAC.fill = {
@@ -908,7 +908,7 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{sanitizeHtml(row.kemungkinanAktual)}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.dampakAktual)}</Table.Td>
                   <Table.Td align="center">
-                    {row.besaranAktual > 0 ? (
+                    {row.besaranAktual != null ? (
                       <Badge
                         color={getBadgeColor(row.warnaAktual)}
                         variant="filled"
@@ -916,11 +916,11 @@ export default function PelaporanRisikoPage() {
                         {row.besaranAktual}
                       </Badge>
                     ) : (
-                      "-"
+                      "Belum dapat dihitung"
                     )}
                   </Table.Td>
                   <Table.Td align="center">
-                    {row.besaranAktual > 0 ? (
+                    {row.besaranAktual != null ? (
                       <Badge
                         color={getBadgeColor(row.warnaAktual)}
                         variant="filled"
@@ -1009,7 +1009,7 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{sanitizeHtml(row.dampakResidual)}</Table.Td>
                   <Table.Td>{sanitizeHtml(row.levelResidual || "-")}</Table.Td>
                   <Table.Td align="center">
-                    {row.besaranResidual > 0 ? (
+                    {row.besaranResidual != null ? (
                       <Badge
                         color={getBadgeColor(row.warnaResidual)}
                         variant="filled"
@@ -1017,7 +1017,7 @@ export default function PelaporanRisikoPage() {
                         {row.besaranResidual}
                       </Badge>
                     ) : (
-                      "-"
+                      "Belum dapat dihitung"
                     )}
                   </Table.Td>
                   <Table.Td align="center">

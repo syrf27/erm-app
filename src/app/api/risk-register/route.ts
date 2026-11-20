@@ -1,35 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
-import { checkPermission } from "@/lib/access-control";
 import {
-  createIdentifikasiRisikoSchema,
+  checkPermission,
+  getAuthUserContext,
+  isAdminRole,
+} from "@/lib/access-control";
+import { invalidateResourceCache } from "@/lib/cache";
+import { logAudit } from "@/lib/audit-log";
+import {
   createAnalisisRisikoSchema,
   createEvaluasiRisikoSchema,
+  createIdentifikasiRisikoSchema,
   createRencanaPenangananSchema,
 } from "@/lib/validators";
-import { ZodError } from "zod";
+import {
+  createRiskRegister,
+  DomainError,
+  type RiskRegisterInput,
+} from "@/lib/risk-register-service";
 
 // POST /api/risk-register
 // Body: { identifikasi, analisis?, evaluasi?, rencana? }
-// Creates all in one transaction to avoid orphan rows.
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await getAuthUserContext();
+    if (!ctx) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
     const ipAddress =
       request.headers.get("x-forwarded-for") ||
       request.headers.get("x-real-ip") ||
       "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkPermission("identifikasi-risiko", "create", {
-      ipAddress,
-      userAgent,
-    });
-    if (!isAllowed) {
+    const permissionContext = { ipAddress, userAgent };
+
+    if (!await checkPermission("identifikasi-risiko", "create", permissionContext)) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     const body = await request.json();
     const { identifikasi, analisis, evaluasi, rencana } = body ?? {};
-
     if (!identifikasi) {
       return NextResponse.json(
         { error: "Data identifikasi wajib diisi" },
@@ -37,92 +50,133 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let vIdent: any;
-    let vAnalisis: any = null;
-    let vEvaluasi: any = null;
-    let vRencana: any = null;
+    // Izin diperiksa untuk setiap tahap yang benar-benar dibuat.
+    if (analisis && !await checkPermission("analisis-risiko", "create", permissionContext)) {
+      return NextResponse.json(
+        { error: "Tidak memiliki izin membuat analisis risiko." },
+        { status: 403 }
+      );
+    }
+    if (evaluasi && !await checkPermission("evaluasi-risiko", "create", permissionContext)) {
+      return NextResponse.json(
+        { error: "Tidak memiliki izin membuat evaluasi risiko." },
+        { status: 403 }
+      );
+    }
+    if (rencana && !await checkPermission("rencana-penanganan", "create", permissionContext)) {
+      return NextResponse.json(
+        { error: "Tidak memiliki izin membuat rencana penanganan." },
+        { status: 403 }
+      );
+    }
 
+    let input: RiskRegisterInput;
     try {
-      vIdent = createIdentifikasiRisikoSchema.parse(identifikasi);
-      if (analisis) {
-        // strip identifikasiRisikoId if client sent dummy
-        const { identifikasiRisikoId: _drop, ...rest } = analisis;
-        vAnalisis = createAnalisisRisikoSchema
-          .omit({ identifikasiRisikoId: true })
-          .parse(rest);
-      }
-      if (evaluasi) {
-        const { identifikasiRisikoId: _drop2, ...rest } = evaluasi;
-        vEvaluasi = createEvaluasiRisikoSchema
-          .omit({ identifikasiRisikoId: true })
-          .parse(rest);
-      }
-      if (rencana) {
-        const { identifikasiRisikoId: _drop3, ...rest } = rencana;
-        vRencana = createRencanaPenangananSchema
-          .omit({ identifikasiRisikoId: true })
-          .parse(rest);
-      }
-    } catch (e) {
-      if (e instanceof ZodError) {
+      const vIdent = createIdentifikasiRisikoSchema.parse(identifikasi);
+      input = {
+        identifikasi: vIdent,
+        analisis: analisis
+          ? createAnalisisRisikoSchema
+              .omit({ identifikasiRisikoId: true })
+              .parse(analisis)
+          : null,
+        evaluasi: evaluasi
+          ? createEvaluasiRisikoSchema
+              .omit({ identifikasiRisikoId: true })
+              .parse(evaluasi)
+          : null,
+        rencana: rencana
+          ? createRencanaPenangananSchema
+              .omit({ identifikasiRisikoId: true })
+              .parse(rencana)
+          : null,
+      };
+    } catch (error) {
+      if (error instanceof ZodError) {
         return NextResponse.json(
-          { error: "Validation failed", details: e.flatten().fieldErrors },
+          { error: "Validation failed", details: error.flatten().fieldErrors },
           { status: 400 }
         );
       }
-      throw e;
+      throw error;
     }
 
-    const result = await prisma.$transaction(async (tx: any) => {
-      const createdIdent = await tx.identifikasiRisiko.create({
-        data: vIdent,
-      });
-      const identId = createdIdent.id;
-
-      let createdAnalisis = null;
-      let createdEvaluasi = null;
-      let createdRencana = null;
-
-      if (vAnalisis) {
-        createdAnalisis = await tx.analisisRisiko.create({
-          data: { ...vAnalisis, identifikasiRisikoId: identId },
-        });
+    if (!isAdminRole(ctx.roleName)) {
+      if (ctx.teamIds.length === 0) {
+        return NextResponse.json(
+          { error: "Akun belum memiliki Tim Kerja. Hubungi administrator." },
+          { status: 403 }
+        );
       }
-      if (vEvaluasi) {
-        createdEvaluasi = await tx.evaluasiRisiko.create({
-          data: { ...vEvaluasi, identifikasiRisikoId: identId },
-        });
+      const requestedTeamId = Number(input.identifikasi.teamId);
+      if (requestedTeamId && !ctx.teamIds.includes(requestedTeamId)) {
+        return NextResponse.json(
+          { error: "Tim Kerja tidak sesuai dengan akun." },
+          { status: 403 }
+        );
       }
-      if (vRencana) {
-        // only create RTP if at least one meaningful field filled
-        const hasContent =
-          vRencana.rencanaTidakPenanganan ||
-          vRencana.targetOutput ||
-          vRencana.targetWaktu ||
-          vRencana.penanggungJawab ||
-          vRencana.residualLevelKemungkinanId ||
-          vRencana.residualLevelDampakId;
-        if (hasContent) {
-          createdRencana = await tx.rencanaPenanganan.create({
-            data: { ...vRencana, identifikasiRisikoId: identId },
-          });
-        }
+      if (!requestedTeamId && ctx.teamIds.length > 1) {
+        return NextResponse.json(
+          { error: "Pilih Tim Kerja untuk risiko ini." },
+          { status: 400 }
+        );
       }
+      input.identifikasi.teamId = requestedTeamId || ctx.teamIds[0];
+    }
 
-      return {
-        identifikasi: createdIdent,
-        analisis: createdAnalisis,
-        evaluasi: createdEvaluasi,
-        rencana: createdRencana,
-      };
+    const actor = await getActor();
+    const result = await prisma.$transaction(async (tx) =>
+      createRiskRegister(tx, input)
+    );
+
+    await logAudit({
+      userId: actor?.email ?? "unknown",
+      userName: actor?.name ?? "Unknown",
+      action: "CREATE",
+      resource: "RiskRegister",
+      resourceId: result.identifikasi.id,
+      details: {
+        tahapan: {
+          analisis: Boolean(result.analisis),
+          evaluasi: Boolean(result.evaluasi),
+          rencana: Boolean(result.rencana),
+        },
+        teamId: result.identifikasi.teamId,
+      },
+      ipAddress,
+      userAgent,
     });
 
+    await invalidateResourceCache("identifikasi-risiko");
+    await invalidateResourceCache("analisis-risiko");
+    await invalidateResourceCache("evaluasi-risiko");
+    await invalidateResourceCache("rencana-penanganan");
+
     return NextResponse.json(result, { status: 201 });
-  } catch (e: any) {
-    console.error("API risk-register POST error:", e);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: error.status }
+      );
+    }
+    console.error("API risk-register POST error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+async function getActor() {
+  const cookieStore = await cookies();
+  const auth = cookieStore.get("auth");
+  if (!auth?.value) return null;
+  try {
+    const parsed = JSON.parse(auth.value);
+    if (!parsed.email) return null;
+    return { email: String(parsed.email), name: String(parsed.name ?? parsed.email) };
+  } catch {
+    return null;
   }
 }

@@ -199,6 +199,15 @@ export async function POST(request: NextRequest) {
           },
         },
         kris: { select: { id: true } },
+        statusSiklus: true,
+        parentRiskId: true,
+        sourceMonitoringId: true,
+        childRisks: { select: { id: true } },
+        pemantauans: { select: { id: true, status: true } },
+        kewajibanSebagaiAsal: {
+          where: { status: { notIn: ["SELESAI", "DIBATALKAN"] } },
+          select: { id: true },
+        },
       },
     });
 
@@ -209,6 +218,19 @@ export async function POST(request: NextRequest) {
     if (action === "archive") {
       if (risk.archivedAt) {
         return NextResponse.json({ error: "Risiko sudah diarsipkan" }, { status: 400 });
+      }
+      if (
+        risk.kewajibanSebagaiAsal.length > 0 ||
+        risk.statusSiklus === "FOLLOW_UP_DRAFT" ||
+        risk.statusSiklus === "FOLLOW_UP_SUBMITTED"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Risiko tidak dapat diarsipkan selama masih memiliki kewajiban tindak lanjut atau draft lanjutan yang belum disahkan.",
+          },
+          { status: 409 }
+        );
       }
 
       const updated = await prisma.identifikasiRisiko.update({
@@ -296,6 +318,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: "Hapus permanen hanya untuk risiko yang sudah diarsipkan" },
           { status: 400 }
+        );
+      }
+
+      // Risiko yang sudah menjadi bagian rantai atau memiliki riwayat
+      // pemantauan final tidak boleh dihapus permanen; gunakan arsip.
+      const hasFinalHistory =
+        risk.sourceMonitoringId != null ||
+        risk.parentRiskId != null ||
+        risk.childRisks.length > 0 ||
+        risk.pemantauans.length > 0;
+      if (hasFinalHistory) {
+        return NextResponse.json(
+          {
+            error:
+              "Risiko ini merupakan bagian rantai/riwayat pemantauan. Gunakan arsip; hapus permanen tidak diizinkan.",
+          },
+          { status: 409 }
         );
       }
 

@@ -41,6 +41,7 @@ import {
 } from "@/lib/validators";
 import { ZodError } from "zod";
 import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
+import { RISK_CYCLE } from "@/lib/risk-cycle";
 
 // Force recompile to load updated resource map
 function getDelegate(resource: string) {
@@ -166,7 +167,10 @@ export async function GET(
       const scoredRisks = allRisksForYear.map((r) => {
         const kemungkinanId = r.evaluasiRisiko?.residualLevelKemungkinan?.id;
         const dampakId = r.evaluasiRisiko?.residualLevelDampak?.id;
-        const besaran = matriksByPair.get(`${kemungkinanId}-${dampakId}`) ?? 0;
+        const besaran =
+          kemungkinanId && dampakId
+            ? matriksByPair.get(`${kemungkinanId}-${dampakId}`) ?? null
+            : null;
         return {
           risk: r,
           besaran,
@@ -178,7 +182,7 @@ export async function GET(
 
       // Sort according to Guidebook rules
       scoredRisks.sort((a, b) => {
-        if (b.besaran !== a.besaran) return b.besaran - a.besaran;
+        if (b.besaran !== a.besaran) return (b.besaran ?? -1) - (a.besaran ?? -1);
         if (b.areaDampakId !== a.areaDampakId) return b.areaDampakId - a.areaDampakId;
         if (b.kategoriRisikoId !== a.kategoriRisikoId) return b.kategoriRisikoId - a.kategoriRisikoId;
         return b.id - a.id;
@@ -301,6 +305,14 @@ export async function GET(
     if (resource === "identifikasi-risiko" && where.archivedAt === undefined) {
       const archivedOnly = searchParams.get("_archived") === "true";
       where.archivedAt = archivedOnly ? { not: null } : null;
+    }
+    if (resource === "identifikasi-risiko" && where.statusSiklus === undefined) {
+      // Daftar register aktif tidak menampilkan draf lanjutan/risiko yang
+      // sudah digantikan. Riwayat dibuka dengan filter eksplisit (_siklus=ALL).
+      const requested = searchParams.get("_siklus");
+      if (requested !== "ALL") {
+        where.statusSiklus = requested || RISK_CYCLE.ACTIVE;
+      }
     }
     if (RISK_LINKED_RESOURCES.has(resource)) {
       where.identifikasiRisiko = {

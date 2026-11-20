@@ -21,7 +21,12 @@ export async function GET(request: Request) {
       lte: Math.max(tahunDari, tahunSampai),
     };
     const teamScope = isAdminRole(authContext.roleName) ? {} : { teamId: { in: authContext.teamIds } };
-    const riskScope = { tahun: yearRange, archivedAt: null, ...teamScope };
+    const riskScope = {
+      tahun: yearRange,
+      archivedAt: null,
+      statusSiklus: "ACTIVE",
+      ...teamScope,
+    };
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
@@ -41,6 +46,10 @@ export async function GET(request: Request) {
             evaluasi,
             rencana,
             kris,
+            belumDipantau,
+            menungguValidasi,
+            tindakLanjutWajib,
+            followUpDrafts,
           ] = await Promise.all([
             prisma.levelKemungkinan.findMany({
               orderBy: { skala: "asc" },
@@ -73,6 +82,7 @@ export async function GET(request: Request) {
               where: relatedRiskScope,
               select: {
                 id: true,
+                identifikasiRisikoId: true,
                 levelKemungkinanId: true,
                 levelDampakId: true,
                 levelRisikoId: true,
@@ -87,7 +97,12 @@ export async function GET(request: Request) {
             }),
             prisma.evaluasiRisiko.findMany({
               where: relatedRiskScope,
-              select: { responRisiko: true },
+              select: {
+                identifikasiRisikoId: true,
+                responRisiko: true,
+                residualLevelKemungkinanId: true,
+                residualLevelDampakId: true,
+              },
             }),
             prisma.rencanaPenanganan.findMany({
               where: relatedRiskScope,
@@ -101,6 +116,42 @@ export async function GET(request: Request) {
                 batasKuning: true,
                 batasMerah: true,
                 nilaiAktual: true,
+              },
+            }),
+            prisma.identifikasiRisiko.count({
+              where: {
+                ...riskScope,
+                rencanaPenanganan: { isNot: null },
+                pemantauans: {
+                  none: { status: "FINAL", tahun: yearRange },
+                },
+              },
+            }),
+            prisma.pemantauanRisiko.count({
+              where: {
+                status: "SUBMITTED",
+                tahun: yearRange,
+                ...(isAdminRole(authContext.roleName)
+                  ? {}
+                  : { risk: { teamId: { in: authContext.teamIds } } }),
+              },
+            }),
+            prisma.kewajibanTindakLanjut.count({
+              where: {
+                status: { notIn: ["SELESAI", "DIBATALKAN"] },
+                ...(isAdminRole(authContext.roleName)
+                  ? {}
+                  : { teamId: { in: authContext.teamIds } }),
+              },
+            }),
+            prisma.identifikasiRisiko.count({
+              where: {
+                tahun: yearRange,
+                archivedAt: null,
+                statusSiklus: {
+                  in: ["FOLLOW_UP_DRAFT", "FOLLOW_UP_SUBMITTED"],
+                },
+                ...teamScope,
               },
             }),
           ]);
@@ -147,7 +198,7 @@ export async function GET(request: Request) {
                 kemungkinanId: k.id,
                 dampakId: d.id,
                 count: cellCounts.get(matriksKey(k.id, d.id)) ?? 0,
-                besaran: cell?.besaran ?? k.skala * d.skala,
+                besaran: cell?.besaran ?? null,
                 levelRisikoNama: lr?.nama ?? null,
                 warna: lr?.warna ?? null,
               };
@@ -204,10 +255,12 @@ export async function GET(request: Request) {
           }
           let residualSum = 0,
             residualN = 0;
-          for (const r of rencana as any[]) {
+          // Residual terkini berasal dari Evaluasi (hasil final pemantauan
+          // disinkronkan ke sini oleh layanan pemantauan).
+          for (const e of evaluasi) {
             const c = resolveCell(
-              r.residualLevelKemungkinanId,
-              r.residualLevelDampakId
+              e.residualLevelKemungkinanId,
+              e.residualLevelDampakId
             );
             if (c) {
               residualSum += c.besaran;
@@ -241,19 +294,29 @@ export async function GET(request: Request) {
           };
 
           // ---- Top risks ----
+          const evaluationByRiskId = new Map(
+            evaluasi.map((item) => [item.identifikasiRisikoId, item])
+          );
           const topRisks = analisis
             .map((a) => {
-              const c = resolveCell(a.levelKemungkinanId, a.levelDampakId);
+              const evaluation = evaluationByRiskId.get(a.identifikasiRisikoId);
+              const c = evaluation
+                ? resolveCell(
+                    evaluation.residualLevelKemungkinanId,
+                    evaluation.residualLevelDampakId
+                  )
+                : null;
               const lr = c ? levelRisikoMap.get(c.levelRisikoId) : null;
               return {
                 risiko: a.identifikasiRisiko?.risiko ?? "-",
                 kategori: a.identifikasiRisiko?.kategoriRisiko?.nama ?? "-",
-                besaran: c?.besaran ?? 0,
+                besaran: c?.besaran ?? null,
                 level: lr?.nama ?? "-",
                 warna: lr?.warna ?? null,
               };
             })
-            .sort((a, b) => b.besaran - a.besaran)
+            .filter((risk) => risk.besaran != null)
+            .sort((a, b) => (b.besaran ?? 0) - (a.besaran ?? 0))
             .slice(0, 8);
 
           // ---- Process funnel / maturity ----
@@ -299,6 +362,12 @@ export async function GET(request: Request) {
             kriSummary,
             topRisks,
             funnel,
+            riskCycle: {
+              belumDipantau,
+              menungguValidasi,
+              tindakLanjutWajib,
+              followUpDrafts,
+            },
           };
         },
         300

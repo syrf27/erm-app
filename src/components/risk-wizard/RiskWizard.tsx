@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useList } from "@refinedev/core";
+import { useGetIdentity, useList } from "@refinedev/core";
 import {
   Stepper,
   Button,
@@ -21,21 +21,50 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
 import { useRouter } from "next/navigation";
+import { assessRisk } from "@/lib/risk-assessment";
 
-function getLevelFromBesaran(besaran: number) {
-  if (!besaran || besaran <= 0) return { label: "-", warna: "gray" };
-  if (besaran >= 1 && besaran <= 5) return { label: "Sangat Rendah", warna: "blue" };
-  if (besaran >= 6 && besaran <= 11) return { label: "Rendah", warna: "green" };
-  if (besaran >= 12 && besaran <= 15) return { label: "Sedang", warna: "yellow" };
-  if (besaran >= 16 && besaran <= 19) return { label: "Tinggi", warna: "orange" };
-  return { label: "Sangat Tinggi", warna: "red" };
+export interface RiskWizardInitialData {
+  identifikasi?: Record<string, unknown>;
+  analisis?: Record<string, unknown> | null;
+  evaluasi?: Record<string, unknown> | null;
+  rencana?: Record<string, unknown> | null;
+  version?: number;
 }
 
-const DRAFT_KEY = "risk-wizard-draft-v1";
+interface RiskWizardProps {
+  onSuccess?: () => void;
+  variant?: "create" | "followup";
+  followUpRiskId?: number;
+  initialData?: RiskWizardInitialData | null;
+  teamScope?: string | number | null;
+}
 
-export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
+const DRAFT_PREFIX = "risk-wizard-draft-v1";
+const LEGACY_DRAFT_KEY = "risk-wizard-draft-v1";
+
+export function RiskWizard({
+  onSuccess,
+  variant = "create",
+  followUpRiskId,
+  initialData,
+  teamScope,
+}: RiskWizardProps) {
   const router = useRouter();
   const { tahunDari } = useYear();
+  const { data: identity } = useGetIdentity<{ email?: string; name?: string; role?: string }>();
+  const isAdmin = String(identity?.role ?? "").toLowerCase() === "admin";
+  const draftKey = useMemo(
+    () =>
+      [
+        DRAFT_PREFIX,
+        identity?.email ?? "anon",
+        teamScope ?? "auto",
+        tahunDari,
+        variant,
+        followUpRiskId ?? "new",
+      ].join(":"),
+    [identity?.email, teamScope, tahunDari, variant, followUpRiskId]
+  );
   const [active, setActive] = useState(0);
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -51,6 +80,7 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const [areaDampakId, setAreaDampakId] = useState<string>("");
   const [penyebab, setPenyebab] = useState("");
   const [dampak, setDampak] = useState("");
+  const [teamId, setTeamId] = useState<string>("");
 
   // ---- Analisis ----
   const [pengendalianUraian, setPengendalianUraian] = useState("");
@@ -66,6 +96,10 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const [penanggungJawab, setPenanggungJawab] = useState("");
   const [residualKemungkinanId, setResidualKemungkinanId] = useState<string>("");
   const [residualDampakId, setResidualDampakId] = useState<string>("");
+  const [targetKemungkinanId, setTargetKemungkinanId] = useState<string>("");
+  const [targetDampakId, setTargetDampakId] = useState<string>("");
+  const [jenisPenanganan, setJenisPenanganan] = useState<string>("");
+  const [alasanPenguatan, setAlasanPenguatan] = useState("");
 
   // ---- Reference lists ----
   const sasaranList = useList({ resource: "sasaran", pagination: { mode: "off" } });
@@ -77,6 +111,8 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const areaList = useList({ resource: "area-dampak", pagination: { mode: "off" } });
   const lkList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const ldList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
+  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const teamList = useList({ resource: "teams", pagination: { mode: "off" } });
 
   const loadingLists =
     sasaranList.query?.isPending ||
@@ -87,7 +123,8 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
     kategoriList.query?.isPending ||
     areaList.query?.isPending ||
     lkList.query?.isPending ||
-    ldList.query?.isPending;
+    ldList.query?.isPending ||
+    matriksList.query?.isPending;
 
   const sasaranData: any[] = useMemo(() => sasaranList.result?.data ?? [], [sasaranList.result?.data]);
   const kegiatanData: any[] = useMemo(() => kegiatanList.result?.data ?? [], [kegiatanList.result?.data]);
@@ -98,6 +135,14 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const areaData: any[] = useMemo(() => areaList.result?.data ?? [], [areaList.result?.data]);
   const lkData: any[] = useMemo(() => lkList.result?.data ?? [], [lkList.result?.data]);
   const ldData: any[] = useMemo(() => ldList.result?.data ?? [], [ldList.result?.data]);
+  const matriksData: any[] = useMemo(
+    () => matriksList.result?.data ?? [],
+    [matriksList.result?.data]
+  );
+  const teamData: any[] = useMemo(
+    () => teamList.result?.data ?? [],
+    [teamList.result?.data]
+  );
 
   // cascading filter
   const filteredKegiatan = useMemo(() => {
@@ -110,16 +155,64 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
     return prosesData.filter((p: any) => String(p.kegiatanId) === String(kegiatanId));
   }, [prosesData, kegiatanId]);
 
-  // besaran preview
-  const lkSkala = useMemo(() => lkData.find((x: any) => String(x.id) === String(levelKemungkinanId))?.skala ?? null, [lkData, levelKemungkinanId]);
-  const ldSkala = useMemo(() => ldData.find((x: any) => String(x.id) === String(levelDampakId))?.skala ?? null, [ldData, levelDampakId]);
-  const besaran = lkSkala != null && ldSkala != null ? lkSkala * ldSkala : 0;
-  const levelInfo = getLevelFromBesaran(besaran);
+  // Nilai resmi selalu berasal dari pasangan matriks, bukan perkalian skala.
+  const assessment = useMemo(
+    () =>
+      assessRisk(
+        matriksData,
+        Number(levelKemungkinanId) || null,
+        Number(levelDampakId) || null
+      ),
+    [matriksData, levelKemungkinanId, levelDampakId]
+  );
+  const besaran = assessment.besaran;
+  const levelInfo = {
+    label: assessment.level ?? assessment.label,
+    warna: assessment.warna ?? "gray",
+  };
+
+  // ---- initial data (risiko lanjutan) ----
+  useEffect(() => {
+    if (!initialData) return;
+    const ident = initialData.identifikasi ?? {};
+    const an = initialData.analisis ?? {};
+    const ev = initialData.evaluasi ?? {};
+    const rp = initialData.rencana ?? {};
+    const str = (value: unknown) =>
+      value == null ? "" : String(value);
+    setSasaranId(str(ident.sasaranId));
+    setKegiatanId(str(ident.kegiatanId));
+    setProsesBisnisId(str(ident.prosesBisnisId));
+    setRisiko(str(ident.risiko));
+    setJenisRisikoId(str(ident.jenisRisikoId));
+    setSumberRisikoId(str(ident.sumberRisikoId));
+    setKategoriRisikoId(str(ident.kategoriRisikoId));
+    setAreaDampakId(str(ident.areaDampakId));
+    setPenyebab(str(ident.penyebab));
+    setDampak(str(ident.dampak));
+    setTeamId(str(ident.teamId));
+    setPengendalianUraian(str(an.pengendalianUraian));
+    setPengendalianEfektivitas(str(an.pengendalianEfektivitas));
+    setLevelKemungkinanId(str(an.levelKemungkinanId));
+    setLevelDampakId(str(an.levelDampakId));
+    setResponRisiko(str(ev.responRisiko) || "mengurangi");
+    setResidualKemungkinanId(str(ev.residualLevelKemungkinanId));
+    setResidualDampakId(str(ev.residualLevelDampakId));
+    setRencanaTidakPenanganan(str(rp.rencanaTidakPenanganan));
+    setTargetOutput(str(rp.targetOutput));
+    setTargetWaktu(str(rp.targetWaktu));
+    setPenanggungJawab(str(rp.penanggungJawab));
+    setJenisPenanganan(str(rp.jenisPenanganan));
+    setAlasanPenguatan(str(rp.alasanPenguatan));
+    setTargetKemungkinanId(str(rp.targetResidualLevelKemungkinanId));
+    setTargetDampakId(str(rp.targetResidualLevelDampakId));
+  }, [initialData]);
 
   // ---- draft restore/save ----
   useEffect(() => {
+    // Draf lama tanpa namespace tidak pernah dipulihkan ke akun/tim lain.
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(draftKey);
       if (!raw) return;
       const d = JSON.parse(raw);
       if (d.sasaranId) setSasaranId(d.sasaranId);
@@ -141,19 +234,29 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
       if (d.targetOutput) setTargetOutput(d.targetOutput);
       if (d.targetWaktu) setTargetWaktu(d.targetWaktu);
       if (d.penanggungJawab) setPenanggungJawab(d.penanggungJawab);
+      if (d.residualKemungkinanId) setResidualKemungkinanId(d.residualKemungkinanId);
+      if (d.residualDampakId) setResidualDampakId(d.residualDampakId);
+      if (d.targetKemungkinanId) setTargetKemungkinanId(d.targetKemungkinanId);
+      if (d.targetDampakId) setTargetDampakId(d.targetDampakId);
+      if (d.jenisPenanganan) setJenisPenanganan(d.jenisPenanganan);
+      if (d.alasanPenguatan) setAlasanPenguatan(d.alasanPenguatan);
+      if (d.teamId) setTeamId(d.teamId);
     } catch {}
-  }, []);
+  }, [draftKey]);
 
   const saveDraft = () => {
     try {
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey,
         JSON.stringify({
           sasaranId, kegiatanId, prosesBisnisId, risiko,
           jenisRisikoId, sumberRisikoId, kategoriRisikoId, areaDampakId,
           penyebab, dampak, pengendalianUraian, pengendalianEfektivitas,
           levelKemungkinanId, levelDampakId, responRisiko,
           rencanaTidakPenanganan, targetOutput, targetWaktu, penanggungJawab,
+          residualKemungkinanId, residualDampakId,
+          targetKemungkinanId, targetDampakId, jenisPenanganan, alasanPenguatan,
+          teamId,
         })
       );
       notifications.show({ title: "Draft tersimpan", message: "Draft wizard tersimpan di perangkat ini", color: "blue" });
@@ -161,7 +264,10 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const clearDraft = () => {
-    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    try {
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
+    } catch {}
   };
 
   // ---- validation per step ----
@@ -241,6 +347,8 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
   const handleSubmit = async (andAddAnother: boolean) => {
     setSaving(true);
     try {
+      const tahunRisiko =
+        Number(initialData?.identifikasi?.tahun) || tahunDari;
       const payload = {
         identifikasi: {
           risiko: risiko.trim(),
@@ -253,7 +361,8 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
           ...(sasaranId ? { sasaranId: Number(sasaranId) } : {}),
           ...(kegiatanId ? { kegiatanId: Number(kegiatanId) } : {}),
           ...(prosesBisnisId ? { prosesBisnisId: Number(prosesBisnisId) } : {}),
-          tahun: tahunDari,
+          ...(isAdmin && teamId ? { teamId: Number(teamId) } : {}),
+          tahun: tahunRisiko,
         },
         analisis: {
           pengendalianUraian: pengendalianUraian.trim() || null,
@@ -271,23 +380,39 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
           targetOutput: targetOutput.trim() || null,
           targetWaktu: targetWaktu.trim() || null,
           penanggungJawab: penanggungJawab.trim() || null,
+          jenisPenanganan: (jenisPenanganan as any) || null,
+          alasanPenguatan: alasanPenguatan.trim() || null,
           ...(residualKemungkinanId ? { residualLevelKemungkinanId: Number(residualKemungkinanId) } : {}),
           ...(residualDampakId ? { residualLevelDampakId: Number(residualDampakId) } : {}),
+          ...(targetKemungkinanId ? { targetResidualLevelKemungkinanId: Number(targetKemungkinanId) } : {}),
+          ...(targetDampakId ? { targetResidualLevelDampakId: Number(targetDampakId) } : {}),
         } : null,
       };
 
-      const res = await fetch("/api/risk-register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const isFollowUp = variant === "followup" && followUpRiskId != null;
+      const res = await fetch(
+        isFollowUp ? `/api/risiko-lanjutan/${followUpRiskId}` : "/api/risk-register",
+        {
+          method: isFollowUp ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isFollowUp ? { ...payload, version: initialData?.version } : payload
+          ),
+        }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.error || "Gagal menyimpan";
         const det = data?.details ? ` (${JSON.stringify(data.details)})` : "";
         throw new Error(msg + det);
       }
-      notifications.show({ title: "Tersimpan", message: `Risiko ID ${data.identifikasi?.id} tersimpan (identifikasi+analisis+evaluasi${data.rencana ? "+RTP" : ""})`, color: "green" });
+      notifications.show({
+        title: "Tersimpan",
+        message: isFollowUp
+          ? `Draf risiko lanjutan #${followUpRiskId} tersimpan`
+          : `Risiko ID ${data.identifikasi?.id} tersimpan (identifikasi+analisis+evaluasi${data.rencana ? "+RTP" : ""})`,
+        color: "green",
+      });
       clearDraft();
       if (andAddAnother) {
         setRisiko(""); setPenyebab(""); setDampak("");
@@ -329,6 +454,11 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
                 <Grid.Col span={{ base: 12, md: 4 }}>
                   <Select label="Proses Bisnis" placeholder={kegiatanId ? "Pilih proses" : "Pilih kegiatan dulu"} data={filteredProses.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={prosesBisnisId} onChange={(v) => setProsesBisnisId(v || "")} searchable clearable />
                 </Grid.Col>
+                {isAdmin && (
+                  <Grid.Col span={{ base: 12, md: 4 }}>
+                    <Select label="Tim Kerja (Admin)" placeholder="Tetapkan tim secara eksplisit" data={teamData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={teamId} onChange={(v) => setTeamId(v || "")} searchable clearable />
+                  </Grid.Col>
+                )}
               </Grid>
               <Text size="xs" c="dimmed" mt="xs">Tahun: {tahunDari} (ikut periode aktif). Kosongkan konteks jika risiko lintas-unit.</Text>
             </Card>
@@ -363,14 +493,14 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
           </Stack>
         </Stepper.Step>
 
-        <Stepper.Step label="Analisis" description="Inheren + Pengendalian">
+        <Stepper.Step label="Analisis" description="Aktual + Pengendalian">
           <Card withBorder padding="md" radius="md" mt="md">
             <Title order={6} mb="xs">Pengendalian yang sudah dilakukan</Title>
             <Textarea label="Uraian Pengendalian" placeholder="Contoh: Verifikasi berlapis oleh ketua tim" minRows={2} value={pengendalianUraian} onChange={(e) => setPengendalianUraian(e.currentTarget.value)} />
             <Select mt="xs" label="Efektivitas" placeholder="Pilih jika sudah diketahui" data={[{ value: "efektif", label: "Efektif" }, { value: "cukup_efektif", label: "Cukup efektif" }, { value: "kurang_efektif", label: "Kurang efektif" }, { value: "tidak_efektif", label: "Tidak efektif" }]} value={pengendalianEfektivitas} onChange={(v) => setPengendalianEfektivitas(v || "")} clearable />
           </Card>
           <Card withBorder padding="md" radius="md" mt="md">
-            <Title order={6} mb="xs">Risiko Aktual (Inheren)</Title>
+            <Title order={6} mb="xs">Risiko Aktual</Title>
             <Grid>
               <Grid.Col span={{ base: 12, md: 6 }}>
                 <Select label="Level Kemungkinan *" data={lkData.map((x: any) => ({ value: String(x.id), label: `${x.nama} (skala ${x.skala})` }))} value={levelKemungkinanId} onChange={(v) => setLevelKemungkinanId(v || "")} />
@@ -380,9 +510,14 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
               </Grid.Col>
             </Grid>
             <Group mt="md" gap="xs">
-              <Text size="sm">Besaran: <b>{besaran || "-"}</b></Text>
-              {besaran > 0 && <Badge color={levelInfo.warna}>{levelInfo.label}</Badge>}
-              <Text size="xs" c="dimmed">(6-11 Hijau sesuai matriks terbaru)</Text>
+              {assessment.status === "OK" ? (
+                <>
+                  <Text size="sm">Besaran: <b>{besaran}</b></Text>
+                  <Badge color={levelInfo.warna}>{levelInfo.label}</Badge>
+                </>
+              ) : (
+                <Text size="sm" c="dimmed">{assessment.label}</Text>
+              )}
             </Group>
           </Card>
         </Stepper.Step>
@@ -392,10 +527,10 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
             <Select label="Respon Risiko *" data={[{ value: "mengurangi", label: "Mengurangi Risiko" }, { value: "mentransfer", label: "Mengalihkan Risiko" }, { value: "menghindari", label: "Menghindari Risiko" }, { value: "menerima", label: "Menerima Risiko" }]} value={responRisiko} onChange={(v) => setResponRisiko(v || "mengurangi")} />
             <Grid mt="xs">
               <Grid.Col span={{ base: 12, md: 6 }}>
-                <Select label="Residual Target — Kemungkinan" data={lkData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualKemungkinanId} onChange={(v) => setResidualKemungkinanId(v || "")} clearable />
+                <Select label="Residual Evaluasi — Kemungkinan" data={lkData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualKemungkinanId} onChange={(v) => setResidualKemungkinanId(v || "")} clearable />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6 }}>
-                <Select label="Residual Target — Dampak" data={ldData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualDampakId} onChange={(v) => setResidualDampakId(v || "")} clearable />
+                <Select label="Residual Evaluasi — Dampak" data={ldData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualDampakId} onChange={(v) => setResidualDampakId(v || "")} clearable />
               </Grid.Col>
             </Grid>
           </Card>
@@ -413,6 +548,20 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
                 <Grid.Col span={12}>
                   <TextInput label="Penanggung Jawab" value={penanggungJawab} onChange={(e) => setPenanggungJawab(e.currentTarget.value)} />
                 </Grid.Col>
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Select label="Jenis Penanganan" data={[{ value: "pencegahan", label: "Pencegahan" }, { value: "perbaikan", label: "Perbaikan" }]} value={jenisPenanganan} onChange={(v) => setJenisPenanganan(v || "")} clearable />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Select label="Residual Harapan — Kemungkinan" data={lkData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={targetKemungkinanId} onChange={(v) => setTargetKemungkinanId(v || "")} clearable />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Select label="Residual Harapan — Dampak" data={ldData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={targetDampakId} onChange={(v) => setTargetDampakId(v || "")} clearable />
+                </Grid.Col>
+                {variant === "followup" && (
+                  <Grid.Col span={12}>
+                    <Textarea label="Alasan Perubahan/Penguatan RTP *" minRows={2} value={alasanPenguatan} onChange={(e) => setAlasanPenguatan(e.currentTarget.value)} />
+                  </Grid.Col>
+                )}
               </Grid>
             </Card>
           ) : (
@@ -428,8 +577,13 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
               <Text size="sm"><b>Penyebab:</b> {penyebab || "-"}</Text>
               <Text size="sm"><b>Dampak:</b> {dampak || "-"}</Text>
               <Group gap="xs">
-                <Text size="sm">Besaran Aktual: <b>{besaran || "-"}</b></Text>
-                {besaran > 0 && <Badge color={levelInfo.warna}>{levelInfo.label}</Badge>}
+                <Text size="sm">
+                  Besaran Aktual:{" "}
+                  <b>{assessment.status === "OK" ? besaran : assessment.label}</b>
+                </Text>
+                {assessment.status === "OK" && (
+                  <Badge color={levelInfo.warna}>{levelInfo.label}</Badge>
+                )}
                 <Text size="sm">Respon: <b>{responRisiko}</b></Text>
               </Group>
               {responRisiko === "mengurangi" && <Text size="sm"><b>RTP:</b> {rencanaTidakPenanganan || "-"}</Text>}
@@ -448,8 +602,12 @@ export function RiskWizard({ onSuccess }: { onSuccess?: () => void }) {
             <Button onClick={next}>Lanjut</Button>
           ) : (
             <>
-              <Button variant="light" onClick={() => handleSubmit(true)} loading={saving}>Simpan & Tambah Lagi</Button>
-              <Button onClick={() => handleSubmit(false)} loading={saving}>Simpan Risiko</Button>
+              {variant === "create" && (
+                <Button variant="light" onClick={() => handleSubmit(true)} loading={saving}>Simpan & Tambah Lagi</Button>
+              )}
+              <Button onClick={() => handleSubmit(false)} loading={saving}>
+                {variant === "followup" ? "Simpan Draf Lanjutan" : "Simpan Risiko"}
+              </Button>
             </>
           )}
         </Group>

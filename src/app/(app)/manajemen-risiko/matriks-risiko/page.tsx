@@ -17,6 +17,10 @@ import {
   TextInput,
   Pagination,
   ScrollArea,
+  Alert,
+  SegmentedControl,
+  Select,
+  Box,
 } from "@mantine/core";
 import { IconDownload } from "@tabler/icons-react";
 
@@ -30,7 +34,7 @@ interface RiskData {
     kemungkinanSkala: number;
     dampak: string;
     dampakSkala: number;
-    besaran: number;
+    besaran: number | null;
     level: string;
     warna: string;
   } | null;
@@ -39,7 +43,7 @@ interface RiskData {
     kemungkinanSkala: number;
     dampak: string;
     dampakSkala: number;
-    besaran: number;
+    besaran: number | null;
     level: string;
     warna: string;
   } | null;
@@ -75,21 +79,35 @@ export default function MatriksRisikoPage() {
   const ldData = useMemo(() => ldQuery.result?.data ?? [], [ldQuery.result?.data]);
   const matriksData = useMemo(() => matriksQuery.result?.data ?? [], [matriksQuery.result?.data]);
 
-  const getWarnaFromBesaran = (besaran: number): string => {
-    if (besaran >= 1 && besaran <= 5) return "Biru";
-    if (besaran >= 6 && besaran <= 11) return "Hijau";
-    if (besaran >= 12 && besaran <= 15) return "Kuning";
-    if (besaran >= 16 && besaran <= 19) return "Jingga";
-    return "Merah";
-  };
+  const now = new Date();
+  const [matrixMode, setMatrixMode] = useState<"current" | "history">("current");
+  const [histTahun, setHistTahun] = useState(now.getFullYear());
+  const [histTriwulan, setHistTriwulan] = useState(
+    Math.ceil((now.getMonth() + 1) / 3)
+  );
+  const [histData, setHistData] = useState<any>(null);
+  const [histLoading, setHistLoading] = useState(false);
 
-  const getLevelLabelFromBesaran = (besaran: number): string => {
-    if (besaran >= 1 && besaran <= 5) return "Sangat Rendah";
-    if (besaran >= 6 && besaran <= 11) return "Rendah";
-    if (besaran >= 12 && besaran <= 15) return "Sedang";
-    if (besaran >= 16 && besaran <= 19) return "Tinggi";
-    return "Sangat Tinggi";
-  };
+  useEffect(() => {
+    if (matrixMode !== "history") return;
+    let cancelled = false;
+    const loadHistory = async () => {
+      setHistLoading(true);
+      try {
+        const res = await fetch(
+          `/api/matriks-historis?tahun=${histTahun}&triwulan=${histTriwulan}`
+        );
+        const payload = await res.json().catch(() => ({}));
+        if (!cancelled) setHistData(res.ok ? payload : null);
+      } finally {
+        if (!cancelled) setHistLoading(false);
+      }
+    };
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [matrixMode, histTahun, histTriwulan]);
 
   // Combine and map data
   const processedRisks = useMemo((): RiskData[] => {
@@ -114,15 +132,14 @@ export default function MatriksRisikoPage() {
         const matchMatriks = matriksData.find(
           (m: any) => m.levelKemungkinanId === lkAktual.id && m.levelDampakId === ldAktual.id
         );
-        const besaran = matchMatriks?.besaran ?? (lkAktual.skala * ldAktual.skala);
         aktual = {
           kemungkinan: lkAktual.nama,
           kemungkinanSkala: lkAktual.skala,
           dampak: ldAktual.nama,
           dampakSkala: ldAktual.skala,
-          besaran,
-          level: getLevelLabelFromBesaran(besaran),
-          warna: getWarnaFromBesaran(besaran),
+          besaran: matchMatriks?.besaran ?? null,
+          level: matchMatriks?.levelRisiko?.nama ?? "Belum dapat dihitung",
+          warna: matchMatriks?.levelRisiko?.warna ?? "gray",
         };
       }
 
@@ -131,15 +148,14 @@ export default function MatriksRisikoPage() {
         const matchMatriks = matriksData.find(
           (m: any) => m.levelKemungkinanId === lkResidual.id && m.levelDampakId === ldResidual.id
         );
-        const besaran = matchMatriks?.besaran ?? (lkResidual.skala * ldResidual.skala);
         residual = {
           kemungkinan: lkResidual.nama,
           kemungkinanSkala: lkResidual.skala,
           dampak: ldResidual.nama,
           dampakSkala: ldResidual.skala,
-          besaran,
-          level: getLevelLabelFromBesaran(besaran),
-          warna: getWarnaFromBesaran(besaran),
+          besaran: matchMatriks?.besaran ?? null,
+          level: matchMatriks?.levelRisiko?.nama ?? "Belum dapat dihitung",
+          warna: matchMatriks?.levelRisiko?.warna ?? "gray",
         };
       }
 
@@ -247,7 +263,7 @@ export default function MatriksRisikoPage() {
         context.strokeRect(x, y, cellSize, cellSize);
         context.fillStyle = "#ffffff";
         context.font = "700 20px sans-serif";
-        context.fillText(String(cell.besaran), x + cellSize / 2, y + cellSize / 2 + 7);
+        context.fillText(cell.besaran == null ? "–" : String(cell.besaran), x + cellSize / 2, y + cellSize / 2 + 7);
       });
 
       selectedRisks.forEach((risk, index) => {
@@ -283,7 +299,7 @@ export default function MatriksRisikoPage() {
       selectedRisks.slice(0, 8).forEach((risk, index) => {
         const y = 150 + index * 52;
         context.fillText(`${index + 1}. ${risk.risiko.slice(0, 34)}`, 650, y);
-        context.fillText(`Aktual: ${risk.aktual?.besaran ?? "-"}   Residual: ${risk.residual?.besaran ?? "-"}`, 665, y + 20);
+        context.fillText(`Aktual: ${risk.aktual?.besaran ?? "Belum dapat dihitung"}   Residual: ${risk.residual?.besaran ?? "Belum dapat dihitung"}`, 665, y + 20);
       });
 
       const dataUrl = canvas.toDataURL("image/png");
@@ -324,24 +340,29 @@ export default function MatriksRisikoPage() {
 
   // Generate matrix cells
   const gridCells = useMemo(() => {
-    const cells: { kSkala: number; dSkala: number; besaran: number; warna: string }[] = [];
+    const cells: {
+      kSkala: number;
+      dSkala: number;
+      besaran: number | null;
+      warna: string;
+    }[] = [];
     for (let k = 5; k >= 1; k--) {
       for (let d = 1; d <= 5; d++) {
-        // Find configuration cell
         const lk = lkData.find((item: any) => item.skala === k);
         const ld = ldData.find((item: any) => item.skala === d);
-        let besaran = k * d;
+        const match = lk && ld
+          ? matriksData.find(
+              (m: any) =>
+                m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
+            )
+          : null;
 
-        if (lk && ld) {
-          const match = matriksData.find(
-            (m: any) => m.levelKemungkinanId === lk.id && m.levelDampakId === ld.id
-          );
-          if (match) {
-            besaran = match.besaran;
-          }
-        }
-
-        cells.push({ kSkala: k, dSkala: d, besaran, warna: getWarnaFromBesaran(besaran) });
+        cells.push({
+          kSkala: k,
+          dSkala: d,
+          besaran: match?.besaran ?? null,
+          warna: match?.levelRisiko?.warna ?? "gray",
+        });
       }
     }
     return cells;
@@ -396,6 +417,206 @@ export default function MatriksRisikoPage() {
     }[];
   }, [selectedRisks]);
 
+  if (matrixMode === "history") {
+    const config = histData?.konfigurasi;
+    const snapMatrix: any[] = Array.isArray(config?.matriks) ? config.matriks : [];
+    const snapLk: any[] = Array.isArray(config?.levelKemungkinan)
+      ? config.levelKemungkinan
+      : [];
+    const snapLd: any[] = Array.isArray(config?.levelDampak)
+      ? config.levelDampak
+      : [];
+    const snapLr: any[] = Array.isArray(config?.levelRisiko)
+      ? config.levelRisiko
+      : [];
+    const levelRisikoById = new Map(snapLr.map((item: any) => [item.id, item]));
+    const lkBySkala = new Map(snapLk.map((item: any) => [item.skala, item]));
+    const ldBySkala = new Map(snapLd.map((item: any) => [item.skala, item]));
+    const cellByPair = new Map(
+      snapMatrix.map((item: any) => [
+        `${item.levelKemungkinanId}:${item.levelDampakId}`,
+        item,
+      ])
+    );
+
+    const histRows: any[] = histData?.rows ?? [];
+    const pointsByCell = new Map<string, any[]>();
+    for (const row of histRows) {
+      if (!row.kemungkinanSkala || !row.dampakSkala) continue;
+      const key = `${row.kemungkinanSkala}:${row.dampakSkala}`;
+      const list = pointsByCell.get(key) ?? [];
+      list.push(row);
+      pointsByCell.set(key, list);
+    }
+
+    return (
+      <Stack gap="lg">
+        <Group justify="space-between" align="flex-end">
+          <div>
+            <Title order={3}>Matriks Risiko Historis</Title>
+            <Text size="xs" c="dimmed">
+              Menggunakan snapshot hasil final periode. Tidak dihitung ulang dari
+              matriks terkini.
+            </Text>
+          </div>
+          <Group gap="xs" align="flex-end">
+            <SegmentedControl
+              size="xs"
+              value={matrixMode}
+              onChange={(value) => setMatrixMode(value as "current" | "history")}
+              data={[
+                { label: "Terkini", value: "current" },
+                { label: "Historis", value: "history" },
+              ]}
+            />
+            <Select
+              size="xs"
+              label="Tahun"
+              value={String(histTahun)}
+              onChange={(value) => setHistTahun(Number(value) || histTahun)}
+              data={[histTahun - 1, histTahun, histTahun + 1].map((year) => ({
+                value: String(year),
+                label: String(year),
+              }))}
+              w={100}
+            />
+            <Select
+              size="xs"
+              label="Triwulan"
+              value={String(histTriwulan)}
+              onChange={(value) => setHistTriwulan(Number(value) || histTriwulan)}
+              data={[1, 2, 3, 4].map((quarter) => ({
+                value: String(quarter),
+                label: `TW ${quarter}`,
+              }))}
+              w={100}
+            />
+          </Group>
+        </Group>
+
+        {histData?.catatan && (
+          <Alert color="orange" variant="light">
+            {histData.catatan}
+          </Alert>
+        )}
+
+        {histLoading ? (
+          <Center h={200}><Loader /></Center>
+        ) : (
+          <>
+            {config && (
+              <Card withBorder padding="md">
+                <Text fw={700} mb="xs">
+                  Latar matriks snapshot{" "}
+                  {config.takenAt
+                    ? `(${new Date(config.takenAt).toLocaleString("id-ID")})`
+                    : ""}
+                </Text>
+                <Box style={{ overflowX: "auto" }}>
+                  <Box
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `auto repeat(5, minmax(70px, 1fr))`,
+                      gap: 4,
+                      minWidth: 520,
+                    }}
+                  >
+                    <Box />
+                    {[1, 2, 3, 4, 5].map((dampakSkala) => (
+                      <Center key={`hd-${dampakSkala}`}>
+                        <Text size="10px" fw={700} ta="center" c="dimmed">
+                          {ldBySkala.get(dampakSkala)?.nama ?? dampakSkala}
+                        </Text>
+                      </Center>
+                    ))}
+                    {[5, 4, 3, 2, 1].map((kemungkinanSkala) => (
+                      <Box key={`row-${kemungkinanSkala}`} style={{ display: "contents" }}>
+                        <Center>
+                          <Text size="10px" fw={700} c="dimmed">
+                            {lkBySkala.get(kemungkinanSkala)?.nama ?? kemungkinanSkala}
+                          </Text>
+                        </Center>
+                        {[1, 2, 3, 4, 5].map((dampakSkala) => {
+                          const lk = lkBySkala.get(kemungkinanSkala);
+                          const ld = ldBySkala.get(dampakSkala);
+                          const cell = lk && ld
+                            ? cellByPair.get(`${lk.id}:${ld.id}`)
+                            : null;
+                          const level = cell
+                            ? levelRisikoById.get(cell.levelRisikoId)
+                            : null;
+                          const points =
+                            pointsByCell.get(`${kemungkinanSkala}:${dampakSkala}`) ?? [];
+                          return (
+                            <Center
+                              key={`cell-${kemungkinanSkala}-${dampakSkala}`}
+                              style={{
+                                background: cell
+                                  ? getColorHex(String(level?.warna ?? ""))
+                                  : "var(--mantine-color-gray-2)",
+                                borderRadius: 6,
+                                minHeight: 58,
+                                color: "#fff",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 2,
+                              }}
+                            >
+                              <Text size="sm" fw={800}>
+                                {cell?.besaran ?? "–"}
+                              </Text>
+                              {points.map((point) => (
+                                <Badge key={point.monitoringId} size="8px" variant="filled" color="dark">
+                                  {point.riskId}
+                                </Badge>
+                              ))}
+                            </Center>
+                          );
+                        })}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              </Card>
+            )}
+
+            <Card withBorder padding="0" style={{ overflowX: "auto" }}>
+              <Table withTableBorder withColumnBorders>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Risiko</Table.Th>
+                    <Table.Th>Kemungkinan</Table.Th>
+                    <Table.Th>Dampak</Table.Th>
+                    <Table.Th>Besaran</Table.Th>
+                    <Table.Th>Level</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {histRows.map((row) => (
+                    <Table.Tr key={row.monitoringId}>
+                      <Table.Td>{row.risiko}</Table.Td>
+                      <Table.Td>{row.kemungkinan ?? "-"}</Table.Td>
+                      <Table.Td>{row.dampak ?? "-"}</Table.Td>
+                      <Table.Td>{row.besaran ?? "Belum dapat dihitung"}</Table.Td>
+                      <Table.Td>{row.level ?? "-"}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                  {histRows.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={5} ta="center" c="dimmed" py="md">
+                        Belum ada hasil final pada periode ini.
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </Card>
+          </>
+        )}
+      </Stack>
+    );
+  }
+
   if (loading) {
     return (
       <Center h={400}>
@@ -431,14 +652,25 @@ export default function MatriksRisikoPage() {
             Visualisasi perpindahan tingkat risiko dari Kondisi Aktual ke Kondisi Residual Harapan.
           </Text>
         </Stack>
-        <Button
-          variant="light"
-          leftSection={<IconDownload size={16} />}
-          loading={exporting}
-          onClick={exportMatrixAsImage}
-        >
-          Unduh Matriks
-        </Button>
+        <Group gap="xs">
+          <SegmentedControl
+            size="xs"
+            value={matrixMode}
+            onChange={(value) => setMatrixMode(value as "current" | "history")}
+            data={[
+              { label: "Terkini", value: "current" },
+              { label: "Historis", value: "history" },
+            ]}
+          />
+          <Button
+            variant="light"
+            leftSection={<IconDownload size={16} />}
+            loading={exporting}
+            onClick={exportMatrixAsImage}
+          >
+            Unduh Matriks
+          </Button>
+        </Group>
       </Group>
 
       <Grid gutter="xl">
@@ -639,7 +871,7 @@ export default function MatriksRisikoPage() {
                           fontSize: 18,
                         }}
                       >
-                        {cell.besaran}
+                        {cell.besaran == null ? "–" : cell.besaran}
                       </div>
                     ))}
                   </div>
@@ -856,7 +1088,7 @@ export default function MatriksRisikoPage() {
                                 <Text size="9px" fw={700} c="dimmed">AKTUAL (A)</Text>
                                 {risk.aktual ? (
                                   <Group gap={6} mt={2}>
-                                    <Text size="xs" fw={700} c="blue">{risk.aktual.besaran}</Text>
+                                    <Text size="xs" fw={700} c="blue">{risk.aktual.besaran ?? "–"}</Text>
                                     <Badge color={risk.aktual.warna} size="9px" style={{ fontSize: "8px" }}>
                                       {risk.aktual.level}
                                     </Badge>
@@ -871,7 +1103,7 @@ export default function MatriksRisikoPage() {
                                 <Text size="9px" fw={700} c="dimmed">RESIDUAL (R)</Text>
                                 {risk.residual ? (
                                   <Group gap={6} mt={2}>
-                                    <Text size="xs" fw={700} c="green">{risk.residual.besaran}</Text>
+                                    <Text size="xs" fw={700} c="green">{risk.residual.besaran ?? "–"}</Text>
                                     <Badge color={risk.residual.warna} size="9px" style={{ fontSize: "8px" }}>
                                       {risk.residual.level}
                                     </Badge>

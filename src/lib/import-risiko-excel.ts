@@ -152,17 +152,17 @@ export interface TemplateRowData {
   jenisRisiko: string;
   lvlKemungkinan: string;
   lvlDampak: string;
-  besaranAktual: number;
+  besaranAktual: number | null;
   levelAktual: string;
   pengendalian: string;
   efektivitas: string;
   residualKemungkinan: string;
   residualDampak: string;
-  besaranResidual: number;
+  besaranResidual: number | null;
   levelResidual: string;
   targetResidualKemungkinan: string;
   targetResidualDampak: string;
-  targetBesaranResidual: number;
+  targetBesaranResidual: number | null;
   targetLevelResidual: string;
   respon: string;
   rencanaPenanganan: string;
@@ -325,14 +325,14 @@ export function buildImportTemplateWorkbook(
       row.sumberRisiko,
       row.lvlKemungkinan,
       row.lvlDampak,
-      row.besaranAktual > 0 ? row.besaranAktual : "",
+      row.besaranAktual != null ? row.besaranAktual : "",
       row.levelAktual,
       row.pengendalian,
       row.efektivitas,
       row.residualKemungkinan,
       row.residualDampak,
       row.levelResidual,
-      row.besaranResidual > 0 ? row.besaranResidual : "",
+      row.besaranResidual != null ? row.besaranResidual : "",
       RESPONS_ENUM_TO_LABEL[row.respon] ?? row.respon,
       row.rencanaPenanganan,
       row.targetWaktu,
@@ -345,7 +345,7 @@ export function buildImportTemplateWorkbook(
       row.targetResidualKemungkinan,
       row.targetResidualDampak,
       row.targetLevelResidual,
-      row.targetBesaranResidual > 0 ? row.targetBesaranResidual : "",
+      row.targetBesaranResidual != null ? row.targetBesaranResidual : "",
       row.persetujuan,
       row.disetujuiOleh,
       row.id,

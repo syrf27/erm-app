@@ -51,19 +51,27 @@ const RENCANA_RESET_COLUMNS: Record<number, number[]> = {
 const shouldEnforceRencanaProgression = (rowData: unknown[]) =>
   !hasPersistedRowId(rowData, 1);
 
-function computeBesaran(kemungkinanSkala?: number, dampakSkala?: number) {
-  if (kemungkinanSkala == null || dampakSkala == null) return "";
-  return String(kemungkinanSkala * dampakSkala);
-}
-
-function getLevelRisikoFromBesaran(besaran: number | string): string {
-  const score = typeof besaran === "string" ? parseInt(besaran, 10) : besaran;
-  if (isNaN(score) || score <= 0) return "";
-  if (score >= 1 && score <= 5) return "Sangat Rendah";
-  if (score >= 6 && score <= 11) return "Rendah";
-  if (score >= 12 && score <= 15) return "Sedang";
-  if (score >= 16 && score <= 19) return "Tinggi";
-  return "Sangat Tinggi"; // 20 - 25
+function lookupMatrix(
+  matriksData: any[],
+  kemungkinanId?: number | null,
+  dampakId?: number | null
+) {
+  if (!kemungkinanId || !dampakId) {
+    return { besaran: "", level: "", warna: "gray" };
+  }
+  const match = matriksData.find(
+    (m: any) =>
+      m.levelKemungkinanId === kemungkinanId &&
+      m.levelDampakId === dampakId
+  );
+  if (!match) {
+    return { besaran: "", level: "Belum dapat dihitung", warna: "gray" };
+  }
+  return {
+    besaran: String(match.besaran),
+    level: match.levelRisiko?.nama ?? "Belum dapat dihitung",
+    warna: match.levelRisiko?.warna ?? "gray",
+  };
 }
 
 function getJenisPenangananLabel(value: unknown) {
@@ -245,14 +253,20 @@ export default function RencanaPenangananPage() {
       const ld = an ? dampakById.get(an.levelDampakId) : undefined;
       const residualLK = rp?.residualLevelKemungkinanId ? kemungkinanById.get(rp.residualLevelKemungkinanId) : undefined;
       const residualLD = rp?.residualLevelDampakId ? dampakById.get(rp.residualLevelDampakId) : undefined;
+      const aktualMatrix = lookupMatrix(matriksData, lk?.id, ld?.id);
+      const residualMatrix = lookupMatrix(
+        matriksData,
+        residualLK?.id,
+        residualLD?.id
+      );
 
       return [
         r.id,
         rp?.id ?? null,
         ev?.prioritasRisiko ?? "",
         r.risiko,
-        computeBesaran(lk?.skala, ld?.skala),
-        computeBesaran(residualLK?.skala, residualLD?.skala),
+        aktualMatrix.besaran,
+        residualMatrix.besaran,
         rp?.rencanaTidakPenanganan ?? "",
         getJenisPenangananLabel(rp?.jenisPenanganan),
         rp?.targetOutput ?? "",
@@ -260,8 +274,8 @@ export default function RencanaPenangananPage() {
         rp?.penanggungJawab ?? "",
         residualLK?.nama ?? "",
         residualLD?.nama ?? "",
-        getLevelRisikoFromBesaran(computeBesaran(residualLK?.skala, residualLD?.skala)),
-        computeBesaran(residualLK?.skala, residualLD?.skala),
+        residualMatrix.level,
+        residualMatrix.besaran,
       ];
     });
     const actualRiskRank = [...mapped]
@@ -681,9 +695,8 @@ function recalcRow(
   const ldNama = hot.getDataAtCell(row, 12) as string;
   const lk = kemungkinanData.find((o: any) => o.nama === lkNama);
   const ld = dampakData.find((o: any) => o.nama === ldNama);
-  const besaran = computeBesaran(lk?.skala, ld?.skala);
-  const levelRisiko = getLevelRisikoFromBesaran(besaran);
-  hot.setDataAtCell(row, 5, besaran, "recalc");
-  hot.setDataAtCell(row, 13, levelRisiko, "recalc");
-  hot.setDataAtCell(row, 14, besaran, "recalc");
+  const result = lookupMatrix(matriksData, lk?.id, ld?.id);
+  hot.setDataAtCell(row, 5, result.besaran, "recalc");
+  hot.setDataAtCell(row, 13, result.level, "recalc");
+  hot.setDataAtCell(row, 14, result.besaran, "recalc");
 }

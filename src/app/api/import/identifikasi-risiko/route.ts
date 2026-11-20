@@ -5,6 +5,7 @@ import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-c
 import { logAudit } from "@/lib/audit-log";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import { invalidateResourceCache } from "@/lib/cache";
+import { assertResidualMutable } from "@/lib/pemantauan-integrity";
 import {
   parseImportWorkbook,
   ACCEPTED_IMPORT_EXTENSIONS,
@@ -362,6 +363,11 @@ export async function POST(request: NextRequest) {
               finalLkId && finalLdId
                 ? matriksByPair.get(`${finalLkId}-${finalLdId}`) ?? null
                 : null;
+            if (finalLkId && finalLdId && !derivedLevelRisikoId) {
+              throw new Error(
+                "Pasangan level kemungkinan–dampak tidak ditemukan pada Matriks Risiko. Nilai belum dapat dihitung."
+              );
+            }
 
             if (existing) {
               const patch: Record<string, unknown> = {};
@@ -417,6 +423,12 @@ export async function POST(request: NextRequest) {
             const residualLevelRisikoId = residualLk && residualLd
               ? matriksByPair.get(`${residualLk.id}-${residualLd.id}`) ?? null
               : null;
+            if (residualLk && residualLd && !residualLevelRisikoId) {
+              throw new Error(
+                "Pasangan residual tidak ditemukan pada Matriks Risiko. Nilai belum dapat dihitung."
+              );
+            }
+            await assertResidualMutable(tx as never, identId);
             const evaluationPatch = stripNulls({
               responRisiko: respon,
               residualLevelKemungkinanId: residualLk?.id ?? null,

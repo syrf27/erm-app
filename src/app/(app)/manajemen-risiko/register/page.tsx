@@ -20,6 +20,7 @@ import {
   Menu,
   Box,
   FileButton,
+  Select,
 } from "@mantine/core";
 import { IconPlus, IconChevronDown, IconDatabase, IconSparkles, IconDeviceFloppy, IconAdjustments, IconDownload, IconUpload } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -43,6 +44,10 @@ export default function RegisterRisikoPage() {
   const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [siklusFilter, setSiklusFilter] = useState("ACTIVE");
+  const [chainOpen, setChainOpen] = useState(false);
+  const [chainLoading, setChainLoading] = useState(false);
+  const [chainRows, setChainRows] = useState<any[]>([]);
 
   const identResult = useList({
     resource: "identifikasi-risiko",
@@ -50,6 +55,7 @@ export default function RegisterRisikoPage() {
     filters: [
       { field: "tahun", operator: "gte", value: tahunDari },
       { field: "tahun", operator: "lte", value: tahunSampai },
+      { field: "statusSiklus", operator: "eq", value: siklusFilter },
     ],
   });
   const analisisResult = useList({ resource: "analisis-risiko", pagination: { pageSize: 1000 } });
@@ -82,12 +88,19 @@ export default function RegisterRisikoPage() {
   const getBesaran = (lkId: number | null, ldId: number | null) => {
     const lk = lkId ? lkById.get(lkId) : null;
     const ld = ldId ? ldById.get(ldId) : null;
-    if (!lk || !ld) return { besaran: 0, level: "-", warna: "gray" };
+    if (!lk || !ld) {
+      return { status: "INCOMPLETE" as const, besaran: null, level: "Belum dapat dihitung", warna: "gray" };
+    }
     const m = matriksData.find((x: any) => x.levelKemungkinanId === lk.id && x.levelDampakId === ld.id);
-    const besaran = m?.besaran ?? lk.skala * ld.skala;
-    const level = m?.levelRisiko?.nama ?? "-";
-    const warna = m?.levelRisiko?.warna ?? "gray";
-    return { besaran, level, warna };
+    if (!m) {
+      return { status: "INCOMPLETE" as const, besaran: null, level: "Belum dapat dihitung", warna: "gray" };
+    }
+    return {
+      status: "OK" as const,
+      besaran: m.besaran as number,
+      level: m.levelRisiko?.nama ?? "Belum dapat dihitung",
+      warna: m.levelRisiko?.warna ?? "gray",
+    };
   };
 
   const getBadgeColor = (warna: string) => {
@@ -127,6 +140,29 @@ export default function RegisterRisikoPage() {
   const handleWizardSuccess = () => {
     setModalOpened(false);
     refetchAll();
+  };
+
+  const openChain = async (riskId: number) => {
+    setChainOpen(true);
+    setChainLoading(true);
+    setChainRows([]);
+    try {
+      const res = await fetch(`/api/risiko-lanjutan/chain/${riskId}`);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || "Gagal memuat rantai");
+      setChainRows(payload.chain ?? []);
+    } catch (e: any) {
+      notifications.show({ title: "Gagal", message: e?.message ?? "Gagal memuat rantai", color: "red" });
+    } finally {
+      setChainLoading(false);
+    }
+  };
+
+  const siklusLabel: Record<string, string> = {
+    ACTIVE: "Aktif",
+    FOLLOW_UP_DRAFT: "Draf Lanjutan",
+    FOLLOW_UP_SUBMITTED: "Lanjutan Diajukan",
+    CONTINUED: "Dilanjutkan",
   };
 
   const searchBank = async () => {
@@ -245,7 +281,22 @@ export default function RegisterRisikoPage() {
       </Box>
 
       <Group justify="space-between" align="center">
-        <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>{total} risiko</Text>
+        <Group gap="sm">
+          <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>{total} risiko</Text>
+          <Select
+            size="xs"
+            label="Siklus"
+            value={siklusFilter}
+            onChange={(v) => { setSiklusFilter(v ?? "ACTIVE"); setPage(1); }}
+            data={[
+              { value: "ACTIVE", label: "Aktif" },
+              { value: "FOLLOW_UP_DRAFT", label: "Draf Lanjutan" },
+              { value: "FOLLOW_UP_SUBMITTED", label: "Lanjutan Diajukan" },
+              { value: "CONTINUED", label: "Riwayat (Dilanjutkan)" },
+            ]}
+            w={210}
+          />
+        </Group>
         <TextInput
           placeholder={`Cari di ${tab}...`}
           value={search}
@@ -272,6 +323,8 @@ export default function RegisterRisikoPage() {
                 <Table.Th>Kategori</Table.Th>
                 <Table.Th style={{ minWidth: 220 }}>Penyebab</Table.Th>
                 <Table.Th style={{ minWidth: 220 }}>Dampak</Table.Th>
+                <Table.Th>Siklus</Table.Th>
+                <Table.Th>Rantai</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -285,10 +338,30 @@ export default function RegisterRisikoPage() {
                   <Table.Td>{r.kategoriRisiko?.nama ?? "-"}</Table.Td>
                   <Table.Td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>{r.penyebab ?? "-"}</Table.Td>
                   <Table.Td style={{ whiteSpace: "normal", wordBreak: "break-word" }}>{r.dampak ?? "-"}</Table.Td>
+                  <Table.Td>
+                    <Badge
+                      size="xs"
+                      variant="light"
+                      color={
+                        r.statusSiklus === "CONTINUED"
+                          ? "gray"
+                          : r.statusSiklus === "ACTIVE"
+                          ? "green"
+                          : "blue"
+                      }
+                    >
+                      {siklusLabel[r.statusSiklus ?? "ACTIVE"] ?? r.statusSiklus}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Button size="compact-xs" variant="subtle" onClick={() => openChain(r.id)}>
+                      Lihat Rantai
+                    </Button>
+                  </Table.Td>
                 </Table.Tr>
               ))}
               {paged.length === 0 && (
-                <Table.Tr><Table.Td colSpan={8} ta="center" c="dimmed" py="md">Belum ada data</Table.Td></Table.Tr>
+                <Table.Tr><Table.Td colSpan={10} ta="center" c="dimmed" py="md">Belum ada data</Table.Td></Table.Tr>
               )}
             </Table.Tbody>
           </Table>
@@ -318,8 +391,8 @@ export default function RegisterRisikoPage() {
                     <Table.Td style={{ fontWeight: 600, whiteSpace: "normal" }}>{r.risiko}</Table.Td>
                     <Table.Td>{an ? lkById.get(an.levelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{an ? ldById.get(an.levelDampakId)?.nama ?? "-" : "-"}</Table.Td>
-                    <Table.Td>{b.besaran > 0 ? <Badge color={getBadgeColor(b.warna)}>{b.besaran}</Badge> : "-"}</Table.Td>
-                    <Table.Td>{b.besaran > 0 ? <Badge color={getBadgeColor(b.warna)}>{b.level}</Badge> : "-"}</Table.Td>
+                    <Table.Td>{b.status === "OK" ? <Badge color={getBadgeColor(b.warna)}>{b.besaran}</Badge> : <Text size="xs" c="dimmed">{b.level}</Text>}</Table.Td>
+                    <Table.Td>{b.status === "OK" ? <Badge color={getBadgeColor(b.warna)}>{b.level}</Badge> : <Text size="xs" c="dimmed">{b.level}</Text>}</Table.Td>
                     <Table.Td style={{ whiteSpace: "normal" }}>{an?.pengendalianUraian ?? "-"}</Table.Td>
                     <Table.Td>{an?.pengendalianEfektivitas ?? "-"}</Table.Td>
                   </Table.Tr>
@@ -355,7 +428,7 @@ export default function RegisterRisikoPage() {
                     <Table.Td>{ev?.responRisiko ?? "-"}</Table.Td>
                     <Table.Td>{ev ? lkById.get(ev.residualLevelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{ev ? ldById.get(ev.residualLevelDampakId)?.nama ?? "-" : "-"}</Table.Td>
-                    <Table.Td>{b.besaran > 0 ? <Badge color={getBadgeColor(b.warna)}>{b.besaran} ({b.level})</Badge> : "-"}</Table.Td>
+                    <Table.Td>{b.status === "OK" ? <Badge color={getBadgeColor(b.warna)}>{b.besaran} ({b.level})</Badge> : <Text size="xs" c="dimmed">{b.level}</Text>}</Table.Td>
                   </Table.Tr>
                 );
               })}
@@ -422,6 +495,40 @@ export default function RegisterRisikoPage() {
         styles={{ content: { maxWidth: 980 }, body: { maxHeight: "78vh", overflowY: "auto" } }}
       >
         <RiskWizard onSuccess={handleWizardSuccess} />
+      </Modal>
+
+      <Modal opened={chainOpen} onClose={() => setChainOpen(false)} title="Rantai Risiko" size="lg">
+        {chainLoading ? (
+          <Center h={120}><Loader /></Center>
+        ) : (
+          <Table withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>ID</Table.Th>
+                <Table.Th>Risiko</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Target</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {chainRows.map((item) => (
+                <Table.Tr key={item.id}>
+                  <Table.Td>{item.id}</Table.Td>
+                  <Table.Td>{item.risiko}</Table.Td>
+                  <Table.Td>{siklusLabel[item.statusSiklus] ?? item.statusSiklus}</Table.Td>
+                  <Table.Td>
+                    {item.followUpTriwulan
+                      ? `TW ${item.followUpTriwulan} ${item.followUpTahun ?? ""}`
+                      : "-"}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {chainRows.length === 0 && (
+                <Table.Tr><Table.Td colSpan={4} ta="center" c="dimmed">Tidak ada data rantai.</Table.Td></Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        )}
       </Modal>
 
       <Modal opened={bankOpen} onClose={() => setBankOpen(false)} title="Cari dari Bank Risiko" size="xl">

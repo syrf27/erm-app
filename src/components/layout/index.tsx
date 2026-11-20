@@ -69,6 +69,7 @@ import { HelpChatWidget } from "@/components/help-chat-widget";
 import { RiskAiWidget } from "@/components/risk-ai-widget";
 import { FloatingToolsMenu } from "@/components/floating-tools-menu";
 import { hasClientPermission } from "@/lib/client-permissions";
+import { FollowUpBanner } from "@/components/follow-up-banner";
 
 interface MenuItem {
   label: string;
@@ -117,6 +118,11 @@ const menuItems: MenuItem[] = [
         icon: <IconActivity size={16} />,
         href: "/pemantauan-risiko",
         dataTour: "nav-pemantauan-risiko",
+      },
+      {
+        label: "Tindak Lanjut Wajib",
+        icon: <IconRoute size={16} />,
+        href: "/manajemen-risiko/risiko-lanjutan",
       },
       {
         label: "Notifikasi & Pengingat",
@@ -1159,6 +1165,7 @@ function LayoutContent({ children }: PropsWithChildren) {
       </AppShell.Navbar>
 
       <AppShell.Main>
+        <FollowUpBanner />
         {shouldShowBreadcrumb && <Breadcrumb />}
         {children}
       </AppShell.Main>

@@ -131,31 +131,31 @@ model AreaDampak {
 }
 
 model LevelKemungkinan {
-  id                            Int                     @id @default(autoincrement())
-  nama                          String
-  skala                         Int
-  createdAt                     DateTime                @default(now())
-  updatedAt                     DateTime                @updatedAt
-  analisisRisikos               AnalisisRisiko[]
-  evaluasiRisikos               EvaluasiRisiko[]
-  kriteriaKemungkinans          KriteriaKemungkinan[]
-  matriksAnalisisRisikos        MatriksAnalisisRisiko[]
-  rencanaPenangananKemungkinans RencanaPenanganan[] @relation("RencanaResidualAktualKemungkinan")
-  rencanaPenangananTargetKemungkinans RencanaPenanganan[] @relation("RencanaResidualHarapanKemungkinan")
+  id                                  Int                     @id @default(autoincrement())
+  nama                                String
+  skala                               Int
+  createdAt                           DateTime                @default(now())
+  updatedAt                           DateTime                @updatedAt
+  analisisRisikos                     AnalisisRisiko[]
+  evaluasiRisikos                     EvaluasiRisiko[]
+  kriteriaKemungkinans                KriteriaKemungkinan[]
+  matriksAnalisisRisikos              MatriksAnalisisRisiko[]
+  rencanaPenangananKemungkinans       RencanaPenanganan[]     @relation("RencanaResidualAktualKemungkinan")
+  rencanaPenangananTargetKemungkinans RencanaPenanganan[]     @relation("RencanaResidualHarapanKemungkinan")
 }
 
 model LevelDampak {
-  id                       Int                     @id @default(autoincrement())
-  nama                     String
-  deskripsi                String?
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
-  skala                    Int                     @default(1)
-  analisisRisikos          AnalisisRisiko[]
-  evaluasiRisikos          EvaluasiRisiko[]
-  matriksAnalisisRisikos   MatriksAnalisisRisiko[]
-  rencanaPenangananDampaks RencanaPenanganan[] @relation("RencanaResidualAktualDampak")
-  rencanaPenangananTargetDampaks RencanaPenanganan[] @relation("RencanaResidualHarapanDampak")
+  id                             Int                     @id @default(autoincrement())
+  nama                           String
+  deskripsi                      String?
+  createdAt                      DateTime                @default(now())
+  updatedAt                      DateTime                @updatedAt
+  skala                          Int                     @default(1)
+  analisisRisikos                AnalisisRisiko[]
+  evaluasiRisikos                EvaluasiRisiko[]
+  matriksAnalisisRisikos         MatriksAnalisisRisiko[]
+  rencanaPenangananDampaks       RencanaPenanganan[]     @relation("RencanaResidualAktualDampak")
+  rencanaPenangananTargetDampaks RencanaPenanganan[]     @relation("RencanaResidualHarapanDampak")
 }
 
 model LevelRisiko {
@@ -235,38 +235,55 @@ model SeleraRisikoGlobal {
 }
 
 model IdentifikasiRisiko {
-  id                Int                @id @default(autoincrement())
-  risiko            String
-  jenisRisikoId     Int
-  sumberRisikoId    Int
-  kategoriRisikoId  Int
-  areaDampakId      Int
-  penyebab          String?
-  dampak            String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  kegiatanId        Int?
-  unitKerjaId       Int?
-  sasaranId         Int?
-  prosesBisnisId    Int?
-  teamId            Int?
-  tahun             Int                @default(2026)
-  archivedAt        DateTime?
-  archivedBy        String?
-  archiveReason     String?
-  analisisRisiko    AnalisisRisiko?
-  evaluasiRisiko    EvaluasiRisiko?
-  areaDampak        AreaDampak         @relation(fields: [areaDampakId], references: [id])
-  jenisRisiko       JenisRisiko        @relation(fields: [jenisRisikoId], references: [id])
-  kategoriRisiko    KategoriRisiko     @relation(fields: [kategoriRisikoId], references: [id])
-  kegiatan          Kegiatan?          @relation(fields: [kegiatanId], references: [id])
-  prosesBisnis      ProsesBisnis?      @relation(fields: [prosesBisnisId], references: [id])
-  sasaran           Sasaran?           @relation(fields: [sasaranId], references: [id])
-  sumberRisiko      SumberRisiko       @relation(fields: [sumberRisikoId], references: [id])
-  unitKerja         UnitKerja?         @relation(fields: [unitKerjaId], references: [id])
-  team              Team?              @relation(fields: [teamId], references: [id])
-  kris              Kri[]
-  rencanaPenanganan RencanaPenanganan?
+  id                       Int                     @id @default(autoincrement())
+  risiko                   String
+  jenisRisikoId            Int
+  sumberRisikoId           Int
+  kategoriRisikoId         Int
+  areaDampakId             Int
+  penyebab                 String?
+  dampak                   String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  kegiatanId               Int?
+  unitKerjaId              Int?
+  sasaranId                Int?
+  prosesBisnisId           Int?
+  teamId                   Int?
+  tahun                    Int                     @default(2026)
+  archivedAt               DateTime?
+  archivedBy               String?
+  archiveReason            String?
+  statusSiklus             String                  @default("ACTIVE")
+  parentRiskId             Int?
+  rootRiskId               Int?
+  sourceMonitoringId       Int?                    @unique
+  followUpTahun            Int?
+  followUpTriwulan         Int?
+  followUpApprovedAt       DateTime?
+  followUpApprovedBy       String?
+  version                  Int                     @default(1)
+  analisisRisiko           AnalisisRisiko?
+  evaluasiRisiko           EvaluasiRisiko?
+  parentRisk               IdentifikasiRisiko?     @relation("RiskChainParent", fields: [parentRiskId], references: [id], onDelete: SetNull)
+  childRisks               IdentifikasiRisiko[]    @relation("RiskChainParent")
+  rootRisk                 IdentifikasiRisiko?     @relation("RiskChainRoot", fields: [rootRiskId], references: [id], onDelete: SetNull)
+  rootDescendants          IdentifikasiRisiko[]    @relation("RiskChainRoot")
+  sourceMonitoring         PemantauanRisiko?       @relation("MonitoringFollowUp", fields: [sourceMonitoringId], references: [id], onDelete: SetNull)
+  pemantauans              PemantauanRisiko[]      @relation("RiskMonitorings")
+  kewajibanSebagaiAsal     KewajibanTindakLanjut[] @relation("KewajibanRisikoAsal")
+  kewajibanSebagaiLanjutan KewajibanTindakLanjut?  @relation("KewajibanRisikoLanjutan")
+  areaDampak               AreaDampak              @relation(fields: [areaDampakId], references: [id])
+  jenisRisiko              JenisRisiko             @relation(fields: [jenisRisikoId], references: [id])
+  kategoriRisiko           KategoriRisiko          @relation(fields: [kategoriRisikoId], references: [id])
+  kegiatan                 Kegiatan?               @relation(fields: [kegiatanId], references: [id])
+  prosesBisnis             ProsesBisnis?           @relation(fields: [prosesBisnisId], references: [id])
+  sasaran                  Sasaran?                @relation(fields: [sasaranId], references: [id])
+  sumberRisiko             SumberRisiko            @relation(fields: [sumberRisikoId], references: [id])
+  unitKerja                UnitKerja?              @relation(fields: [unitKerjaId], references: [id])
+  team                     Team?                   @relation(fields: [teamId], references: [id])
+  kris                     Kri[]
+  rencanaPenanganan        RencanaPenanganan?
 
   @@index([tahun])
   @@index([tahun, updatedAt])
@@ -275,6 +292,10 @@ model IdentifikasiRisiko {
   @@index([kegiatanId])
   @@index([prosesBisnisId])
   @@index([teamId])
+  @@index([statusSiklus])
+  @@index([parentRiskId])
+  @@index([rootRiskId])
+  @@index([followUpTahun, followUpTriwulan])
   @@index([jenisRisikoId])
   @@index([sumberRisikoId])
   @@index([kategoriRisikoId])
@@ -323,32 +344,33 @@ model EvaluasiRisiko {
 }
 
 model RencanaPenanganan {
-  id                         Int                @id @default(autoincrement())
-  identifikasiRisikoId       Int                @unique
-  rencanaTidakPenanganan     String?
-  targetOutput               String?
-  targetWaktu                String?
-  penanggungJawab            String?
-  residualLevelKemungkinanId Int?
-  residualLevelDampakId      Int?
+  id                               Int                @id @default(autoincrement())
+  identifikasiRisikoId             Int                @unique
+  rencanaTidakPenanganan           String?
+  targetOutput                     String?
+  targetWaktu                      String?
+  penanggungJawab                  String?
+  residualLevelKemungkinanId       Int?
+  residualLevelDampakId            Int?
   targetResidualLevelKemungkinanId Int?
   targetResidualLevelDampakId      Int?
-  createdAt                  DateTime           @default(now())
-  updatedAt                  DateTime           @updatedAt
-  disetujuiOleh              String?
-  dokumenPendukung           String?
-  persetujuan                String?
-  realisasiOutput            String?
-  realisasiWaktu             String?
-  jenisPenanganan            String?
-  keterjadiRisiko            String?
-  identifikasiRisiko         IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
-  residualLevelDampak        LevelDampak?       @relation("RencanaResidualAktualDampak", fields: [residualLevelDampakId], references: [id])
-  residualLevelKemungkinan   LevelKemungkinan?  @relation("RencanaResidualAktualKemungkinan", fields: [residualLevelKemungkinanId], references: [id])
-  targetResidualLevelDampak      LevelDampak?       @relation("RencanaResidualHarapanDampak", fields: [targetResidualLevelDampakId], references: [id])
-  targetResidualLevelKemungkinan LevelKemungkinan?  @relation("RencanaResidualHarapanKemungkinan", fields: [targetResidualLevelKemungkinanId], references: [id])
-  dokumenPendukungs          DokumenPendukung[]
-  reminderLogs               ReminderLog[]
+  createdAt                        DateTime           @default(now())
+  updatedAt                        DateTime           @updatedAt
+  disetujuiOleh                    String?
+  dokumenPendukung                 String?
+  persetujuan                      String?
+  realisasiOutput                  String?
+  realisasiWaktu                   String?
+  jenisPenanganan                  String?
+  alasanPenguatan                  String?
+  keterjadiRisiko                  String?
+  identifikasiRisiko               IdentifikasiRisiko @relation(fields: [identifikasiRisikoId], references: [id])
+  residualLevelDampak              LevelDampak?       @relation("RencanaResidualAktualDampak", fields: [residualLevelDampakId], references: [id])
+  residualLevelKemungkinan         LevelKemungkinan?  @relation("RencanaResidualAktualKemungkinan", fields: [residualLevelKemungkinanId], references: [id])
+  targetResidualLevelDampak        LevelDampak?       @relation("RencanaResidualHarapanDampak", fields: [targetResidualLevelDampakId], references: [id])
+  targetResidualLevelKemungkinan   LevelKemungkinan?  @relation("RencanaResidualHarapanKemungkinan", fields: [targetResidualLevelKemungkinanId], references: [id])
+  dokumenPendukungs                DokumenPendukung[]
+  reminderLogs                     ReminderLog[]
 
   @@index([targetWaktu])
   @@index([penanggungJawab])
@@ -359,18 +381,18 @@ model RencanaPenanganan {
 }
 
 model ReminderLog {
-  id                   Int                @id @default(autoincrement())
-  rencanaPenangananId  Int
-  channel              String
-  recipientName        String?
-  recipientPhone       String?
-  recipientSource      String?
-  status               String
-  providerMessageId    String?
-  error                String?
-  sentBy               String?
-  createdAt            DateTime           @default(now())
-  rencanaPenanganan    RencanaPenanganan  @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
+  id                  Int               @id @default(autoincrement())
+  rencanaPenangananId Int
+  channel             String
+  recipientName       String?
+  recipientPhone      String?
+  recipientSource     String?
+  status              String
+  providerMessageId   String?
+  error               String?
+  sentBy              String?
+  createdAt           DateTime          @default(now())
+  rencanaPenanganan   RencanaPenanganan @relation(fields: [rencanaPenangananId], references: [id], onDelete: Cascade)
 
   @@index([rencanaPenangananId, createdAt])
   @@index([channel, status, createdAt])
@@ -422,11 +444,11 @@ model User {
   tourCompletedAt DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  role        Role             @relation(fields: [roleId], references: [id])
-  permissions UserPermission[]
-  fcmTokens   FcmToken[]
-  teams       UserTeam[]
-  notifications Notification[]
+  role            Role             @relation(fields: [roleId], references: [id])
+  permissions     UserPermission[]
+  fcmTokens       FcmToken[]
+  teams           UserTeam[]
+  notifications   Notification[]
 }
 
 model Role {
@@ -471,20 +493,20 @@ model UserPermission {
 }
 
 model risk_embeddings {
-  id                     Int                    @id @default(autoincrement())
-  identifikasi_risiko_id Int                    @unique
+  id                     Int                          @id @default(autoincrement())
+  identifikasi_risiko_id Int                          @unique
   embedding              Unsupported("vector(1024)")?
-  created_at             DateTime?              @default(now()) @db.Timestamp(6)
-  updated_at             DateTime?              @default(now()) @db.Timestamp(6)
+  created_at             DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                    @default(now()) @db.Timestamp(6)
 }
 
 model document_embeddings {
-  id            Int                       @id @default(autoincrement())
+  id            Int                          @id @default(autoincrement())
   document_type String
   document_id   Int
   embedding     Unsupported("vector(1024)")?
-  created_at    DateTime?                 @default(now()) @db.Timestamp(6)
-  updated_at    DateTime?                 @default(now()) @db.Timestamp(6)
+  created_at    DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?                    @default(now()) @db.Timestamp(6)
 
   @@unique([document_type, document_id])
 }
@@ -523,16 +545,16 @@ model UserTeam {
 }
 
 model Repositori {
-  id        Int      @id @default(autoincrement())
-  title     String
-  url       String
-  category  String   @default("pedoman") // e.g. "pedoman" | "laporan"
-  tahun     Int      @default(2026)
-  uploader  String   @default("Admin")
-  summary   String?
+  id            Int      @id @default(autoincrement())
+  title         String
+  url           String
+  category      String   @default("pedoman") // e.g. "pedoman" | "laporan"
+  tahun         Int      @default(2026)
+  uploader      String   @default("Admin")
+  summary       String?
   extractedText String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Notification {
@@ -542,8 +564,118 @@ model Notification {
   body      String
   url       String?
   isRead    Boolean  @default(false)
+  dedupeKey String?  @unique
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model PemantauanRisiko {
+  id                     Int                    @id @default(autoincrement())
+  riskId                 Int
+  tahun                  Int
+  triwulan               Int
+  status                 String                 @default("DRAFT")
+  revision               Int                    @default(1)
+  previousRevisionId     Int?                   @unique
+  version                Int                    @default(1)
+  rtpId                  Int?
+  rtpSnapshot            Json?
+  targetOutput           String?
+  targetWaktu            String?
+  penanggungJawab        String?
+  statusPelaksanaan      String?
+  uraianPelaksanaan      String?
+  pekerjaanTertunda      String?
+  realisasiWaktu         String?
+  realisasiOutput        String?
+  keterjadianRisiko      String?
+  efektivitas            String?
+  catatanEfektivitas     String?
+  levelKemungkinanId     Int?
+  levelDampakId          Int?
+  kemungkinanLabel       String?
+  dampakLabel            String?
+  kemungkinanSkala       Int?
+  dampakSkala            Int?
+  besaran                Int?
+  levelRisikoNama        String?
+  levelRisikoWarna       String?
+  seleraSnapshot         Int?
+  residualAcuan          Int?
+  residualHarapan        Int?
+  responRisiko           String?
+  responAlasan           String?
+  createdBy              String?
+  submittedBy            String?
+  submittedAt            DateTime?
+  returnedBy             String?
+  returnedAt             DateTime?
+  returnReason           String?
+  finalizedBy            String?
+  finalizedAt            DateTime?
+  correctionReason       String?
+  evaluasiSebelum        Json?
+  matriksSnapshot        Json?
+  reconciliationDecision String?
+  reconciliationNote     String?
+  reconciledBy           String?
+  reconciledAt           DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  risk                   IdentifikasiRisiko     @relation("RiskMonitorings", fields: [riskId], references: [id], onDelete: Cascade)
+  previousRevision       PemantauanRisiko?      @relation("MonitoringRevision", fields: [previousRevisionId], references: [id], onDelete: SetNull)
+  nextRevision           PemantauanRisiko?      @relation("MonitoringRevision")
+  followUpRisk           IdentifikasiRisiko?    @relation("MonitoringFollowUp")
+  dokumens               PemantauanDokumen[]
+  kewajiban              KewajibanTindakLanjut?
+
+  @@unique([riskId, tahun, triwulan, revision])
+  @@index([tahun, triwulan, status])
+  @@index([riskId, tahun, triwulan])
+  @@index([status])
+}
+
+model PemantauanDokumen {
+  id           Int              @id @default(autoincrement())
+  pemantauanId Int
+  title        String
+  url          String
+  uploadedBy   String?
+  createdAt    DateTime         @default(now())
+  pemantauan   PemantauanRisiko @relation(fields: [pemantauanId], references: [id], onDelete: Cascade)
+
+  @@index([pemantauanId])
+}
+
+model KewajibanTindakLanjut {
+  id             Int                 @id @default(autoincrement())
+  monitoringId   Int                 @unique
+  riskId         Int
+  followUpRiskId Int?                @unique
+  teamId         Int?
+  status         String              @default("WAJIB")
+  catatan        String?
+  resolution     String?
+  cancelledAt    DateTime?
+  cancelledBy    String?
+  cancelReason   String?
+  createdAt      DateTime            @default(now())
+  completedAt    DateTime?
+  lastRemindedAt DateTime?
+  updatedAt      DateTime            @updatedAt
+  monitoring     PemantauanRisiko    @relation(fields: [monitoringId], references: [id], onDelete: Cascade)
+  risk           IdentifikasiRisiko  @relation("KewajibanRisikoAsal", fields: [riskId], references: [id], onDelete: Cascade)
+  followUpRisk   IdentifikasiRisiko? @relation("KewajibanRisikoLanjutan", fields: [followUpRiskId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([riskId])
+  @@index([teamId])
 }

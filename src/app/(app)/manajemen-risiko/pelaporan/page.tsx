@@ -38,7 +38,7 @@ interface ReportRow {
   // Analisis Aktual
   kemungkinanAktual: string;
   dampakAktual: string;
-  besaranAktual: number;
+  besaranAktual: number | null;
   levelAktual: string;
   warnaAktual: string;
   pengendalian: string;
@@ -54,7 +54,7 @@ interface ReportRow {
   // Residual
   kemungkinanResidual: string;
   dampakResidual: string;
-  besaranResidual: number;
+  besaranResidual: number | null;
   levelResidual: string;
   warnaResidual: string;
 
@@ -74,7 +74,7 @@ interface ReportRow {
   kategori?: string;
   areaDampak?: string;
   sumberRisiko?: string;
-  prioritas?: number;
+  prioritas?: number | null;
 }
 
 export default function PelaporanRisikoPage() {
@@ -150,7 +150,7 @@ export default function PelaporanRisikoPage() {
       const lkResidual = ev ? lkById.get(ev.residualLevelKemungkinanId) : null;
       const ldResidual = ev ? ldById.get(ev.residualLevelDampakId) : null;
 
-      let bAktual = 0;
+      let bAktual: number | null = null;
       let levAktual = "-";
       let wAktual = "gray";
 
@@ -158,12 +158,12 @@ export default function PelaporanRisikoPage() {
         const matchMatriks = matriksData.find(
           (m: any) => m.levelKemungkinanId === lkAktual.id && m.levelDampakId === ldAktual.id
         );
-        bAktual = matchMatriks?.besaran ?? (lkAktual.skala * ldAktual.skala);
-        levAktual = matchMatriks?.levelRisiko?.nama ?? "Sedang";
-        wAktual = matchMatriks?.levelRisiko?.warna ?? "Kuning";
+        bAktual = matchMatriks?.besaran ?? null;
+        levAktual = matchMatriks?.levelRisiko?.nama ?? "Belum dapat dihitung";
+        wAktual = matchMatriks?.levelRisiko?.warna ?? "gray";
       }
 
-      let bResidual = 0;
+      let bResidual: number | null = null;
       let levResidual = "-";
       let wResidual = "gray";
 
@@ -171,9 +171,9 @@ export default function PelaporanRisikoPage() {
         const matchMatriks = matriksData.find(
           (m: any) => m.levelKemungkinanId === lkResidual.id && m.levelDampakId === ldResidual.id
         );
-        bResidual = matchMatriks?.besaran ?? (lkResidual.skala * ldResidual.skala);
-        levResidual = matchMatriks?.levelRisiko?.nama ?? "Rendah";
-        wResidual = matchMatriks?.levelRisiko?.warna ?? "Hijau";
+        bResidual = matchMatriks?.besaran ?? null;
+        levResidual = matchMatriks?.levelRisiko?.nama ?? "Belum dapat dihitung";
+        wResidual = matchMatriks?.levelRisiko?.warna ?? "gray";
       }
 
       return {
@@ -507,7 +507,7 @@ export default function PelaporanRisikoPage() {
           dampak: row.dampak || "-",
           kemungkinanAktual: row.kemungkinanAktual,
           dampakAktual: row.dampakAktual,
-          besaranAktual: row.besaranAktual > 0 ? `${row.besaranAktual} (${row.levelAktual})` : "-",
+          besaranAktual: row.besaranAktual != null ? `${row.besaranAktual} (${row.levelAktual})` : "Belum dapat dihitung",
           pengendalian: row.pengendalian || "-",
           efektivitas: row.efektivitas || "-",
           respon: row.respon,
@@ -517,7 +517,7 @@ export default function PelaporanRisikoPage() {
           penanggungJawab: row.penanggungJawab || "-",
           kemungkinanResidual: row.kemungkinanResidual,
           dampakResidual: row.dampakResidual,
-          besaranResidual: row.besaranResidual > 0 ? `${row.besaranResidual}` : "-",
+          besaranResidual: row.besaranResidual != null ? `${row.besaranResidual}` : "Belum dapat dihitung",
           levelResidual: row.levelResidual || "-",
           seleraRisiko: "-",
           prioritas: "-",
@@ -549,7 +549,7 @@ export default function PelaporanRisikoPage() {
         });
 
         // Color coding for Besaran Aktual (Col 7 / G)
-        if (row.besaranAktual > 0) {
+        if (row.besaranAktual != null) {
           const cellG = dataRow.getCell(7);
           const colorObj = getExcelBadgeColor(row.warnaAktual);
           cellG.fill = {
@@ -561,7 +561,7 @@ export default function PelaporanRisikoPage() {
         }
 
         // Color coding for Besaran Residual (Col 17 / Q)
-        if (row.besaranResidual > 0) {
+        if (row.besaranResidual != null) {
           const cellQ = dataRow.getCell(12);
           const colorObj = getExcelBadgeColor(row.warnaResidual);
           cellQ.fill = {
@@ -717,7 +717,7 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{row.kemungkinanAktual}</Table.Td>
                   <Table.Td>{row.dampakAktual}</Table.Td>
                   <Table.Td align="center">
-                    {row.besaranAktual > 0 ? (
+                    {row.besaranAktual != null ? (
                       <Badge color={getBadgeColor(row.warnaAktual)} variant="filled">
                         {row.besaranAktual} ({row.levelAktual})
                       </Badge>
@@ -730,7 +730,7 @@ export default function PelaporanRisikoPage() {
                   <Table.Td>{row.kemungkinanResidual}</Table.Td>
                   <Table.Td>{row.dampakResidual}</Table.Td>
                   <Table.Td align="center">
-                    {row.besaranResidual > 0 ? (
+                    {row.besaranResidual != null ? (
                       <Badge color={getBadgeColor(row.warnaResidual)} variant="filled">
                         {row.besaranResidual} ({row.levelResidual})
                       </Badge>

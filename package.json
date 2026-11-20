@@ -9,13 +9,15 @@
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=4096 refine dev",
     "build": "next build",
     "start": "node server.js",
-    "lint": "next lint",
+    "lint": "eslint .",
     "refine": "refine",
     "prisma:seed": "npx tsx prisma/seed.ts",
     "prisma:seed-team-2026": "tsx scripts/seed-team-2026.ts",
     "prisma:seed-proses-bisnis": "cross-env DOTENV_CONFIG_PATH=.env.local tsx scripts/seed-proses-bisnis.ts",
     "prisma:seed-area-dampak": "cross-env DOTENV_CONFIG_PATH=.env.local tsx scripts/seed-area-dampak.ts",
     "test:security": "tsx --test src/lib/security.test.ts",
+    "test:risk": "tsx --test src/lib/risk-assessment.test.ts",
+    "test:integration": "tsx --test tests/workflow.integration.test.ts",
     "postinstall": "node scripts/generate-prisma-client.cjs"
   },
   "prisma": {
@@ -87,7 +89,7 @@
     "@types/react-dom": "^19.1.0",
     "@types/sanitize-html": "^2.16.1",
     "cross-env": "^7.0.3",
-    "eslint": "^8",
+    "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.9",
     "tsx": "^4.22.4",
     "typescript": "^5.8.3"
