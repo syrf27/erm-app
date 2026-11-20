@@ -60,6 +60,7 @@ interface MonitoringRow {
   risiko: string;
   team?: { id: number; nama: string } | null;
   tahun: number;
+  triwulan: number | null;
   statusSiklus: string;
   rtp: {
     id: number;
@@ -76,7 +77,7 @@ interface MonitoringRow {
 }
 
 interface MonitoringData {
-  periode: { tahun: number; triwulan: number };
+  periode: { tahun: number; triwulan: number | null; semuaTriwulan?: boolean };
   rows: MonitoringRow[];
   obligations: any[];
   counts: {
@@ -110,7 +111,7 @@ export default function PemantauanRisikoPage() {
   const { tahunDari } = useYear();
   const initial = useMemo(() => currentPeriode(), []);
   const [tahun, setTahun] = useState(tahunDari || initial.tahun);
-  const [triwulan, setTriwulan] = useState(initial.triwulan);
+  const [triwulan, setTriwulan] = useState<number | "all">(initial.triwulan);
   const [data, setData] = useState<MonitoringData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +177,7 @@ export default function PemantauanRisikoPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/pemantauan-risiko?tahun=${tahun}&triwulan=${triwulan}&mode=${mode}`
+        `/api/pemantauan-risiko?tahun=${tahun}&triwulan=${triwulan === "all" ? "all" : triwulan}&mode=${mode}`
       );
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || "Gagal memuat pemantauan");
@@ -250,6 +251,7 @@ export default function PemantauanRisikoPage() {
 
   const canEdit =
     mode === "active" &&
+    triwulan !== "all" &&
     (monitoringId == null ||
       ["DRAFT", "RETURNED"].includes(
         String(selected?.monitoring?.status ?? "")
@@ -487,7 +489,9 @@ export default function PemantauanRisikoPage() {
         <div>
           <Title order={3}>Pemantauan Risiko</Title>
           <Text size="xs" c="dimmed" mt={4}>
-            Hasil pemantauan triwulanan untuk risiko aktif yang memiliki RTP.
+            {triwulan === "all"
+              ? "Ringkasan catatan pemantauan yang tersimpan pada setiap triwulan tahun ini. Pilih satu triwulan untuk mengisi atau memperbarui pemantauan."
+              : "Pemantauan triwulanan atas pelaksanaan rencana tindak penanganan risiko."}
           </Text>
         </div>
         <Group gap="xs" align="flex-end">
@@ -512,8 +516,8 @@ export default function PemantauanRisikoPage() {
             size="xs"
             label="Triwulan"
             value={String(triwulan)}
-            onChange={(v) => setTriwulan(Number(v) || triwulan)}
-            data={[1, 2, 3, 4].map((q) => ({ value: String(q), label: `TW ${q}` }))}
+            onChange={(v) => setTriwulan(v === "all" ? "all" : Number(v) || initial.triwulan)}
+            data={[{ value: "all", label: "Semua" }, ...[1, 2, 3, 4].map((q) => ({ value: String(q), label: `TW ${q}` }))]}
             w={100}
           />
           <Button variant="light" leftSection={<IconRefresh size={14} />} onClick={load} loading={loading}>
@@ -533,7 +537,7 @@ export default function PemantauanRisikoPage() {
 
       <SimpleGrid cols={{ base: 2, md: 5 }}>
         {[
-          ["Wajib pantau", counts?.totalWajibPantau ?? 0, "gray"],
+          [triwulan === "all" ? "Catatan setahun" : "Wajib pantau", counts?.totalWajibPantau ?? 0, "gray"],
           ["Belum diisi", counts?.belumDiisi ?? 0, "orange"],
           ["Menunggu validasi", counts?.menungguValidasi ?? 0, "blue"],
           ["Dikembalikan", counts?.kembali ?? 0, "red"],
@@ -547,31 +551,44 @@ export default function PemantauanRisikoPage() {
       </SimpleGrid>
 
       <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>
-        <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13, minWidth: 1200 }}>
+        <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13, minWidth: 1700 }}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>Risiko</Table.Th>
-              <Table.Th>Tim</Table.Th>
-              <Table.Th>RTP</Table.Th>
-              <Table.Th ta="center">Acuan</Table.Th>
-              <Table.Th ta="center">Hasil</Table.Th>
-              <Table.Th ta="center">Harapan</Table.Th>
-              <Table.Th ta="center">Status</Table.Th>
-              <Table.Th ta="center">Aksi</Table.Th>
+              <Table.Th rowSpan={2}>Risiko</Table.Th>
+              <Table.Th rowSpan={2}>Tim</Table.Th>
+              <Table.Th rowSpan={2} ta="center">Periode</Table.Th>
+              <Table.Th rowSpan={2}>Rencana Tindak Penanganan</Table.Th>
+              <Table.Th colSpan={2} ta="center">Target</Table.Th>
+              <Table.Th colSpan={5} ta="center">Realisasi</Table.Th>
+              <Table.Th colSpan={2} ta="center">Risiko Residual Hasil Pemantauan</Table.Th>
+              <Table.Th rowSpan={2} ta="center">Aksi</Table.Th>
+            </Table.Tr>
+            <Table.Tr>
+              <Table.Th ta="center">Waktu</Table.Th>
+              <Table.Th ta="center">Output</Table.Th>
+              <Table.Th ta="center">Keterjadian Risiko</Table.Th>
+              <Table.Th ta="center">Status Pelaksanaan</Table.Th>
+              <Table.Th ta="center">Waktu</Table.Th>
+              <Table.Th>Output</Table.Th>
+              <Table.Th>Dokumen Pendukung</Table.Th>
+              <Table.Th ta="center">Level Kemungkinan</Table.Th>
+              <Table.Th ta="center">Level Dampak</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={8} ta="center" c="dimmed" py="md">
-                  Tidak ada risiko aktif dengan RTP pada periode ini.
+                <Table.Td colSpan={14} ta="center" c="dimmed" py="md">
+                  {triwulan === "all"
+                    ? "Belum ada catatan pemantauan pada tahun ini."
+                    : "Tidak ada risiko aktif dengan RTP pada periode ini."}
                 </Table.Td>
               </Table.Tr>
             )}
             {rows.map((row) => {
               const m = row.monitoring;
               return (
-                <Table.Tr key={row.riskId}>
+                <Table.Tr key={`${row.riskId}-${row.triwulan ?? "none"}`}>
                   <Table.Td style={{ minWidth: 240 }}>
                     <Text size="sm" fw={600}>{row.risiko}</Text>
                     <Group gap={4} mt={4}>
@@ -580,16 +597,49 @@ export default function PemantauanRisikoPage() {
                     </Group>
                   </Table.Td>
                   <Table.Td>{row.team?.nama ?? "-"}</Table.Td>
+                  <Table.Td ta="center">{row.triwulan ? `TW ${row.triwulan}` : "-"}</Table.Td>
                   <Table.Td style={{ maxWidth: 260 }}>{row.rtp?.uraian ?? "-"}</Table.Td>
-                  <Table.Td ta="center">{row.residualAcuan.besaran ?? "Belum dapat dihitung"}</Table.Td>
+                  <Table.Td ta="center">{m?.targetWaktu ?? row.rtp?.targetWaktu ?? "-"}</Table.Td>
+                  <Table.Td>{m?.targetOutput ?? row.rtp?.targetOutput ?? "-"}</Table.Td>
                   <Table.Td ta="center">
-                    {m?.besaran != null ? (
-                      <Badge color={warnaToMantine(m.levelRisikoWarna)}>{m.besaran}</Badge>
-                    ) : (
-                      <Text size="xs" c="dimmed">Belum dapat dihitung</Text>
-                    )}
+                    {m?.keterjadianRisiko ? (
+                      <Badge color={m.keterjadianRisiko === "Terjadi" ? "red" : "green"} variant="light">
+                        {m.keterjadianRisiko}
+                      </Badge>
+                    ) : "-"}
                   </Table.Td>
-                  <Table.Td ta="center">{row.residualHarapan.besaran ?? "Belum dapat dihitung"}</Table.Td>
+                  <Table.Td ta="center">{m?.statusPelaksanaan ?? "-"}</Table.Td>
+                  <Table.Td ta="center">{m?.realisasiWaktu ?? "-"}</Table.Td>
+                  <Table.Td>{m?.realisasiOutput ?? "-"}</Table.Td>
+                  <Table.Td>
+                    {m?.dokumens?.length ? (
+                      <Stack gap={4}>
+                        {m.dokumens.map((doc: any) => (
+                          <Text
+                            key={doc.id}
+                            component="a"
+                            href={getSafeDocumentHref(doc.url) ?? undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="xs"
+                            c="blue"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                          >
+                            <IconFileText size={14} />
+                            {doc.title}
+                            <IconExternalLink size={12} />
+                          </Text>
+                        ))}
+                      </Stack>
+                    ) : "-"}
+                  </Table.Td>
+                  <Table.Td ta="center">
+                    <Stack gap={2} align="center">
+                      <Text size="sm">{m?.kemungkinanLabel ?? "-"}</Text>
+                      {m?.besaran != null && <Badge size="xs" color={warnaToMantine(m.levelRisikoWarna)}>Nilai {m.besaran}</Badge>}
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td ta="center">{m?.dampakLabel ?? "-"}</Table.Td>
                   <Table.Td ta="center">
                     <Badge color={statusColor(row.statusPemantauan)} variant="light">
                       {PEMANTAUAN_STATUS_LABEL[row.statusPemantauan] ?? row.statusPemantauan}
@@ -597,7 +647,7 @@ export default function PemantauanRisikoPage() {
                   </Table.Td>
                   <Table.Td ta="center">
                     <Group gap={4} justify="center" wrap="nowrap">
-                      {mode === "active" ? (
+                      {mode === "active" && triwulan !== "all" ? (
                         <ActionIcon variant="light" onClick={() => openForm(row)} title="Isi pemantauan">
                           <IconPencil size={15} />
                         </ActionIcon>

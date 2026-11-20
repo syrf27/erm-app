@@ -64,23 +64,56 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const fallback = currentPeriode();
     const tahun = Number(searchParams.get("tahun")) || fallback.tahun;
-    const triwulan = Number(searchParams.get("triwulan")) || fallback.triwulan;
-    if (!isValidPeriode(tahun, triwulan)) {
+    const triwulanParam = searchParams.get("triwulan");
+    const allQuarters = triwulanParam === "all";
+    const triwulan = allQuarters
+      ? null
+      : Number(triwulanParam) || fallback.triwulan;
+    if (
+      !allQuarters &&
+      (triwulan == null || !isValidPeriode(tahun, triwulan))
+    ) {
       return NextResponse.json({ error: "Periode tidak valid" }, { status: 400 });
     }
 
     const mode = searchParams.get("mode") === "history" ? "history" : "active";
-    const periodEnd = quarterBounds(tahun, triwulan).endExclusive;
+    const periodEnd = allQuarters || triwulan == null
+      ? null
+      : quarterBounds(tahun, triwulan).endExclusive;
     const riskWhere = mergeRiskTeamWhere(
       "identifikasi-risiko",
-      mode === "history"
+      allQuarters
+        ? {
+            ...(mode === "history"
+              ? {}
+              : {
+                  archivedAt: null,
+                  statusSiklus: RISK_CYCLE.ACTIVE,
+                }),
+            pemantauans: {
+              some: {
+                tahun,
+                ...(mode === "history"
+                  ? {
+                      status: {
+                        in: [
+                          PEMANTAUAN_STATUS.FINAL,
+                          PEMANTAUAN_STATUS.SUPERSEDED,
+                        ],
+                      },
+                    }
+                  : {}),
+              },
+            },
+          }
+        : mode === "history"
         ? {
             // Riwayat tetap menampilkan risiko Continued/arsip yang memiliki
             // hasil pada periode tersebut, tanpa menjadikannya kewajiban aktif.
             pemantauans: {
               some: {
                 tahun,
-                triwulan,
+                triwulan: triwulan ?? fallback.triwulan,
                 status: {
                   in: [
                     PEMANTAUAN_STATUS.FINAL,
@@ -94,8 +127,10 @@ export async function GET(request: NextRequest) {
             archivedAt: null,
             statusSiklus: RISK_CYCLE.ACTIVE,
             tahun: { lte: tahun },
-            createdAt: { lt: periodEnd },
-            rencanaPenanganan: { is: { createdAt: { lt: periodEnd } } },
+            ...(periodEnd ? { createdAt: { lt: periodEnd } } : {}),
+            ...(periodEnd
+              ? { rencanaPenanganan: { is: { createdAt: { lt: periodEnd } } } }
+              : {}),
           },
       ctx
     );
@@ -134,9 +169,26 @@ export async function GET(request: NextRequest) {
             },
           },
           pemantauans: {
-            where: { tahun, triwulan },
-            orderBy: [{ revision: "desc" }, { id: "desc" }],
-            take: 1,
+            where: {
+              tahun,
+              ...(allQuarters ? {} : { triwulan: triwulan! }),
+              ...(allQuarters && mode === "history"
+                ? {
+                    status: {
+                      in: [
+                        PEMANTAUAN_STATUS.FINAL,
+                        PEMANTAUAN_STATUS.SUPERSEDED,
+                      ],
+                    },
+                  }
+                : {}),
+            },
+            orderBy: [
+              { triwulan: "desc" },
+              { revision: "desc" },
+              { id: "desc" },
+            ],
+            ...(allQuarters ? {} : { take: 1 }),
             include: {
               dokumens: true,
               kewajiban: true,
@@ -186,8 +238,24 @@ export async function GET(request: NextRequest) {
     ]);
 
     const matrix = matrixRows as MatrixEntry[];
-    const rows = risks.map((risk) => {
-      const latest = risk.pemantauans[0] ?? null;
+    const rows = risks.flatMap((risk) => {
+      const monitoringRecords = allQuarters
+        ? Array.from(
+            risk.pemantauans.reduce((byQuarter, monitoring) => {
+              const previous = byQuarter.get(monitoring.triwulan);
+              if (
+                !previous ||
+                monitoring.revision > previous.revision ||
+                (monitoring.revision === previous.revision && monitoring.id > previous.id)
+              ) {
+                byQuarter.set(monitoring.triwulan, monitoring);
+              }
+              return byQuarter;
+            }, new Map<number, (typeof risk.pemantauans)[number]>()).values()
+          )
+        : [risk.pemantauans[0] ?? null];
+
+      return monitoringRecords.map((latest) => {
       const acuan = risk.evaluasiRisiko
         ? assessRisk(
             matrix,
@@ -233,6 +301,7 @@ export async function GET(request: NextRequest) {
           warna: harapan?.warna ?? null,
         },
         monitoring: latest,
+        triwulan: latest?.triwulan ?? triwulan,
         statusPemantauan: latest?.status ?? "BELUM_DIISI",
         kewajibanTerbuka: risk.kewajibanSebagaiAsal,
         archivedAt: risk.archivedAt,
@@ -240,6 +309,7 @@ export async function GET(request: NextRequest) {
           mode === "history" ||
           String(risk.statusSiklus) === RISK_CYCLE.CONTINUED,
       };
+      });
     });
 
     const counts = {
@@ -259,7 +329,7 @@ export async function GET(request: NextRequest) {
 
     const mulaiPeriode = await getMonitoringStartPeriode(prisma as never);
     return NextResponse.json({
-      periode: { tahun, triwulan },
+      periode: { tahun, triwulan: allQuarters ? null : triwulan, semuaTriwulan: allQuarters },
       mode,
       rows,
       obligations,
