@@ -551,28 +551,53 @@ export default function PemantauanRisikoPage() {
       </SimpleGrid>
 
       <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>
-        <Table striped highlightOnHover withTableBorder withColumnBorders style={{ fontSize: 13, minWidth: 1700 }}>
+        <Table
+          striped
+          highlightOnHover
+          withTableBorder
+          withColumnBorders
+          style={{
+            fontSize: 13,
+            minWidth: 2380,
+            tableLayout: "fixed",
+          }}
+          styles={{
+            th: {
+              whiteSpace: "normal",
+              lineHeight: 1.35,
+              verticalAlign: "middle",
+              padding: "12px 10px",
+            },
+            td: {
+              verticalAlign: "top",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              lineHeight: 1.45,
+              padding: "12px 10px",
+            },
+          }}
+        >
           <Table.Thead>
             <Table.Tr>
-              <Table.Th rowSpan={2}>Risiko</Table.Th>
-              <Table.Th rowSpan={2}>Tim</Table.Th>
-              <Table.Th rowSpan={2} ta="center">Periode</Table.Th>
-              <Table.Th rowSpan={2}>Rencana Tindak Penanganan</Table.Th>
+              <Table.Th rowSpan={2} style={{ width: 360 }}>Risiko</Table.Th>
+              <Table.Th rowSpan={2} style={{ width: 190 }}>Tim</Table.Th>
+              <Table.Th rowSpan={2} ta="center" style={{ width: 110 }}>Periode</Table.Th>
+              <Table.Th rowSpan={2} style={{ width: 370 }}>Rencana Tindak Penanganan</Table.Th>
               <Table.Th colSpan={2} ta="center">Target</Table.Th>
               <Table.Th colSpan={5} ta="center">Realisasi</Table.Th>
               <Table.Th colSpan={2} ta="center">Risiko Residual Hasil Pemantauan</Table.Th>
-              <Table.Th rowSpan={2} ta="center">Aksi</Table.Th>
+              <Table.Th rowSpan={2} ta="center" style={{ width: 100 }}>Aksi</Table.Th>
             </Table.Tr>
             <Table.Tr>
-              <Table.Th ta="center">Waktu</Table.Th>
-              <Table.Th ta="center">Output</Table.Th>
-              <Table.Th ta="center">Keterjadian Risiko</Table.Th>
-              <Table.Th ta="center">Status Pelaksanaan</Table.Th>
-              <Table.Th ta="center">Waktu</Table.Th>
-              <Table.Th>Output</Table.Th>
-              <Table.Th>Dokumen Pendukung</Table.Th>
-              <Table.Th ta="center">Level Kemungkinan</Table.Th>
-              <Table.Th ta="center">Level Dampak</Table.Th>
+              <Table.Th ta="center" style={{ width: 150 }}>Waktu</Table.Th>
+              <Table.Th ta="center" style={{ width: 340 }}>Output</Table.Th>
+              <Table.Th ta="center" style={{ width: 190 }}>Keterjadian Risiko</Table.Th>
+              <Table.Th ta="center" style={{ width: 210 }}>Status Pelaksanaan</Table.Th>
+              <Table.Th ta="center" style={{ width: 150 }}>Waktu</Table.Th>
+              <Table.Th style={{ width: 340 }}>Output</Table.Th>
+              <Table.Th style={{ width: 300 }}>Dokumen Pendukung</Table.Th>
+              <Table.Th ta="center" style={{ width: 230 }}>Level Kemungkinan</Table.Th>
+              <Table.Th ta="center" style={{ width: 200 }}>Level Dampak</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
