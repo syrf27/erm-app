@@ -4,7 +4,10 @@ import {
   resolveAssessmentFromDb,
   type AssessmentDb,
 } from "@/lib/risk-assessment";
-import { assertResidualMutable } from "@/lib/pemantauan-integrity";
+import {
+  assertResidualMutable,
+  lockRiskForResidual,
+} from "@/lib/pemantauan-integrity";
 import { DomainError } from "@/lib/domain-error";
 
 export { DomainError };
@@ -293,6 +296,7 @@ export async function upsertRiskStages(
     });
   }
   if (evaluasi) {
+    await lockRiskForResidual(db as never, riskId);
     await assertResidualMutable(db as never, riskId);
     savedEvaluasi = await db.evaluasiRisiko.upsert({
       where: { identifikasiRisikoId: riskId },

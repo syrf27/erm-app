@@ -65,11 +65,56 @@ export async function buildHistoricalReport(
     },
   });
 
+  // Hubungan penerus/kewajiban dapat melekat pada revisi lama yang sudah
+  // SUPERSEDED. Telusuri seluruh revisi pada risiko+periode yang sama agar
+  // laporan tidak kehilangan jejak rantai setelah koreksi.
+  const riskIds = Array.from(
+    new Set(monitorings.map((monitoring) => monitoring.riskId))
+  );
+  const relatedMonitorings = riskIds.length
+    ? await prisma.pemantauanRisiko.findMany({
+        where: {
+          riskId: { in: riskIds },
+          OR: [
+            { followUpRisk: { isNot: null } },
+            { kewajiban: { isNot: null } },
+          ],
+        },
+        select: {
+          riskId: true,
+          tahun: true,
+          triwulan: true,
+          revision: true,
+          followUpRisk: { select: { id: true, statusSiklus: true } },
+          kewajiban: { select: { id: true, status: true } },
+        },
+        orderBy: [{ revision: "asc" }, { id: "asc" }],
+      })
+    : [];
+
+  const successorByKey = new Map<
+    string,
+    { id: number; statusSiklus: string }
+  >();
+  const obligationByKey = new Map<string, { status: string }>();
+  for (const related of relatedMonitorings) {
+    const key = `${related.riskId}:${related.tahun}:${related.triwulan}`;
+    if (related.followUpRisk && !successorByKey.has(key)) {
+      successorByKey.set(key, related.followUpRisk);
+    }
+    if (related.kewajiban && !obligationByKey.has(key)) {
+      obligationByKey.set(key, related.kewajiban);
+    }
+  }
+
   return monitorings.map((monitoring) => {
     const comparison = compareResidualToTolerance(
       monitoring.besaran,
       monitoring.seleraSnapshot
     );
+    const key = `${monitoring.riskId}:${monitoring.tahun}:${monitoring.triwulan}`;
+    const followUp = monitoring.followUpRisk ?? successorByKey.get(key) ?? null;
+    const obligation = monitoring.kewajiban ?? obligationByKey.get(key) ?? null;
     return {
       monitoringId: monitoring.id,
       riskId: monitoring.riskId,
@@ -93,9 +138,9 @@ export async function buildHistoricalReport(
           : "Belum dapat dinilai",
       responFinal: monitoring.responRisiko,
       risikoAsalId: monitoring.risk.parentRiskId ?? monitoring.riskId,
-      risikoLanjutanId: monitoring.followUpRisk?.id ?? null,
-      statusRisikoLanjutan: monitoring.followUpRisk?.statusSiklus ?? null,
-      statusKewajiban: monitoring.kewajiban?.status ?? null,
+      risikoLanjutanId: followUp?.id ?? null,
+      statusRisikoLanjutan: followUp?.statusSiklus ?? null,
+      statusKewajiban: obligation?.status ?? null,
       finalizedBy: monitoring.finalizedBy,
       finalizedAt: monitoring.finalizedAt,
       correctionReason: monitoring.correctionReason,

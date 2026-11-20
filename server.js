@@ -1,17 +1,13 @@
-const { createServer } = require('http');
-const { parse } = require('url');
-const next = require('next');
+const fs = require("fs");
+const path = require("path");
 
-const dev = false;
-const app = next({ dev });
-const handle = app.getRequestHandler();
+// cPanel/Passenger requires a startup file in the application root. Next.js
+// with output: "standalone" must instead run its generated standalone server;
+// this small launcher bridges both requirements.
+const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
 
-app.prepare().then(() => {
-  createServer((req, res) => {
-    const parsedUrl = parse(req.url, true);
-    handle(req, res, parsedUrl);
-  }).listen(process.env.PORT || 3000, (err) => {
-    if (err) throw err;
-    console.log('> Ready on http://localhost:' + (process.env.PORT || 3000));
-  });
-});
+if (!fs.existsSync(standaloneServer)) {
+  throw new Error("Build standalone tidak ditemukan. Jalankan `npm run build` sebelum memulai aplikasi.");
+}
+
+require(standaloneServer);

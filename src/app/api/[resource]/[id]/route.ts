@@ -36,6 +36,7 @@ import { ZodError } from "zod";
 import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archive";
 import {
   assertResidualMutable,
+  lockRiskForResidual,
   touchesResidual,
 } from "@/lib/pemantauan-integrity";
 import { DomainError } from "@/lib/risk-register-service";
@@ -245,6 +246,7 @@ export async function PATCH(
         if (!evaluasi) {
           throw new DomainError("Evaluasi risiko tidak ditemukan.", 404);
         }
+        await lockRiskForResidual(tx as never, evaluasi.identifikasiRisikoId);
         await assertResidualMutable(tx as never, evaluasi.identifikasiRisikoId);
         return tx.evaluasiRisiko.update({
           where: { id: Number(id) },

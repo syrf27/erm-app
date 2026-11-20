@@ -24,7 +24,26 @@ type AnyDb = {
   levelRisiko: { findMany(args: unknown): Promise<unknown[]> };
   seleraRisiko: { findMany(args: unknown): Promise<unknown[]> };
   seleraRisikoGlobal: { findMany(args: unknown): Promise<unknown[]> };
+  $executeRaw(
+    query: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<number>;
 };
+
+const RESIDUAL_LOCK_NAMESPACE = 734001;
+
+/**
+ * Kunci advisory per risiko (transaksi). Wajib diambil semua jalur yang
+ * menulis residual Evaluasi dan finalisasi sebelum membaca status final,
+ * sehingga tidak ada celah baca-lalu-tulis antara batch dan finalisasi.
+ */
+export async function lockRiskForResidual(
+  db: AnyDb,
+  riskId: number
+): Promise<void> {
+  if (!Number.isInteger(riskId) || riskId <= 0) return;
+  await db.$executeRaw`SELECT pg_advisory_xact_lock(${RESIDUAL_LOCK_NAMESPACE}, ${riskId})`;
+}
 
 export const FINAL_RESIDUAL_PROTECTED = "FINAL_RESIDUAL_PROTECTED";
 
@@ -58,6 +77,7 @@ export async function assertResidualMutable(
   db: AnyDb,
   riskId: number
 ): Promise<void> {
+  // Lock harus sudah diambil pemanggil di transaksi yang sama.
   if (!Number.isInteger(riskId) || riskId <= 0) return;
   const blocking = (await db.pemantauanRisiko.findFirst({
     where: {

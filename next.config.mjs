@@ -2,8 +2,9 @@
 const nextConfig = {
   output: "standalone",
   serverExternalPackages: [
-    "@xenova/transformers",
-    "onnxruntime-node",
+    "pg",
+    "@prisma/client",
+    "@prisma/adapter-pg",
     "pdfjs-dist",
     "pdf-parse",
     "tesseract.js",

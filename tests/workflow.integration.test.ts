@@ -15,6 +15,7 @@ let cancelObligationThroughCorrection: any;
 let getMonitoringStartPeriode: any;
 let buildHistoricalReport: any;
 let assertResidualMutable: any;
+let lockRiskForResidual: any;
 let touchesResidual: any;
 let DomainError: any;
 let requiresFollowUp: any;
@@ -29,8 +30,12 @@ before(async () => {
   ({ finalizeMonitoring, approveFollowUp, cancelObligationThroughCorrection } =
     await import("@/lib/pemantauan-service"));
   ({ buildHistoricalReport } = await import("@/lib/pemantauan-report"));
-  ({ assertResidualMutable, touchesResidual, getMonitoringStartPeriode } =
-    await import("@/lib/pemantauan-integrity"));
+  ({
+    assertResidualMutable,
+    lockRiskForResidual,
+    touchesResidual,
+    getMonitoringStartPeriode,
+  } = await import("@/lib/pemantauan-integrity"));
   ({ DomainError } = await import("@/lib/domain-error"));
   ({ requiresFollowUp } = await import("@/lib/risk-assessment"));
   ({
@@ -292,6 +297,71 @@ async function createSubmittedMonitoring(
   });
 }
 
+async function prepareFollowUpForApproval(
+  followUpId: number,
+  kSkala = 3,
+  dSkala = 3
+) {
+  const lk = ref.levelK.find((item: any) => item.skala === kSkala);
+  const ld = ref.levelD.find((item: any) => item.skala === dSkala);
+  const matrix = pairBySkala(kSkala, dSkala);
+  await prisma.analisisRisiko.update({
+    where: { identifikasiRisikoId: followUpId },
+    data: { pengendalianUraian: "Pengendalian ditinjau" },
+  });
+  await prisma.evaluasiRisiko.upsert({
+    where: { identifikasiRisikoId: followUpId },
+    create: {
+      identifikasiRisikoId: followUpId,
+      responRisiko: "mengurangi",
+      residualLevelKemungkinanId: lk.id,
+      residualLevelDampakId: ld.id,
+      residualLevelRisikoId: matrix.levelRisikoId,
+    },
+    update: {
+      responRisiko: "mengurangi",
+      residualLevelKemungkinanId: lk.id,
+      residualLevelDampakId: ld.id,
+      residualLevelRisikoId: matrix.levelRisikoId,
+    },
+  });
+  await prisma.rencanaPenanganan.upsert({
+    where: { identifikasiRisikoId: followUpId },
+    create: {
+      identifikasiRisikoId: followUpId,
+      rencanaTidakPenanganan: "RTP baru",
+      jenisPenanganan: "perbaikan",
+      targetOutput: "Output",
+      targetWaktu: "30/06/2027",
+      penanggungJawab: "Tim A",
+      targetResidualLevelKemungkinanId: ref.levelK[0].id,
+      targetResidualLevelDampakId: ref.levelD[0].id,
+      alasanPenguatan: "RTP lama belum cukup",
+    },
+    update: {
+      rencanaTidakPenanganan: "RTP baru",
+      jenisPenanganan: "perbaikan",
+      targetOutput: "Output",
+      targetWaktu: "30/06/2027",
+      penanggungJawab: "Tim A",
+      targetResidualLevelKemungkinanId: ref.levelK[0].id,
+      targetResidualLevelDampakId: ref.levelD[0].id,
+      alasanPenguatan: "RTP lama belum cukup",
+    },
+  });
+  await prisma.identifikasiRisiko.update({
+    where: { id: followUpId },
+    data: { statusSiklus: RISK_CYCLE.FOLLOW_UP_SUBMITTED },
+  });
+  await prisma.kewajibanTindakLanjut.updateMany({
+    where: { followUpRiskId: followUpId },
+    data: { status: KEWAJIBAN_STATUS.MENUNGGU_VALIDASI },
+  });
+  return prisma.identifikasiRisiko.findUniqueOrThrow({
+    where: { id: followUpId },
+  });
+}
+
 const actor = { email: "admin-test@example.com", name: "Admin Test" };
 
 test("1. finalisasi Mengurangi >= selera membuat tepat satu draf + kewajiban", async () => {
@@ -397,6 +467,88 @@ test("3. guard residual final menolak batch/import dan field non-residual tetap 
 
   assert.equal(touchesResidual({ responRisiko: "menerima" }), false);
   assert.equal(touchesResidual({ residualLevelDampakId: 1 }), true);
+});
+
+test("3b. lock per risiko menutup race batch baca-lalu-tulis vs finalisasi", async () => {
+  const risk = await createRisk("race-batch-final", { kSkala: 2, dSkala: 2 });
+  const monitoring = await createSubmittedMonitoring(risk, {
+    kSkala: 2,
+    dSkala: 2,
+  });
+
+  let signalRead: () => void = () => {};
+  const readDone = new Promise<void>((resolve) => {
+    signalRead = resolve;
+  });
+  let releaseBatch: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    releaseBatch = resolve;
+  });
+
+  const batchTransaction = prisma.$transaction(
+    async (tx: any) => {
+      const evaluasi = await tx.evaluasiRisiko.findUnique({
+        where: { identifikasiRisikoId: risk.id },
+        select: { id: true },
+      });
+      signalRead();
+      await gate; // meniru batch lambat setelah membaca "belum final"
+      await lockRiskForResidual(tx, risk.id);
+      await assertResidualMutable(tx, risk.id);
+      return tx.evaluasiRisiko.update({
+        where: { id: evaluasi.id },
+        data: { residualLevelKemungkinanId: ref.levelK[0].id },
+      });
+    },
+    { timeout: 20000 }
+  );
+
+  await readDone;
+  await finalizeMonitoring({
+    monitoringId: monitoring.id,
+    expectedVersion: monitoring.version,
+    actor,
+  });
+  releaseBatch();
+
+  await assert.rejects(
+    () => batchTransaction,
+    (error: any) =>
+      error instanceof DomainError &&
+      error.status === 409 &&
+      error.details?.code === "FINAL_RESIDUAL_PROTECTED"
+  );
+});
+
+test("3c. finalisasi dua periode berbeda diserialkan dan tidak kehilangan hasil terbaru", async () => {
+  const risk = await createRisk("two-period-lock", { kSkala: 2, dSkala: 2 });
+  const first = await createSubmittedMonitoring(risk, {
+    triwulan: 1,
+    kSkala: 2,
+    dSkala: 2,
+  });
+  const later = await createSubmittedMonitoring(risk, {
+    triwulan: 3,
+    kSkala: 3,
+    dSkala: 3,
+  });
+  await Promise.allSettled([
+    finalizeMonitoring({
+      monitoringId: first.id,
+      expectedVersion: first.version,
+      actor,
+    }),
+    finalizeMonitoring({
+      monitoringId: later.id,
+      expectedVersion: later.version,
+      actor,
+    }),
+  ]);
+  const evaluasi = await prisma.evaluasiRisiko.findUnique({
+    where: { identifikasiRisikoId: risk.id },
+  });
+  assert.equal(evaluasi.residualLevelKemungkinanId, ref.levelK[2].id);
+  assert.equal(evaluasi.residualLevelDampakId, ref.levelD[2].id);
 });
 
 test("4. dua penyimpanan versi sama hanya satu yang berhasil", async () => {
@@ -751,6 +903,124 @@ test("H. periode mulai penerapan stabil dan tersimpan", async () => {
   });
   assert.ok(stored);
   assert.deepEqual(JSON.parse(stored.value), first);
+});
+
+test("8d. koreksi A menelusuri rantai A→B→C dan tidak melewati rekonsiliasi", async () => {
+  const riskA = await createRisk("chain-multi-A", { kSkala: 3, dSkala: 3 });
+  const monitorA = await createSubmittedMonitoring(riskA, {
+    tahun: 2026,
+    triwulan: 1,
+  });
+  const finalA = await finalizeMonitoring({
+    monitoringId: monitorA.id,
+    expectedVersion: monitorA.version,
+    actor,
+  });
+  const riskBId = finalA.followUpRiskId as number;
+
+  const preparedB = await prepareFollowUpForApproval(riskBId);
+  await approveFollowUp({
+    riskId: riskBId,
+    expectedVersion: preparedB.version,
+    actor,
+  });
+
+  // B menjadi risiko aktif dan memiliki pemantauan sendiri yang memicu C.
+  const monitorB = await createSubmittedMonitoring(
+    { id: riskBId },
+    { tahun: 2027, triwulan: 1 }
+  );
+  const finalB = await finalizeMonitoring({
+    monitoringId: monitorB.id,
+    expectedVersion: monitorB.version,
+    actor,
+  });
+  const riskCId = finalB.followUpRiskId as number;
+  const preparedC = await prepareFollowUpForApproval(riskCId);
+  await approveFollowUp({
+    riskId: riskCId,
+    expectedVersion: preparedC.version,
+    actor,
+  });
+
+  const chainB = await prisma.identifikasiRisiko.findUnique({
+    where: { id: riskBId },
+  });
+  const chainC = await prisma.identifikasiRisiko.findUnique({
+    where: { id: riskCId },
+  });
+  assert.equal(chainB.statusSiklus, RISK_CYCLE.CONTINUED);
+  assert.equal(chainC.statusSiklus, RISK_CYCLE.ACTIVE);
+
+  const correctionA = await prisma.pemantauanRisiko.create({
+    data: {
+      riskId: riskA.id,
+      tahun: 2026,
+      triwulan: 1,
+      status: PEMANTAUAN_STATUS.SUBMITTED,
+      revision: 2,
+      previousRevisionId: monitorA.id,
+      statusPelaksanaan: "selesai",
+      uraianPelaksanaan: "Koreksi A",
+      realisasiOutput: "Koreksi A",
+      catatanEfektivitas: "Koreksi A",
+      levelKemungkinanId: ref.levelK[0].id,
+      levelDampakId: ref.levelD[0].id,
+      responRisiko: "mengurangi",
+      submittedAt: new Date(),
+      dokumens: {
+        create: [{ title: "Bukti A", url: "https://example.com/a.pdf" }],
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      finalizeMonitoring({
+        monitoringId: correctionA.id,
+        expectedVersion: correctionA.version,
+        actor,
+      }),
+    (error: any) =>
+      error instanceof DomainError &&
+      error.details?.code === "RECONCILIATION_REQUIRED" &&
+      error.details?.successorId === riskCId
+  );
+
+  const reconciled = await finalizeMonitoring({
+    monitoringId: correctionA.id,
+    expectedVersion: correctionA.version,
+    actor,
+    reconciliation: {
+      decision: "MARK_FOR_REVIEW",
+      note: "Rantai A-B-C dipertahankan; C sudah disahkan.",
+    },
+  });
+  assert.equal(reconciled.followUpRiskId, riskBId);
+  assert.equal(
+    await prisma.identifikasiRisiko.count({ where: { parentRiskId: riskA.id } }),
+    1
+  );
+  assert.equal(
+    await prisma.identifikasiRisiko.count({ where: { parentRiskId: riskBId } }),
+    1
+  );
+  const cAfter = await prisma.identifikasiRisiko.findUnique({
+    where: { id: riskCId },
+  });
+  assert.equal(cAfter.statusSiklus, RISK_CYCLE.ACTIVE);
+
+  // Laporan A tetap menemukan B/kewajiban meski relasinya di revisi lama.
+  const report = await buildHistoricalReport({
+    tahun: 2026,
+    triwulan: 1,
+    teamIds: [ref.teamA.id],
+    isAdmin: false,
+  });
+  const rowA = report.find((row: any) => row.risiko.includes("chain-multi-A"));
+  assert.ok(rowA);
+  assert.equal(rowA.risikoLanjutanId, riskBId);
+  assert.ok(rowA.statusKewajiban);
 });
 
 test("9. pembatalan tanpa koreksi sah ditolak; koreksi sah membatalkan atomik", async () => {

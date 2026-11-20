@@ -10,6 +10,7 @@ import {
   requiresFollowUp,
   type MatrixEntry,
 } from "./risk-assessment";
+import { matrixConfigHash } from "./matrix-snapshot";
 
 // Fixture mengikuti matriks aplikasi (diverifikasi dari database Supabase).
 const matrix: MatrixEntry[] = [
@@ -94,6 +95,24 @@ test("pergantian triwulan dan tahun", () => {
     triwulan: 2,
   });
   assert.equal(formatPeriode(2026, 4), "TW IV 2026");
+});
+
+test("hash konfigurasi mengabaikan takenAt tetapi mendeteksi isi berbeda", () => {
+  const base = {
+    matriks: [{ id: 1, besaran: 14 }],
+    levelKemungkinan: [{ id: 1, nama: "Kadang" }],
+    levelDampak: [{ id: 2, nama: "Moderat" }],
+    levelRisiko: [{ id: 3, nama: "Sedang" }],
+    seleraGlobal: [{ id: 1, nilai: 11 }],
+  };
+  const first = matrixConfigHash({ ...base, takenAt: "2026-01-01T00:00:00Z" });
+  const same = matrixConfigHash({ ...base, takenAt: "2026-06-01T00:00:00Z" });
+  const changed = matrixConfigHash({
+    ...base,
+    matriks: [{ id: 1, besaran: 15 }],
+  });
+  assert.equal(first, same);
+  assert.notEqual(first, changed);
 });
 
 test("periode saat ini mengikuti zona Asia/Jakarta", () => {

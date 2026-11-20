@@ -21,6 +21,7 @@ import { RISK_LINKED_RESOURCES, referencesArchivedRisk } from "@/lib/risk-archiv
 import { canAccessRiskIds, getAuthUserContext, isAdminRole } from "@/lib/access-control";
 import {
   assertResidualMutable,
+  lockRiskForResidual,
   touchesResidual,
 } from "@/lib/pemantauan-integrity";
 import { DomainError } from "@/lib/domain-error";
@@ -162,6 +163,34 @@ export async function POST(
         const txDelegate = (tx as any)[modelName];
         const created = [];
         const updated = [];
+        const updateRiskIds = new Map<number, number>();
+
+        if (resource === "evaluasi-risiko") {
+          // Kunci per risiko dalam urutan stabil untuk mencegah deadlock dan
+          // menutup celah baca-lalu-tulis dengan finalisasi.
+          const lockIds = new Set<number>();
+          for (const data of validatedCreates) {
+            const riskId = Number(
+              (data as { identifikasiRisikoId?: number }).identifikasiRisikoId
+            );
+            if (Number.isInteger(riskId) && riskId > 0) lockIds.add(riskId);
+          }
+          for (const item of validatedUpdates) {
+            if (!touchesResidual(item.data)) continue;
+            const existing = await tx.evaluasiRisiko.findUnique({
+              where: { id: item.id },
+              select: { identifikasiRisikoId: true },
+            });
+            if (existing) {
+              updateRiskIds.set(item.id, existing.identifikasiRisikoId);
+              lockIds.add(existing.identifikasiRisikoId);
+            }
+          }
+          for (const riskId of Array.from(lockIds).sort((a, b) => a - b)) {
+            await lockRiskForResidual(tx as never, riskId);
+          }
+        }
+
         for (const data of validatedCreates) {
           if (resource === "evaluasi-risiko") {
             await assertResidualMutable(
@@ -173,12 +202,9 @@ export async function POST(
         }
         for (const item of validatedUpdates) {
           if (resource === "evaluasi-risiko" && touchesResidual(item.data)) {
-            const existing = await tx.evaluasiRisiko.findUnique({
-              where: { id: item.id },
-              select: { identifikasiRisikoId: true },
-            });
-            if (existing) {
-              await assertResidualMutable(tx as never, existing.identifikasiRisikoId);
+            const riskId = updateRiskIds.get(item.id);
+            if (riskId) {
+              await assertResidualMutable(tx as never, riskId);
             }
           }
           updated.push(

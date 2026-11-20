@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/password-utils";
 
 const AUTH_COOKIE = "auth";
 const DEFAULT_GOJAGS_REGISTER_ROLE = "anggota tim";
@@ -85,6 +87,11 @@ async function findOrCreateLocalUser(email: string, payload: JwtPayload) {
       email,
       name: resolveName(payload, email),
       roleId: defaultRole.id,
+      // GOJAGS users authenticate through SSO, but the local User model keeps
+      // a required password for administrator-created local accounts. Supply a
+      // non-usable random hash explicitly so legacy databases without the
+      // database-level default can create the SSO user safely.
+      password: hashPassword(randomBytes(32).toString("hex")),
     },
     include,
   });

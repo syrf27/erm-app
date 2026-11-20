@@ -26,9 +26,15 @@ function setSession(user: {
   try {
     localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(user.permissions || []));
     localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify(Boolean(user.tourCompleted)));
-    if (user.avatar) {
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ avatar: user.avatar }));
-    }
+    localStorage.setItem(
+      PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+      }),
+    );
   } catch {
     // Ignore localStorage errors (e.g. private mode)
   }
@@ -60,7 +66,12 @@ function readStoredPermissions(): string[] {
   }
 }
 
-function readStoredProfile(): { avatar?: string } {
+function readStoredProfile(): {
+  name?: string;
+  email?: string;
+  role?: string;
+  avatar?: string;
+} {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -119,11 +130,31 @@ export const authProviderClient: AuthProvider = {
   },
   getIdentity: async () => {
     const auth = Cookies.get(AUTH_COOKIE);
-    if (!auth) return null;
-    const parsedUser = JSON.parse(auth);
+    const storedProfile = readStoredProfile();
+
+    if (!auth) {
+      // Some reverse-proxy deployments expose the session cookie to the
+      // server but not to JavaScript. The stored login response is enough for
+      // client-only identity UI; API authorization still relies on the cookie.
+      if (!storedProfile.email) return null;
+      return {
+        ...storedProfile,
+        permissions: readStoredPermissions(),
+      };
+    }
+
+    let parsedUser: { name?: string; email?: string; role?: string };
+    try {
+      parsedUser = JSON.parse(auth);
+    } catch {
+      return storedProfile.email
+        ? { ...storedProfile, permissions: readStoredPermissions() }
+        : null;
+    }
+
     return {
       ...parsedUser,
-      ...readStoredProfile(),
+      ...storedProfile,
       permissions: readStoredPermissions(),
     };
   },

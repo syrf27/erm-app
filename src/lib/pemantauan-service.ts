@@ -15,7 +15,10 @@ import {
   RISK_CYCLE,
 } from "@/lib/risk-cycle";
 import { DomainError } from "@/lib/risk-register-service";
-import { buildMatrixSnapshot } from "@/lib/pemantauan-integrity";
+import {
+  buildMatrixSnapshot,
+  lockRiskForResidual,
+} from "@/lib/pemantauan-integrity";
 
 type Db = Prisma.TransactionClient;
 type AnySettingDb = Parameters<typeof buildMatrixSnapshot>[0];
@@ -230,13 +233,28 @@ interface SuccessorRecord {
   id: number;
   statusSiklus: string;
   sourceMonitoring: { id: number; revision: number } | null;
+  directSuccessorId: number;
+  /** Ada generasi penerus yang sudah disahkan (CONTINUED) di rantai. */
+  isDownstreamApproved: boolean;
+  chainDepth: number;
 }
 
+type SuccessorNode = {
+  id: number;
+  statusSiklus: string;
+  sourceMonitoring: { id: number; revision: number } | null;
+};
+
+/**
+ * Menelusuri rantai penerus, bukan hanya anak langsung. Contoh A → B → C:
+ * ketika B sudah CONTINUED, koreksi A harus melihat C (aktif/draf) agar tidak
+ * melewati rekonsiliasi atau membuat penerus baru.
+ */
 async function findSuccessor(
   tx: Db,
   originRiskId: number
 ): Promise<SuccessorRecord | null> {
-  return tx.identifikasiRisiko.findFirst({
+  let current: SuccessorNode | null = await tx.identifikasiRisiko.findFirst({
     where: {
       parentRiskId: originRiskId,
       statusSiklus: {
@@ -244,6 +262,7 @@ async function findSuccessor(
           RISK_CYCLE.FOLLOW_UP_DRAFT,
           RISK_CYCLE.FOLLOW_UP_SUBMITTED,
           RISK_CYCLE.ACTIVE,
+          RISK_CYCLE.CONTINUED,
         ],
       },
     },
@@ -254,6 +273,58 @@ async function findSuccessor(
       sourceMonitoring: { select: { id: true, revision: true } },
     },
   });
+
+  if (!current) return null;
+  const directSuccessorId = current.id;
+  let isDownstreamApproved = false;
+  let chainDepth = 1;
+
+  while (
+    current.statusSiklus === RISK_CYCLE.CONTINUED &&
+    chainDepth < 50
+  ) {
+    isDownstreamApproved = true;
+    const next: SuccessorNode | null =
+      await tx.identifikasiRisiko.findFirst({
+        where: {
+          parentRiskId: current.id,
+          statusSiklus: {
+            in: [
+              RISK_CYCLE.FOLLOW_UP_DRAFT,
+              RISK_CYCLE.FOLLOW_UP_SUBMITTED,
+              RISK_CYCLE.ACTIVE,
+              RISK_CYCLE.CONTINUED,
+            ],
+          },
+        },
+        orderBy: { id: "desc" },
+        select: {
+          id: true,
+          statusSiklus: true,
+          sourceMonitoring: { select: { id: true, revision: true } },
+        },
+      });
+    if (!next) break;
+    current = next;
+    chainDepth += 1;
+  }
+
+  return {
+    id: current.id,
+    statusSiklus: current.statusSiklus,
+    sourceMonitoring: current.sourceMonitoring,
+    directSuccessorId,
+    isDownstreamApproved,
+    chainDepth,
+  };
+}
+
+function successorNeedsReconciliation(successor: SuccessorRecord): boolean {
+  return (
+    successor.isDownstreamApproved ||
+    successor.statusSiklus === RISK_CYCLE.ACTIVE ||
+    successor.statusSiklus === RISK_CYCLE.CONTINUED
+  );
 }
 
 async function cancelSuccessor(
@@ -303,6 +374,16 @@ export async function finalizeMonitoring({
   reconciliation = null,
 }: FinalizeParams): Promise<FinalizeResult> {
   return prisma.$transaction(async (tx) => {
+    const initial = await tx.pemantauanRisiko.findUnique({
+      where: { id: monitoringId },
+      select: { riskId: true },
+    });
+    if (!initial) throw new DomainError("Pemantauan tidak ditemukan.", 404);
+
+    // Kunci per risiko sebelum membaca status final. Ini juga menyerialkan
+    // finalisasi dua periode berbeda pada risiko yang sama.
+    await lockRiskForResidual(tx as never, initial.riskId);
+
     const monitoring = await tx.pemantauanRisiko.findUnique({
       where: { id: monitoringId },
       include: {
@@ -534,30 +615,33 @@ export async function finalizeMonitoring({
     let reconciliationNote: string | null = null;
 
     if (isRevision && successor) {
-      if (trigger) {
-        if (successor.statusSiklus === RISK_CYCLE.ACTIVE) {
-          if (!reconciliation?.note?.trim()) {
-            throw new DomainError(
-              "Penerus sudah disahkan. Finalisasi koreksi memerlukan keputusan rekonsiliasi admin.",
-              409,
-              {
-                code: "RECONCILIATION_REQUIRED",
-                successorId: successor.id,
-                successorStatus: successor.statusSiklus,
-                options: ["KEEP_ACTIVE_CHAIN", "MARK_FOR_REVIEW"],
-              }
-            );
-          }
-          if (reconciliation.decision === "CANCELLED") {
-            throw new DomainError(
-              "Penerus aktif tidak dapat dibatalkan otomatis. Pilih pertahankan atau tandai untuk ditinjau.",
-              400
-            );
-          }
-          reconciliationDecision = reconciliation.decision;
-          reconciliationNote = reconciliation.note.trim();
-          followUpRiskId = successor.id;
-        } else if (successor.statusSiklus === RISK_CYCLE.FOLLOW_UP_SUBMITTED) {
+      if (successorNeedsReconciliation(successor)) {
+        if (!reconciliation?.note?.trim()) {
+          throw new DomainError(
+            "Rantai penerus sudah memiliki generasi yang disahkan. Finalisasi koreksi memerlukan keputusan rekonsiliasi admin.",
+            409,
+            {
+              code: "RECONCILIATION_REQUIRED",
+              successorId: successor.id,
+              directSuccessorId: successor.directSuccessorId,
+              successorStatus: successor.statusSiklus,
+              chainDepth: successor.chainDepth,
+              options: ["KEEP_ACTIVE_CHAIN", "MARK_FOR_REVIEW"],
+            }
+          );
+        }
+        if (reconciliation.decision === "CANCELLED") {
+          throw new DomainError(
+            "Rantai penerus yang sudah disahkan tidak dapat dibatalkan otomatis. Pilih pertahankan atau tandai untuk ditinjau.",
+            400
+          );
+        }
+        reconciliationDecision = reconciliation.decision;
+        reconciliationNote = reconciliation.note.trim();
+        // Tautkan ke penerus langsung, bukan tail, agar hubungan asal tetap benar.
+        followUpRiskId = successor.directSuccessorId;
+      } else if (trigger) {
+        if (successor.statusSiklus === RISK_CYCLE.FOLLOW_UP_SUBMITTED) {
           const reopened = await tx.identifikasiRisiko.updateMany({
             where: {
               id: successor.id,
@@ -584,7 +668,6 @@ export async function finalizeMonitoring({
           reconciliationDecision = "REOPENED_FOR_REVIEW";
           reconciliationNote =
             "Koreksi final memengaruhi dasar penilaian penerus; penerus dikembalikan ke draf.";
-          followUpRiskId = successor.id;
         } else {
           await tx.kewajibanTindakLanjut.updateMany({
             where: {
@@ -599,40 +682,16 @@ export async function finalizeMonitoring({
           reconciliationDecision = "REVIEW_DRAFT";
           reconciliationNote =
             "Koreksi final tidak menimpa isian tim; draf penerus wajib ditinjau.";
-          followUpRiskId = successor.id;
         }
+        followUpRiskId = successor.id;
       } else {
-        if (successor.statusSiklus === RISK_CYCLE.ACTIVE) {
-          if (!reconciliation?.note?.trim()) {
-            throw new DomainError(
-              "Koreksi menghapus pemicu, tetapi penerus sudah disahkan. Rekonsiliasi admin wajib dipilih.",
-              409,
-              {
-                code: "RECONCILIATION_REQUIRED",
-                successorId: successor.id,
-                successorStatus: successor.statusSiklus,
-                options: ["MARK_FOR_REVIEW"],
-              }
-            );
-          }
-          if (reconciliation.decision === "CANCELLED") {
-            throw new DomainError(
-              "Penerus aktif tidak dapat dibatalkan otomatis. Pilih pertahankan atau tandai untuk ditinjau.",
-              400
-            );
-          }
-          reconciliationDecision = reconciliation.decision;
-          reconciliationNote = reconciliation.note.trim();
-          followUpRiskId = successor.id;
-        } else {
-          const reason =
-            reconciliation?.note?.trim() ||
-            "Koreksi final menunjukkan pemicu tindak lanjut tidak lagi berlaku.";
-          await cancelSuccessor(tx, successor, reason, actor);
-          reconciliationDecision = "CANCELLED";
-          reconciliationNote = reason;
-          followUpRiskId = successor.id;
-        }
+        const reason =
+          reconciliation?.note?.trim() ||
+          "Koreksi final menunjukkan pemicu tindak lanjut tidak lagi berlaku.";
+        await cancelSuccessor(tx, successor, reason, actor);
+        reconciliationDecision = "CANCELLED";
+        reconciliationNote = reason;
+        followUpRiskId = successor.id;
       }
     } else if (trigger) {
       if (successor) {

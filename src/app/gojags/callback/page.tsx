@@ -30,10 +30,17 @@ function CallbackContent() {
           credentials: "include",
           body: JSON.stringify({ token: ssoToken, refreshToken }),
         });
-        const payload = await response.json();
+        let payload: any = null;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error(
+            `Server mengembalikan respons tidak valid (HTTP ${response.status}). Kemungkinan server hosting error sebelum sempat membalas JSON — cek log aplikasi di hosting.`
+          );
+        }
 
         if (!response.ok) {
-          throw new Error(payload?.error || "Login GOJAGS gagal");
+          throw new Error(payload?.error || `Login GOJAGS gagal (HTTP ${response.status})`);
         }
 
         document.cookie = `auth=${encodeURIComponent(
@@ -45,7 +52,15 @@ function CallbackContent() {
         )}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
         localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(payload.permissions || []));
         localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify(Boolean(payload.tourCompleted)));
-        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ avatar: payload.avatar }));
+        localStorage.setItem(
+          PROFILE_STORAGE_KEY,
+          JSON.stringify({
+            name: payload.name,
+            email: payload.email,
+            role: payload.role,
+            avatar: payload.avatar,
+          }),
+        );
 
         window.location.href = "/";
       } catch (err: any) {

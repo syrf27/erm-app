@@ -7,14 +7,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { currentPeriode } from "@/lib/risk-assessment";
 import { PEMANTAUAN_STATUS } from "@/lib/risk-cycle";
+import {
+  matrixConfigHash,
+  type MatrixSnapshotConfig,
+} from "@/lib/matrix-snapshot";
 
-interface MatrixSnapshotShape {
-  matriks?: unknown[];
-  levelKemungkinan?: unknown[];
-  levelDampak?: unknown[];
-  levelRisiko?: unknown[];
-  takenAt?: string;
-}
+type MatrixSnapshotShape = MatrixSnapshotConfig;
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,14 +61,17 @@ export async function GET(request: NextRequest) {
         Boolean(item && Array.isArray(item.matriks))
       );
     const snapshot = snapshots[0] ?? null;
+    // Bandingkan isi konfigurasi, bukan waktu snapshot. Dua finalisasi pada
+    // waktu berbeda dengan matriks identik bukan perubahan konfigurasi.
     const snapshotVersions = new Set(
-      snapshots.map((item) => item.takenAt ?? "unknown")
+      snapshots.map((item) => matrixConfigHash(item))
     );
 
     return NextResponse.json({
       tahun,
       triwulan,
       konfigurasi: snapshot,
+      versiKonfigurasi: snapshotVersions.size,
       catatan: !snapshot
         ? "Snapshot konfigurasi matriks tidak tersedia untuk periode ini. Posisi hasil tetap ditampilkan dari snapshot hasil; latar matriks tidak direkayasa."
         : snapshotVersions.size > 1

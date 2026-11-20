@@ -5,7 +5,10 @@ import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-c
 import { logAudit } from "@/lib/audit-log";
 import { generateAndStoreEmbedding } from "@/lib/embedding";
 import { invalidateResourceCache } from "@/lib/cache";
-import { assertResidualMutable } from "@/lib/pemantauan-integrity";
+import {
+  assertResidualMutable,
+  lockRiskForResidual,
+} from "@/lib/pemantauan-integrity";
 import {
   parseImportWorkbook,
   ACCEPTED_IMPORT_EXTENSIONS,
@@ -428,6 +431,7 @@ export async function POST(request: NextRequest) {
                 "Pasangan residual tidak ditemukan pada Matriks Risiko. Nilai belum dapat dihitung."
               );
             }
+            await lockRiskForResidual(tx as never, identId);
             await assertResidualMutable(tx as never, identId);
             const evaluationPatch = stripNulls({
               responRisiko: respon,
