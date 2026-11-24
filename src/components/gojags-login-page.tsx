@@ -43,10 +43,10 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
         * { box-sizing: border-box; }
         .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(390px, 0.82fr) 1.18fr; background: #f4f7fb; }
         .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(28px, 6vw, 88px); }
-        .login-art { position: relative; min-height: 100svh; overflow: hidden; background: #10253f; }
-        .login-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
-        .login-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(145deg, rgba(7, 25, 47, .18) 18%, rgba(7, 25, 47, .08) 55%, rgba(7, 25, 47, .48)); }
-        .login-brand { position: relative; z-index: 1; align-self: flex-end; margin: 0 0 44px 44px; color: white; text-shadow: 0 2px 18px rgba(0,0,0,.35); }
+        .login-art { position: relative; min-height: 100svh; overflow: hidden; display: grid; place-items: center; padding: clamp(24px, 4vw, 64px); background: radial-gradient(ellipse at 78% 18%, #e5f1fb 0, transparent 42%), linear-gradient(145deg, #f5f8fc, #e9eff6); }
+        .login-art::before { content: ""; position: absolute; width: min(72%, 680px); aspect-ratio: 1; border-radius: 50%; background: linear-gradient(145deg, rgba(32, 132, 220, .10), rgba(42, 174, 145, .07)); filter: blur(1px); }
+        .login-art img { position: relative; z-index: 1; width: 100%; height: auto; max-height: calc(100svh - 150px); object-fit: contain; object-position: center; filter: drop-shadow(0 28px 42px rgba(23, 48, 76, .14)); }
+        .login-brand { position: absolute; z-index: 2; top: 38px; left: 44px; color: #43556a; }
         @media (max-width: 760px) { .login-page { grid-template-columns: 1fr; } .login-panel { min-height: 100svh; padding: 28px 22px; } .login-art { display: none; } }
       `}</style>
 
