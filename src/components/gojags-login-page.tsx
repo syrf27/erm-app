@@ -42,16 +42,18 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
     <main className="login-page">
       <style>{`
         * { box-sizing: border-box; }
-        .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(390px, 0.82fr) 1.18fr; background: #eef3f8; }
-        .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(28px, 6vw, 88px); background: linear-gradient(155deg, #fbfcfe 0%, #f4f7fb 100%); border-right: 1px solid #d7e1ec; }
-        .login-art { position: relative; min-height: 100svh; overflow: hidden; display: grid; place-items: center; padding: clamp(24px, 4vw, 64px); background: linear-gradient(145deg, #dce8f4 0%, #edf3f9 52%, #d3e1ef 100%); box-shadow: inset 18px 0 44px rgba(67, 105, 143, .08); }
-        .login-art::before { content: ""; position: absolute; width: min(92%, 920px); aspect-ratio: 1; background: url("/gojags.png") center / contain no-repeat; opacity: .095; transform: translate(7%, 3%); filter: saturate(.8); pointer-events: none; }
-        .login-art img { position: relative; z-index: 1; width: min(108%, 1050px); height: auto; max-height: calc(100svh - 105px); object-fit: contain; object-position: center; filter: drop-shadow(0 28px 42px rgba(23, 48, 76, .18)); }
-        @media (max-width: 760px) { .login-page { grid-template-columns: 1fr; } .login-panel { min-height: 100svh; padding: 28px 22px; } .login-art { display: none; } }
+        .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(420px, 44%) minmax(0, 1fr); background: #fff; }
+        .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(32px, 5vw, 88px); background: #fff; border-right: 1px solid #e4eaf1; }
+        .login-content { width: 100%; max-width: 420px; }
+        .login-art { position: relative; min-height: 100svh; overflow: hidden; display: grid; place-items: center; isolation: isolate; padding: clamp(32px, 4vw, 72px); background: linear-gradient(150deg, #e6edf5 0%, #dce7f2 55%, #eaf1f7 100%); }
+        .login-art::before { content: ""; position: absolute; width: min(54%, 540px); aspect-ratio: 1; background: url("/gojags.png") center / contain no-repeat; opacity: .075; transform: translate(7%, -9%); pointer-events: none; }
+        .login-art img { position: relative; z-index: 1; display: block; width: min(100%, 1050px); height: auto; max-height: min(76svh, 810px); object-fit: contain; object-position: center; filter: drop-shadow(0 25px 35px rgba(27, 48, 73, .14)); }
+        @media (max-width: 900px) { .login-page { grid-template-columns: minmax(360px, 48%) minmax(0, 1fr); } .login-art { padding: 24px; } .login-art::before { width: min(72%, 400px); } }
+        @media (max-width: 760px) { .login-page { grid-template-columns: 1fr; } .login-panel { min-height: 100svh; padding: 32px 24px; border-right: 0; } .login-art { display: none; } }
       `}</style>
 
       <section className="login-panel">
-        <Paper w="100%" maw={420} p={0} bg="transparent">
+        <Paper className="login-content" p={0} bg="transparent">
           <Stack gap="xl">
             <Stack gap={8}>
               <Group gap="sm" mb="sm">
