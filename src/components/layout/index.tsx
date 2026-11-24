@@ -68,7 +68,7 @@ import { WelcomeTour } from "@/components/tour/WelcomeTour";
 import { HelpChatWidget } from "@/components/help-chat-widget";
 import { RiskAiWidget } from "@/components/risk-ai-widget";
 import { FloatingToolsMenu } from "@/components/floating-tools-menu";
-import { hasClientPermission } from "@/lib/client-permissions";
+import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 
 interface MenuItem {
   label: string;
@@ -148,7 +148,7 @@ const menuItems: MenuItem[] = [
     dataTour: "nav-repositori",
   },
   {
-    label: "Administrasi Sistem",
+    label: "Admin",
     icon: <IconShieldCheck size={18} />,
     children: [
       {
@@ -690,12 +690,6 @@ function LayoutContent({ children }: PropsWithChildren) {
 
   const filteredMenuItems = useMemo(() => {
     return menuItems
-      .filter((item) => {
-        if (item.href === "/audit-log") {
-          return hasClientPermission(identity, "audit-logs:read");
-        }
-        return true;
-      })
       .map((item) => {
         if (item.children) {
           const filteredChildren = item.children.filter((child) => {
@@ -707,6 +701,9 @@ function LayoutContent({ children }: PropsWithChildren) {
             }
             if (child.href === "/notification-center") {
               return hasClientPermission(identity, "users:update");
+            }
+            if (child.href === "/audit-log") {
+              return isAdminIdentity(identity);
             }
             return true;
           });

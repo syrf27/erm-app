@@ -32,7 +32,7 @@ import {
   IconEye,
 } from "@tabler/icons-react";
 import { Pagination } from "@/components/pagination";
-import { hasClientPermission } from "@/lib/client-permissions";
+import { isAdminIdentity } from "@/lib/client-permissions";
 
 interface AuditLog {
   id: number;
@@ -83,7 +83,7 @@ export default function AuditLogPage() {
   const { data: identity, isPending: isIdentityLoading } =
     useGetIdentity<any>();
   const router = useRouter();
-  const canReadAuditLogs = hasClientPermission(identity, "audit-logs:read");
+  const canReadAuditLogs = isAdminIdentity(identity);
 
   useEffect(() => {
     if (
@@ -93,7 +93,7 @@ export default function AuditLogPage() {
     ) {
       notifications.show({
         title: "Akses Ditolak",
-        message: "Anda tidak memiliki hak akses untuk membuka halaman ini.",
+        message: "Audit Log hanya dapat diakses oleh Admin.",
         color: "red",
       });
       router.push("/");
@@ -146,9 +146,13 @@ export default function AuditLogPage() {
   };
 
   useEffect(() => {
+    if (isIdentityLoading || !canReadAuditLogs) {
+      setLoading(false);
+      return;
+    }
     fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, userId, action, resource, dateRange]);
+  }, [page, pageSize, userId, action, resource, dateRange, canReadAuditLogs, isIdentityLoading]);
 
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);

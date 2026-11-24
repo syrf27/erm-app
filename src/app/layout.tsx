@@ -284,7 +284,7 @@ export default async function RootLayout({
                     },
                     {
                       name: "manajemen-akses",
-                      meta: { label: "Administrasi Sistem" },
+                      meta: { label: "Admin" },
                     },
                     {
                       name: "notification-center",
