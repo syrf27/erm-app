@@ -4,7 +4,13 @@ import { getOrSet } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
 import { resourceMap } from "@/lib/resource-map";
 
-const AUTHENTICATED_READ_RESOURCES = new Set(["repositori", "upload"]);
+const AUTHENTICATED_READ_RESOURCES = new Set([
+  "repositori",
+  "upload",
+  // Selera risiko bersifat global dan dipakai untuk menghitung evaluasi di
+  // seluruh register, sehingga setiap pengguna terautentikasi perlu membacanya.
+  "selera-risiko",
+]);
 
 export interface UserContext {
   userId: number;

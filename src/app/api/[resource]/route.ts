@@ -523,6 +523,7 @@ export async function POST(
 
     const delegate = getDelegate(resource);
     let item;
+    let auditAction: "CREATE" | "UPDATE" = "CREATE";
     if (resource === "users") {
       const { teamIds, password: rawPassword, ...rest } = validatedData;
       const { hashPassword } = await import("@/lib/password-utils");
@@ -556,6 +557,16 @@ export async function POST(
         };
       }
       item = await delegate.create({ data: createData });
+    } else if (resource === "selera-risiko") {
+      // Selera risiko adalah nilai global tunggal. Form "tambah" memperbarui
+      // nilai yang ada agar aplikasi tidak membuat baris baru untuk tiap revisi.
+      const existing = await delegate.findFirst({ orderBy: { updatedAt: "desc" } });
+      if (existing) {
+        item = await delegate.update({ where: { id: existing.id }, data: validatedData });
+        auditAction = "UPDATE";
+      } else {
+        item = await delegate.create({ data: validatedData });
+      }
     } else {
       item = await delegate.create({ data: validatedData });
     }
@@ -564,7 +575,7 @@ export async function POST(
     await logAudit({
       userId,
       userName,
-      action: "CREATE",
+      action: auditAction,
       resource: resourceMap[resource] || resource,
       resourceId: item.id,
       details: validatedData,

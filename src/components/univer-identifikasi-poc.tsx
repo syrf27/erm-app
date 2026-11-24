@@ -138,7 +138,11 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const analisisRecords = useList({ resource: "analisis-risiko", pagination: { pageSize: 10000 } });
   const evaluasiRecords = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
   const rencanaRecords = useList({ resource: "rencana-penanganan", pagination: { pageSize: 10000 } });
-  const seleraRisiko = useList({ resource: "selera-risiko", pagination: { pageSize: 1000 } });
+  const seleraRisiko = useList({
+    resource: "selera-risiko",
+    pagination: { pageSize: 1 },
+    sorters: [{ field: "updatedAt", order: "desc" }],
+  });
   // Team data is only needed by the Admin-only assignment action. Avoid a
   // forbidden request for every other role when the register first loads.
   const teams = useList({
@@ -194,8 +198,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const evaluasiByRisk = useMemo(() => new Map((evaluasiRecords.result?.data ?? []).map((item: any) => [item.identifikasiRisikoId, item])), [evaluasiRecords.result?.data]);
   const rencanaByRisk = useMemo(() => new Map((rencanaRecords.result?.data ?? []).map((item: any) => [item.identifikasiRisikoId, item])), [rencanaRecords.result?.data]);
   const seleraNilai = useMemo(() => {
-    const values = [...(seleraRisiko.result?.data ?? [])].sort((a: any, b: any) => Number(b.id) - Number(a.id));
-    const value = Number((values[0] as any)?.nilai);
+    const value = Number((seleraRisiko.result?.data ?? [])[0]?.nilai);
     return Number.isFinite(value) ? value : null;
   }, [seleraRisiko.result?.data]);
   const rows = useMemo(() => data.map((item) => toRow(item, referenceLists, { analisis: analisisByRisk.get(item.id), evaluasi: evaluasiByRisk.get(item.id), rencana: rencanaByRisk.get(item.id), selera: seleraNilai })), [data, referenceLists, analisisByRisk, evaluasiByRisk, rencanaByRisk, seleraNilai]);
