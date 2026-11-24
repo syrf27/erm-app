@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   checkPermission,
   getAuthUserContext,
-  isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 
 export async function GET(
@@ -32,7 +32,10 @@ export async function GET(
     if (!risk) {
       return NextResponse.json({ error: "Risiko tidak ditemukan" }, { status: 404 });
     }
-    if (!isAdminRole(ctx.roleName) && (risk.teamId == null || !ctx.teamIds.includes(risk.teamId))) {
+    if (
+      shouldScopeRiskByTeam(ctx) &&
+      (risk.teamId == null || !ctx.teamIds.includes(risk.teamId))
+    ) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

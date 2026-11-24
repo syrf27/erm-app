@@ -6,6 +6,7 @@ import {
   checkPermission,
   getAuthUserContext,
   isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { invalidateResourceCache } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
@@ -104,7 +105,10 @@ export async function GET(
     if (!risk) {
       return NextResponse.json({ error: "Risiko lanjutan tidak ditemukan" }, { status: 404 });
     }
-    if (!isAdminRole(ctx.roleName) && (risk.teamId == null || !ctx.teamIds.includes(risk.teamId))) {
+    if (
+      shouldScopeRiskByTeam(ctx) &&
+      (risk.teamId == null || !ctx.teamIds.includes(risk.teamId))
+    ) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

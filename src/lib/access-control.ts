@@ -64,6 +64,15 @@ export function isAdminRole(roleName?: string | null): boolean {
   return String(roleName ?? "").trim().toLowerCase() === "admin";
 }
 
+// Temporary rollout switch. Team assignments remain part of the data model,
+// but risk data is currently visible to every role that has resource access.
+// Set this to true to restore team-scoped reads.
+export const TEAM_RISK_SCOPE_ENABLED = false;
+
+export function shouldScopeRiskByTeam(context: Pick<UserContext, "roleName">): boolean {
+  return TEAM_RISK_SCOPE_ENABLED && !isAdminRole(context.roleName);
+}
+
 export const TEAM_SCOPED_RISK_RESOURCES = new Set([
   "identifikasi-risiko",
   "analisis-risiko",
@@ -75,7 +84,7 @@ export const TEAM_SCOPED_RISK_RESOURCES = new Set([
 ]);
 
 export function buildRiskTeamWhere(resource: string, context: UserContext): Record<string, unknown> | null {
-  if (isAdminRole(context.roleName) || !TEAM_SCOPED_RISK_RESOURCES.has(resource)) return null;
+  if (!shouldScopeRiskByTeam(context) || !TEAM_SCOPED_RISK_RESOURCES.has(resource)) return null;
   const teamFilter = { in: context.teamIds };
   if (resource === "identifikasi-risiko") return { teamId: teamFilter };
   if (resource === "dokumen-pendukung") {
@@ -271,7 +280,11 @@ export async function checkRecordPermission(
     const hasBasePerm = hasBasePermission(userContext, resource, action);
     if (!hasBasePerm) return false;
 
-    if (isAdminRole(userContext.roleName) || !TEAM_SCOPED_RISK_RESOURCES.has(resource)) return true;
+    if (
+      (action === "read" && !shouldScopeRiskByTeam(userContext)) ||
+      isAdminRole(userContext.roleName) ||
+      !TEAM_SCOPED_RISK_RESOURCES.has(resource)
+    ) return true;
     if (userContext.teamIds.length === 0) return false;
 
     const modelName = resourceMap[resource];

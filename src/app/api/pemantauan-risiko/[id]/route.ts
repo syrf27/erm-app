@@ -7,6 +7,7 @@ import {
   checkPermission,
   getAuthUserContext,
   isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { invalidateResourceCache } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
@@ -62,8 +63,10 @@ async function canWriteMonitoring() {
 
 function canAccessTeam(
   ctx: { roleName: string; teamIds: number[] },
-  teamId: number | null
+  teamId: number | null,
+  action: "read" | "write" = "write"
 ) {
+  if (action === "read" && !shouldScopeRiskByTeam(ctx)) return true;
   if (isAdminRole(ctx.roleName)) return true;
   return teamId != null && ctx.teamIds.includes(teamId);
 }
@@ -114,7 +117,7 @@ export async function GET(
     if (!monitoring) {
       return NextResponse.json({ error: "Pemantauan tidak ditemukan" }, { status: 404 });
     }
-    if (!canAccessTeam(ctx, monitoring.risk.teamId)) {
+    if (!canAccessTeam(ctx, monitoring.risk.teamId, "read")) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

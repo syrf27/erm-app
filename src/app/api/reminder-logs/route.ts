@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, shouldScopeRiskByTeam } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const logs = await prisma.reminderLog.findMany({
       where: {
         ...(Number.isInteger(rtpId) && rtpId > 0 ? { rencanaPenangananId: rtpId } : {}),
-        ...(!isAdminRole(authContext.roleName)
+        ...(shouldScopeRiskByTeam(authContext)
           ? { rencanaPenanganan: { is: { identifikasiRisiko: { is: { teamId: { in: authContext.teamIds } } } } } }
           : {}),
       },

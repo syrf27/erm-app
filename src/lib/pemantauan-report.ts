@@ -6,7 +6,7 @@ export interface HistoricalReportFilters {
   tahun: number;
   triwulan?: number;
   teamIds?: number[];
-  isAdmin: boolean;
+  scopeToTeams?: boolean;
 }
 
 export interface HistoricalReportRow {
@@ -40,15 +40,13 @@ export interface HistoricalReportRow {
 export async function buildHistoricalReport(
   filters: HistoricalReportFilters
 ): Promise<HistoricalReportRow[]> {
-  const { tahun, triwulan, teamIds = [], isAdmin } = filters;
+  const { tahun, triwulan, teamIds = [], scopeToTeams = false } = filters;
   const monitorings = await prisma.pemantauanRisiko.findMany({
     where: {
       status: PEMANTAUAN_STATUS.FINAL,
       tahun,
       ...(triwulan ? { triwulan } : {}),
-      ...(isAdmin
-        ? {}
-        : { risk: { teamId: { in: teamIds } } }),
+      ...(scopeToTeams ? { risk: { teamId: { in: teamIds } } } : {}),
     },
     orderBy: [{ tahun: "asc" }, { triwulan: "asc" }, { riskId: "asc" }],
     include: {

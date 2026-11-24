@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   checkPermission,
   getAuthUserContext,
-  isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import {
   KEWAJIBAN_STATUS,
@@ -22,9 +22,9 @@ export async function GET() {
     const ctx = await getAuthUserContext();
     if (!ctx) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-    const scopedWhere = isAdminRole(ctx.roleName)
-      ? {}
-      : { teamId: { in: ctx.teamIds } };
+    const scopedWhere = shouldScopeRiskByTeam(ctx)
+      ? { teamId: { in: ctx.teamIds } }
+      : {};
 
     const [obligations, drafts] = await Promise.all([
       prisma.kewajibanTindakLanjut.findMany({

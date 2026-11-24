@@ -9,6 +9,7 @@ import {
   getAuthUserContext,
   isAdminRole,
   mergeRiskTeamWhere,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { invalidateResourceCache } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
@@ -224,9 +225,9 @@ export async function GET(request: NextRequest) {
           status: {
             notIn: [KEWAJIBAN_STATUS.SELESAI, KEWAJIBAN_STATUS.DIBATALKAN],
           },
-          ...(isAdminRole(ctx.roleName)
-            ? {}
-            : { teamId: { in: ctx.teamIds } }),
+          ...(shouldScopeRiskByTeam(ctx)
+            ? { teamId: { in: ctx.teamIds } }
+            : {}),
         },
         include: {
           risk: { select: { id: true, risiko: true, teamId: true } },

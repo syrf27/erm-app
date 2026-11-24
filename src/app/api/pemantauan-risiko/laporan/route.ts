@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   checkPermission,
   getAuthUserContext,
-  isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { currentPeriode } from "@/lib/risk-assessment";
 import { buildHistoricalReport } from "@/lib/pemantauan-report";
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       tahun,
       triwulan,
       teamIds: ctx.teamIds,
-      isAdmin: isAdminRole(ctx.roleName),
+      scopeToTeams: shouldScopeRiskByTeam(ctx),
     });
 
     return NextResponse.json({ tahun, triwulan: triwulan ?? null, rows });

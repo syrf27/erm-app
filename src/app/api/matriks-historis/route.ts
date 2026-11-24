@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   checkPermission,
   getAuthUserContext,
-  isAdminRole,
+  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { currentPeriode } from "@/lib/risk-assessment";
@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
         status: PEMANTAUAN_STATUS.FINAL,
         tahun,
         triwulan,
-        ...(isAdminRole(ctx.roleName)
-          ? {}
-          : { risk: { teamId: { in: ctx.teamIds } } }),
+        ...(shouldScopeRiskByTeam(ctx)
+          ? { risk: { teamId: { in: ctx.teamIds } } }
+          : {}),
       },
       orderBy: { riskId: "asc" },
       select: {

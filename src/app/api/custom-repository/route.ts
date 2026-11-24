@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkPermission, getAuthUserContext, isAdminRole } from "@/lib/access-control";
+import { checkPermission, getAuthUserContext, shouldScopeRiskByTeam } from "@/lib/access-control";
 import { generateEmbedding } from "@/lib/embedding";
 import { REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
     }
     const authContext = await getAuthUserContext();
     if (!authContext) return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    const teamIds = isAdminRole(authContext.roleName) ? null : authContext.teamIds;
+    const teamIds = shouldScopeRiskByTeam(authContext) ? authContext.teamIds : null;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.toLowerCase() || "";

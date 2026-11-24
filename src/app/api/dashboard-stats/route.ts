@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
-import { getAuthUserContext, isAdminRole } from "@/lib/access-control";
+import { getAuthUserContext, shouldScopeRiskByTeam } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,8 @@ export async function GET(request: Request) {
       gte: Math.min(tahunDari, tahunSampai),
       lte: Math.max(tahunDari, tahunSampai),
     };
-    const teamScope = isAdminRole(authContext.roleName) ? {} : { teamId: { in: authContext.teamIds } };
+    const teamScoped = shouldScopeRiskByTeam(authContext);
+    const teamScope = teamScoped ? { teamId: { in: authContext.teamIds } } : {};
     const riskScope = {
       tahun: yearRange,
       archivedAt: null,
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
-        `dashboard:stats:${yearRange.gte}:${yearRange.lte}:${isAdminRole(authContext.roleName) ? "admin" : authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team"}`,
+        `dashboard:stats:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
         async () => {
           const [
             levelKemungkinan,
@@ -131,17 +132,13 @@ export async function GET(request: Request) {
               where: {
                 status: "SUBMITTED",
                 tahun: yearRange,
-                ...(isAdminRole(authContext.roleName)
-                  ? {}
-                  : { risk: { teamId: { in: authContext.teamIds } } }),
+                ...(teamScoped ? { risk: { teamId: { in: authContext.teamIds } } } : {}),
               },
             }),
             prisma.kewajibanTindakLanjut.count({
               where: {
                 status: { notIn: ["SELESAI", "DIBATALKAN"] },
-                ...(isAdminRole(authContext.roleName)
-                  ? {}
-                  : { teamId: { in: authContext.teamIds } }),
+                ...(teamScoped ? { teamId: { in: authContext.teamIds } } : {}),
               },
             }),
             prisma.identifikasiRisiko.count({
