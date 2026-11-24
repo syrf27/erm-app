@@ -111,7 +111,7 @@ export function RiskWizard({
   const areaList = useList({ resource: "area-dampak", pagination: { mode: "off" } });
   const lkList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const ldList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
-  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 1000 } });
   const teamList = useList({ resource: "teams", pagination: { mode: "off" } });
 
   const loadingLists =

@@ -63,7 +63,7 @@ export default function RegisterRisikoPage() {
   const rencanaResult = useList({ resource: "rencana-penanganan", pagination: { pageSize: 1000 } });
   const lkResult = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
   const ldResult = useList({ resource: "level-dampak", pagination: { mode: "off" } });
-  const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { mode: "off" } });
+  const matriksResult = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 1000 } });
 
   const loading =
     identResult.query.isPending ||

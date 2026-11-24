@@ -135,7 +135,7 @@ export default function RencanaPenangananPage() {
   });
   const kemungkinanList = useList({
     resource: "level-kemungkinan",
-    pagination: { mode: "off" },
+    pagination: { pageSize: 1000 },
   });
   const dampakList = useList({
     resource: "level-dampak",
@@ -143,7 +143,7 @@ export default function RencanaPenangananPage() {
   });
   const matriksList = useList({
     resource: "matriks-analisis-risiko",
-    pagination: { mode: "off" },
+    pagination: { pageSize: 1000 },
   });
   const teamList = useList({
     resource: "teams",
