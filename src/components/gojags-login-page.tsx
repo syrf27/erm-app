@@ -6,20 +6,18 @@ import {
   Alert,
   Button,
   Center,
-  Group,
   Image,
   Paper,
   Stack,
   Text,
+  Title,
 } from "@mantine/core";
-import { IconAlertCircle, IconBuildingBank, IconWorld } from "@tabler/icons-react";
+import { IconAlertCircle, IconBrandGoogle, IconBuildingBank } from "@tabler/icons-react";
 
 interface GojagsLoginPageProps {
   authBaseUrl: string;
   clientId?: string;
 }
-
-const appName = "Sistem Informasi Manajemen Risiko Pusdiklat BPS";
 
 function buildSsoUrl(authBaseUrl: string, realm: "sso" | "google", clientId?: string) {
   const normalizedBaseUrl = authBaseUrl.replace(/\/+$/, "");
@@ -27,11 +25,7 @@ function buildSsoUrl(authBaseUrl: string, realm: "sso" | "google", clientId?: st
     ? normalizedBaseUrl
     : `${normalizedBaseUrl}/auth`;
   const url = new URL(`${authUrl}/gojags/sso/${realm}`);
-
-  if (clientId) {
-    url.searchParams.set("client_id", clientId);
-  }
-
+  if (clientId) url.searchParams.set("client_id", clientId);
   return url.toString();
 }
 
@@ -39,258 +33,91 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const reason = searchParams.get("reason");
-
   const handleSsoLogin = (realm: "sso" | "google") => {
     window.location.href = buildSsoUrl(authBaseUrl, realm, clientId);
   };
 
   return (
-    <>
+    <main className="login-page">
       <style>{`
-        @media (max-width: 768px) {
-          .auth-container {
-            flex-direction: column !important;
-          }
-          .auth-left-pane {
-            display: none !important;
-          }
-          .auth-right-pane {
-            padding: 24px !important;
-            flex: 1 !important;
-            width: 100% !important;
-          }
-        }
+        * { box-sizing: border-box; }
+        .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(390px, 0.82fr) 1.18fr; background: #f4f7fb; }
+        .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(28px, 6vw, 88px); }
+        .login-art { position: relative; min-height: 100svh; overflow: hidden; background: #10253f; }
+        .login-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+        .login-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(145deg, rgba(7, 25, 47, .18) 18%, rgba(7, 25, 47, .08) 55%, rgba(7, 25, 47, .48)); }
+        .login-brand { position: relative; z-index: 1; align-self: flex-end; margin: 0 0 44px 44px; color: white; text-shadow: 0 2px 18px rgba(0,0,0,.35); }
+        @media (max-width: 760px) { .login-page { grid-template-columns: 1fr; } .login-panel { min-height: 100svh; padding: 28px 22px; } .login-art { display: none; } }
       `}</style>
 
-      <div className="auth-container" style={{ display: "flex", minHeight: "100vh" }}>
-        <div
-          className="auth-left-pane"
-          style={{
-            flex: 3,
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Image
-            src="/pusdiklat.webp"
-            alt="Background"
-            style={{
-              position: "absolute",
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(135deg, rgba(0,41,94,0.82) 0%, rgba(0,25,60,0.78) 100%)",
-            }}
-          />
-
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              padding: "32px 40px",
-            }}
-          >
-            <Group gap="md" wrap="nowrap">
-              <div
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: 12,
-                  padding: 8,
-                  backdropFilter: "blur(4px)",
-                }}
-              >
-                <Image
-                  src="/bps-logo.svg"
-                  alt="Pusdiklat BPS"
-                  w={48}
-                  h={48}
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div style={{ textAlign: "left" }}>
-                <Text size="xs" c="white" style={{ lineHeight: 1.4, fontWeight: 500, textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
-                  BADAN PUSAT STATISTIK
-                </Text>
-                <Text size="xs" c="white" style={{ lineHeight: 1.4, fontWeight: 500, textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
-                  PUSAT PENDIDIKAN DAN PELATIHAN
-                </Text>
-              </div>
-            </Group>
-
-            <Group gap="md" wrap="nowrap">
-              <div style={{ textAlign: "right" }}>
-                <Text size="xs" c="white" style={{ lineHeight: 1.4, fontWeight: 500, textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
-                  BADAN PUSAT STATISTIK
-                </Text>
-                <Text size="xs" c="white" style={{ lineHeight: 1.4, fontWeight: 500, textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
-                  CORPORATE UNIVERSITY
-                </Text>
-              </div>
-              <div
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: 12,
-                  padding: 8,
-                  backdropFilter: "blur(4px)",
-                }}
-              >
-                <Image
-                  src="/corpu.png"
-                  alt="Corpu BPS"
-                  w={48}
-                  h={48}
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-            </Group>
-          </div>
-
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              textAlign: "center",
-              padding: "0 40px 60px",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 42,
-                fontWeight: 700,
-                lineHeight: 1.2,
-                marginBottom: 8,
-                letterSpacing: "-0.5px",
-                textShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              }}
-            >
-              {appName}
-            </Text>
-          </div>
-        </div>
-
-        <div
-          className="auth-right-pane"
-          style={{
-            flex: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#f8f9fa",
-            position: "relative",
-          }}
-        >
-          <Paper
-            shadow="0"
-            p={0}
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              background: "transparent",
-            }}
-          >
-            <Stack gap="lg">
-              <div>
-                <Text
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 700,
-                    color: "#1a1a1a",
-                    marginBottom: 4,
-                  }}
-                >
-                  Selamat Datang
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Silakan masuk menggunakan akun GOJAGS Anda
-                </Text>
-              </div>
-
-              {(error || reason) && (
-                <Alert
-                  icon={<IconAlertCircle size={18} />}
-                  color="red"
-                  variant="light"
-                  radius="md"
-                  styles={{ message: { fontSize: 14 } }}
-                >
-                  {reason === "unauthorized"
-                    ? "Sesi Anda telah berakhir, silakan login kembali."
-                    : "Login gagal. Silakan coba lagi atau hubungi admin jika akun belum terdaftar."}
-                </Alert>
-              )}
-
-              <Stack gap="md">
-                <Button
-                  fullWidth
-                  size="md"
-                  radius="md"
-                  leftSection={<IconBuildingBank size={18} />}
-                  onClick={() => handleSsoLogin("sso")}
-                  styles={{
-                    root: {
-                      backgroundColor: "#00529b",
-                      height: 48,
-                      fontSize: 16,
-                      fontWeight: 600,
-                      "&:hover": {
-                        backgroundColor: "#003d7a",
-                      },
-                    },
-                  }}
-                >
-                  Badan Pusat Statistik
-                </Button>
-
-                <Button
-                  fullWidth
-                  size="md"
-                  radius="md"
-                  variant="default"
-                  leftSection={<IconWorld size={18} />}
-                  onClick={() => handleSsoLogin("google")}
-                  styles={{
-                    root: {
-                      height: 48,
-                      fontSize: 16,
-                      fontWeight: 600,
-                    },
-                  }}
-                >
-                  Selain Badan Pusat Statistik
-                </Button>
-              </Stack>
-
-              <Text size="xs" c="dimmed" ta="center" lh={1.6}>
-                GOJAGS digunakan hanya untuk autentikasi. Hak akses tetap mengikuti role dan permission di gojags risk.
+      <section className="login-panel">
+        <Paper w="100%" maw={420} p={0} bg="transparent">
+          <Stack gap="xl">
+            <Stack gap={8}>
+              <Image src="/bps-logo.svg" alt="BPS" w={52} h={52} fit="contain" mb="sm" />
+              <Text size="sm" fw={700} c="blue.7" tt="uppercase" style={{ letterSpacing: 1.4 }}>
+                GOJAGS Risk
               </Text>
+              <Title order={1} size={36} fw={700} c="#16283f" style={{ letterSpacing: -1.1 }}>
+                Selamat datang
+              </Title>
+              <Text c="dimmed" size="sm">Masuk dengan akun GOJAGS Anda.</Text>
             </Stack>
-          </Paper>
+
+            {(error || reason) && (
+              <Alert icon={<IconAlertCircle size={18} />} color="red" variant="light" radius="md">
+                {reason === "unauthorized"
+                  ? "Sesi Anda berakhir. Silakan masuk kembali."
+                  : "Login gagal. Periksa akun Anda atau hubungi administrator."}
+              </Alert>
+            )}
+
+            <Stack gap="sm">
+              <Button
+                fullWidth
+                size="lg"
+                radius="md"
+                leftSection={<IconBuildingBank size={19} />}
+                onClick={() => handleSsoLogin("sso")}
+                styles={{ root: { height: 54, fontWeight: 650, boxShadow: "0 8px 20px rgba(25, 118, 210, .18)" } }}
+              >
+                Masuk dengan akun BPS
+              </Button>
+              <Button
+                fullWidth
+                size="md"
+                radius="md"
+                variant="default"
+                leftSection={<IconBrandGoogle size={18} />}
+                onClick={() => handleSsoLogin("google")}
+                styles={{ root: { height: 50, fontWeight: 600, borderColor: "#d9e1eb" } }}
+              >
+                Masuk dengan akun Google
+              </Button>
+            </Stack>
+
+            <Text size="xs" c="dimmed" ta="left">
+              Akses aplikasi mengikuti hak akses akun Anda.
+            </Text>
+          </Stack>
+        </Paper>
+      </section>
+
+      <section className="login-art" aria-label="GOJAGS Risk visual">
+        <Image src="/assets/app_with_bg.png" alt="GOJAGS Risk" />
+        <div className="login-brand">
+          <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: 2, opacity: .9 }}>
+            Pusat Pendidikan dan Pelatihan · BPS
+          </Text>
         </div>
-      </div>
-    </>
+      </section>
+    </main>
   );
 }
 
 export function GojagsLoginPage(props: GojagsLoginPageProps) {
   return (
-    <Suspense fallback={<Center mih="100vh">Loading...</Center>}>
+    <Suspense fallback={<Center mih="100vh">Memuat...</Center>}>
       <LoginContent {...props} />
     </Suspense>
   );
