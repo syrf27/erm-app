@@ -373,10 +373,10 @@ export default function RegisterRisikoPage() {
               <Table.Tr>
                 <Table.Th style={{ width: 56 }}>No</Table.Th>
                 <Table.Th style={{ width: 320 }}>Risiko</Table.Th>
-                <Table.Th style={{ width: 180 }}>Kemungkinan</Table.Th>
-                <Table.Th style={{ width: 180 }}>Dampak</Table.Th>
-                <Table.Th style={{ width: 110 }}>Besaran</Table.Th>
-                <Table.Th style={{ width: 160 }}>Level</Table.Th>
+                <Table.Th style={{ width: 180 }}>Level Kemungkinan</Table.Th>
+                <Table.Th style={{ width: 180 }}>Level Dampak</Table.Th>
+                <Table.Th style={{ width: 150 }}>Besaran Risiko Aktual</Table.Th>
+                <Table.Th style={{ width: 180 }}>Level Risiko Aktual</Table.Th>
                 <Table.Th style={{ width: 380 }}>Pengendalian</Table.Th>
                 <Table.Th style={{ width: 160 }}>Efektivitas</Table.Th>
               </Table.Tr>
