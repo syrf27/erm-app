@@ -219,14 +219,14 @@ export default function RegisterRisikoPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end">
+      <Stack gap="xs">
         <div>
           <Title order={3}>Risk Register — Tampilan Tabel</Title>
           <Text size="sm" c="dimmed" mt={4}>
             Ringkasan register per tahap. Geser ke samping untuk melihat seluruh kolom. Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}-${tahunSampai}`} · {total} risiko.
           </Text>
         </div>
-        <Group gap="xs">
+        <Group justify="flex-end" gap="xs" wrap="wrap">
           <RegisterModeSwitcher />
           <Menu shadow="md" width={270} position="bottom-end">
             <Menu.Target>
@@ -259,7 +259,7 @@ export default function RegisterRisikoPage() {
             </Menu.Dropdown>
           </Menu>
         </Group>
-      </Group>
+      </Stack>
 
       <Box style={{ borderBottom: "1px solid var(--mantine-color-default-border)", marginBottom: 4 }}>
         <ScrollArea type="scroll" offsetScrollbars scrollbarSize={6}>
@@ -309,20 +309,20 @@ export default function RegisterRisikoPage() {
 
       <Card withBorder padding="0" radius="md" style={{ overflow: "hidden", maxWidth: "100%" }}>
         <ScrollArea type="auto" offsetScrollbars scrollbarSize={12}>
-          <Box style={{ minWidth: 2200, width: "max-content" }}>
-          <style>{`.register-table{table-layout:auto;width:max-content;min-width:100%;}.register-table th{white-space:nowrap;font-size:12px;font-weight:700;padding:12px 14px;vertical-align:middle;}.register-table td{font-size:13px;padding:12px 14px;vertical-align:top;line-height:1.55;white-space:normal;overflow-wrap:anywhere;word-break:normal;}.register-table td:first-child{text-align:center;}`}</style>
+          <Box style={{ minWidth: 2100, width: "max-content" }}>
+          <style>{`.register-table{table-layout:auto;width:max-content;min-width:100%;}.register-table th{white-space:nowrap;font-size:12px;font-weight:700;padding:12px 14px;vertical-align:middle;}.register-table td{font-size:13px;padding:12px 14px;vertical-align:top;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;}.register-table td:first-child{text-align:center;}`}</style>
           {tab === "identifikasi" && (
           <Table striped highlightOnHover withTableBorder className="register-table" withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 56 }}>No</Table.Th>
-                <Table.Th style={{ minWidth: 400 }}>Risiko</Table.Th>
-                <Table.Th style={{ minWidth: 280 }}>Sasaran</Table.Th>
-                <Table.Th style={{ minWidth: 260 }}>Kegiatan</Table.Th>
+                <Table.Th style={{ minWidth: 300 }}>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 260 }}>Sasaran</Table.Th>
+                <Table.Th style={{ minWidth: 240 }}>Kegiatan</Table.Th>
                 <Table.Th style={{ minWidth: 140 }}>Jenis</Table.Th>
                 <Table.Th style={{ minWidth: 180 }}>Kategori</Table.Th>
-                <Table.Th style={{ minWidth: 320 }}>Penyebab</Table.Th>
-                <Table.Th style={{ minWidth: 320 }}>Dampak</Table.Th>
+                <Table.Th style={{ minWidth: 280 }}>Penyebab</Table.Th>
+                <Table.Th style={{ minWidth: 280 }}>Dampak</Table.Th>
                 <Table.Th style={{ minWidth: 130 }}>Siklus</Table.Th>
                 <Table.Th style={{ minWidth: 130 }}>Relasi</Table.Th>
               </Table.Tr>
@@ -331,13 +331,13 @@ export default function RegisterRisikoPage() {
               {paged.map((r: any, i: number) => (
                 <Table.Tr key={r.id}>
                   <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                  <Table.Td style={{ minWidth: 400, fontWeight: 600 }}>{r.risiko}</Table.Td>
-                  <Table.Td style={{ minWidth: 280 }}>{r.sasaran?.nama ?? "-"}</Table.Td>
-                  <Table.Td style={{ minWidth: 260 }}>{r.kegiatan?.nama ?? "-"}</Table.Td>
+                  <Table.Td style={{ minWidth: 300, fontWeight: 600 }}>{r.risiko}</Table.Td>
+                  <Table.Td style={{ minWidth: 260 }}>{r.sasaran?.nama ?? "-"}</Table.Td>
+                  <Table.Td style={{ minWidth: 240 }}>{r.kegiatan?.nama ?? "-"}</Table.Td>
                   <Table.Td style={{ minWidth: 140 }}>{r.jenisRisiko?.nama ?? "-"}</Table.Td>
                   <Table.Td style={{ minWidth: 180 }}>{r.kategoriRisiko?.nama ?? "-"}</Table.Td>
-                  <Table.Td style={{ minWidth: 320 }}>{r.penyebab ?? "-"}</Table.Td>
-                  <Table.Td style={{ minWidth: 320 }}>{r.dampak ?? "-"}</Table.Td>
+                  <Table.Td style={{ minWidth: 280 }}>{r.penyebab ?? "-"}</Table.Td>
+                  <Table.Td style={{ minWidth: 280 }}>{r.dampak ?? "-"}</Table.Td>
                   <Table.Td>
                     <Badge
                       size="xs"
@@ -372,7 +372,7 @@ export default function RegisterRisikoPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 56 }}>No</Table.Th>
-                <Table.Th style={{ minWidth: 400 }}>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 320 }}>Risiko</Table.Th>
                 <Table.Th style={{ minWidth: 180 }}>Kemungkinan</Table.Th>
                 <Table.Th style={{ minWidth: 180 }}>Dampak</Table.Th>
                 <Table.Th style={{ minWidth: 110 }}>Besaran</Table.Th>
@@ -388,7 +388,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ minWidth: 400, fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td style={{ minWidth: 320, fontWeight: 600 }}>{r.risiko}</Table.Td>
                     <Table.Td>{an ? lkById.get(an.levelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{an ? ldById.get(an.levelDampakId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{b.status === "OK" ? <Badge color={getBadgeColor(b.warna)}>{b.besaran}</Badge> : <Text size="xs" c="dimmed">{b.level}</Text>}</Table.Td>
@@ -410,7 +410,7 @@ export default function RegisterRisikoPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 56 }}>No</Table.Th>
-                <Table.Th style={{ minWidth: 400 }}>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 320 }}>Risiko</Table.Th>
                 <Table.Th style={{ minWidth: 180 }}>Respon</Table.Th>
                 <Table.Th style={{ minWidth: 210 }}>Residual Kemungkinan</Table.Th>
                 <Table.Th style={{ minWidth: 190 }}>Residual Dampak</Table.Th>
@@ -424,7 +424,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ minWidth: 400, fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td style={{ minWidth: 320, fontWeight: 600 }}>{r.risiko}</Table.Td>
                     <Table.Td>{ev?.responRisiko ?? "-"}</Table.Td>
                     <Table.Td>{ev ? lkById.get(ev.residualLevelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{ev ? ldById.get(ev.residualLevelDampakId)?.nama ?? "-" : "-"}</Table.Td>
@@ -444,7 +444,7 @@ export default function RegisterRisikoPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th style={{ minWidth: 56 }}>No</Table.Th>
-                <Table.Th style={{ minWidth: 400 }}>Risiko</Table.Th>
+                <Table.Th style={{ minWidth: 320 }}>Risiko</Table.Th>
                 <Table.Th style={{ minWidth: 420 }}>Rencana Tindak Penanganan</Table.Th>
                 <Table.Th style={{ minWidth: 300 }}>Target Output</Table.Th>
                 <Table.Th style={{ minWidth: 180 }}>Target Waktu</Table.Th>
@@ -457,7 +457,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ minWidth: 400, fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td style={{ minWidth: 320, fontWeight: 600 }}>{r.risiko}</Table.Td>
                     <Table.Td style={{ minWidth: 420 }}>{rp?.rencanaTidakPenanganan ?? "-"}</Table.Td>
                     <Table.Td style={{ minWidth: 300 }}>{rp?.targetOutput ?? "-"}</Table.Td>
                     <Table.Td style={{ minWidth: 180 }}>{rp?.targetWaktu ?? "-"}</Table.Td>
