@@ -42,12 +42,11 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
     <main className="login-page">
       <style>{`
         * { box-sizing: border-box; }
-        .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(390px, 0.82fr) 1.18fr; background: #f4f7fb; }
-        .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(28px, 6vw, 88px); }
-        .login-art { position: relative; min-height: 100svh; overflow: hidden; display: grid; place-items: center; padding: clamp(24px, 4vw, 64px); background: radial-gradient(ellipse at 78% 18%, #e5f1fb 0, transparent 42%), linear-gradient(145deg, #f5f8fc, #e9eff6); }
-        .login-art::before { content: ""; position: absolute; width: min(72%, 680px); aspect-ratio: 1; border-radius: 50%; background: linear-gradient(145deg, rgba(32, 132, 220, .10), rgba(42, 174, 145, .07)); filter: blur(1px); }
-        .login-art img { position: relative; z-index: 1; width: 100%; height: auto; max-height: calc(100svh - 150px); object-fit: contain; object-position: center; filter: drop-shadow(0 28px 42px rgba(23, 48, 76, .14)); }
-        .login-brand { position: absolute; z-index: 2; top: 38px; left: 44px; color: #43556a; }
+        .login-page { min-height: 100svh; display: grid; grid-template-columns: minmax(390px, 0.82fr) 1.18fr; background: #eef3f8; }
+        .login-panel { display: flex; align-items: center; justify-content: center; padding: clamp(28px, 6vw, 88px); background: linear-gradient(155deg, #fbfcfe 0%, #f4f7fb 100%); border-right: 1px solid #d7e1ec; }
+        .login-art { position: relative; min-height: 100svh; overflow: hidden; display: grid; place-items: center; padding: clamp(24px, 4vw, 64px); background: linear-gradient(145deg, #dce8f4 0%, #edf3f9 52%, #d3e1ef 100%); box-shadow: inset 18px 0 44px rgba(67, 105, 143, .08); }
+        .login-art::before { content: ""; position: absolute; width: min(92%, 920px); aspect-ratio: 1; background: url("/gojags.png") center / contain no-repeat; opacity: .095; transform: translate(7%, 3%); filter: saturate(.8); pointer-events: none; }
+        .login-art img { position: relative; z-index: 1; width: min(108%, 1050px); height: auto; max-height: calc(100svh - 105px); object-fit: contain; object-position: center; filter: drop-shadow(0 28px 42px rgba(23, 48, 76, .18)); }
         @media (max-width: 760px) { .login-page { grid-template-columns: 1fr; } .login-panel { min-height: 100svh; padding: 28px 22px; } .login-art { display: none; } }
       `}</style>
 
@@ -108,7 +107,7 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
       </section>
 
       <section className="login-art" aria-label="GOJAGS Risk visual">
-        <Image src="/assets/app_final.png" alt="Tampilan GOJAGS Risk di desktop dan mobile" />
+        <Image src="/assets/app_final_v2.png" alt="Tampilan GOJAGS Risk di desktop dan mobile" />
       </section>
     </main>
   );
