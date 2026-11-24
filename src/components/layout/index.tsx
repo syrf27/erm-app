@@ -269,6 +269,7 @@ function SidebarItem({
   parentPath = [],
   openedKeys,
   toggleOpen,
+  forceOpen,
 }: {
   item: MenuItem;
   pathname: string;
@@ -276,13 +277,14 @@ function SidebarItem({
   parentPath?: string[];
   openedKeys: string[];
   toggleOpen: (key: string) => void;
+  forceOpen?: boolean;
 }) {
   const key = getSidebarKey(item, parentPath);
   const selfActive = item.href ? matchesPath(pathname, item.href) : false;
   const childActive = hasActiveDescendant(item, pathname);
   const isActive = selfActive || childActive;
   const isOpen = item.children?.length
-    ? isActive || openedKeys.includes(key)
+    ? forceOpen || isActive || openedKeys.includes(key)
     : false;
   const isCompact = depth > 0;
   const hasChildren = Boolean(item.children?.length);
@@ -424,6 +426,7 @@ function SidebarItem({
                       parentPath={[...parentPath, item.label]}
                       openedKeys={openedKeys}
                       toggleOpen={toggleOpen}
+                      forceOpen={forceOpen}
                     />
                   </Box>
                 );
@@ -440,10 +443,12 @@ function SidebarNavList({
   items,
   pathname,
   depth = 0,
+  forceOpen = false,
 }: {
   items: MenuItem[];
   pathname: string;
   depth?: number;
+  forceOpen?: boolean;
 }) {
   const [openedKeys, setOpenedKeys] = useState<string[]>([]);
 
@@ -472,6 +477,7 @@ function SidebarNavList({
           depth={depth}
           openedKeys={openedKeys}
           toggleOpen={toggleOpen}
+          forceOpen={forceOpen}
         />
       ))}
     </Stack>
@@ -580,6 +586,7 @@ function LayoutContent({ children }: PropsWithChildren) {
   const [draftTahunDari, setDraftTahunDari] = useState(tahunDari);
   const [draftTahunSampai, setDraftTahunSampai] = useState(tahunSampai);
   const [mounted, setMounted] = useState(false);
+  const [tourNavigationOpen, setTourNavigationOpen] = useState(false);
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const shouldShowBreadcrumb =
     pathname.startsWith("/manajemen-risiko/penetapan-konteks") ||
@@ -712,7 +719,12 @@ function LayoutContent({ children }: PropsWithChildren) {
 
   const handleTourBeforeStart = useCallback(() => {
     if (!desktopOpened) openDesktop();
+    setTourNavigationOpen(true);
   }, [desktopOpened]);
+
+  const handleTourEnd = useCallback(() => {
+    setTourNavigationOpen(false);
+  }, []);
 
   const startGuide = useCallback(() => {
     closeMobile();
@@ -1125,7 +1137,11 @@ function LayoutContent({ children }: PropsWithChildren) {
             </Box>
 
             {desktopOpened
-              ? <SidebarNavList items={filteredMenuItems} pathname={pathname} />
+              ? <SidebarNavList
+                  items={filteredMenuItems}
+                  pathname={pathname}
+                  forceOpen={tourNavigationOpen}
+                />
               : renderMiniNavItems(filteredMenuItems, pathname)}
             <Button
               hiddenFrom="sm"
@@ -1166,7 +1182,10 @@ function LayoutContent({ children }: PropsWithChildren) {
       <HelpChatWidget />
       <RiskAiWidget />
       <FloatingToolsMenu />
-      <WelcomeTour onBeforeStart={handleTourBeforeStart} />
+      <WelcomeTour
+        onBeforeStart={handleTourBeforeStart}
+        onAfterEnd={handleTourEnd}
+      />
 
       <Modal
         opened={mobilePeriodOpened}

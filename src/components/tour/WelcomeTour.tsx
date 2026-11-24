@@ -107,6 +107,8 @@ const STEP_DEFS: StepDef[] = [
 interface WelcomeTourProps {
   /** Called right before the tour starts (e.g. to expand the sidebar). */
   onBeforeStart?: () => void;
+  /** Called after the tour closes so temporary UI state can be restored. */
+  onAfterEnd?: () => void;
 }
 
 function isTourCompleted(): boolean {
@@ -126,7 +128,7 @@ function markTourCompleted() {
   fetch("/api/auth/tour", { method: "POST" }).catch((e) => console.error(e));
 }
 
-export function WelcomeTour({ onBeforeStart }: WelcomeTourProps) {
+export function WelcomeTour({ onBeforeStart, onAfterEnd }: WelcomeTourProps) {
   const pathname = usePathname();
   const router = useRouter();
   const driverRef = useRef<Driver | null>(null);
@@ -168,10 +170,11 @@ export function WelcomeTour({ onBeforeStart }: WelcomeTourProps) {
         if (!suppressMarkRef.current) {
           markTourCompleted();
         }
+        onAfterEnd?.();
       },
     });
     driverRef.current.drive();
-  }, []);
+  }, [onAfterEnd]);
 
   const scheduleTourStart = useCallback(
     (delayMs: number) => {
