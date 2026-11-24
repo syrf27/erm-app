@@ -54,8 +54,11 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
         <Paper w="100%" maw={420} p={0} bg="transparent">
           <Stack gap="xl">
             <Stack gap={8}>
-              <Image src="/bps-logo.svg" alt="BPS" w={52} h={52} fit="contain" mb="sm" />
-              <Text size="sm" fw={700} c="blue.7" tt="uppercase" style={{ letterSpacing: 1.4 }}>
+              <Group gap="sm" mb="sm">
+                <Image src="/bps-logo.svg" alt="BPS" w={48} h={48} fit="contain" />
+                <Image src="/corpu.png" alt="BPS Corporate University" w={48} h={48} fit="contain" />
+              </Group>
+              <Text size="md" fw={800} c="blue.7" tt="uppercase" style={{ letterSpacing: 2 }}>
                 GOJAGS Risk
               </Text>
               <Title order={1} size={36} fw={700} c="#16283f" style={{ letterSpacing: -1.1 }}>
@@ -104,12 +107,7 @@ function LoginContent({ authBaseUrl, clientId }: GojagsLoginPageProps) {
       </section>
 
       <section className="login-art" aria-label="GOJAGS Risk visual">
-        <Image src="/assets/app_with_bg.png" alt="GOJAGS Risk" />
-        <div className="login-brand">
-          <Text size="xs" fw={600} tt="uppercase" style={{ letterSpacing: 2, opacity: .9 }}>
-            Pusat Pendidikan dan Pelatihan · BPS
-          </Text>
-        </div>
+        <Image src="/assets/app_final.png" alt="Tampilan GOJAGS Risk di desktop dan mobile" />
       </section>
     </main>
   );
