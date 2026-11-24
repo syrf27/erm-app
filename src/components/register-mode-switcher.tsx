@@ -32,7 +32,7 @@ export function RegisterModeSwitcher() {
           label: (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <IconForms size={14} />
-              Panduan
+              Tampilan Tabel
             </span>
           ),
         },

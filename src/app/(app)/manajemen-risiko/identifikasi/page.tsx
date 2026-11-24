@@ -1153,7 +1153,7 @@ export default function IdentifikasiRisikoPage() {
         <Group gap="xs">
           <Title order={3}>Identifikasi Risiko</Title>
           <Button component="a" href="/manajemen-risiko/register" variant="light" color="teal" size="sm">
-            Mode Panduan (Wizard)
+            Tampilan Tabel
           </Button>
         </Group>
         <Group>
