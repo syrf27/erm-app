@@ -112,6 +112,8 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const updatingDerivedRef = useRef(false);
   const stageRef = useRef<RiskRegisterStage>(initialStage);
   const fullRegisterRef = useRef(false);
+  const { data: identity } = useGetIdentity<any>();
+  const isAdmin = isAdminIdentity(identity);
   const records = useList({
     resource: "identifikasi-risiko",
     pagination: { pageSize: 1000 },
@@ -137,7 +139,13 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const evaluasiRecords = useList({ resource: "evaluasi-risiko", pagination: { pageSize: 10000 } });
   const rencanaRecords = useList({ resource: "rencana-penanganan", pagination: { pageSize: 10000 } });
   const seleraRisiko = useList({ resource: "selera-risiko", pagination: { pageSize: 1000 } });
-  const teams = useList({ resource: "teams", pagination: { pageSize: 1000 } });
+  // Team data is only needed by the Admin-only assignment action. Avoid a
+  // forbidden request for every other role when the register first loads.
+  const teams = useList({
+    resource: "teams",
+    pagination: { pageSize: 1000 },
+    queryOptions: { enabled: isAdmin },
+  });
   const [search, setSearch] = useState("");
   const [matches, setMatches] = useState<SearchMatch[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
@@ -175,9 +183,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const [teamAssignRiskIds, setTeamAssignRiskIds] = useState<number[]>([]);
   const [teamAssignId, setTeamAssignId] = useState<string | null>(null);
   const [teamAssigning, setTeamAssigning] = useState(false);
-  const { data: identity } = useGetIdentity<any>();
   const canArchive = hasClientPermission(identity, "identifikasi-risiko:delete");
-  const isAdmin = isAdminIdentity(identity);
   const data = useMemo(() => (records.result?.data ?? []) as RiskRecord[], [records.result?.data]);
   const referenceLists = useMemo(() => ({
     sasaran: (sasaran.result?.data ?? []) as any[], kegiatan: (kegiatan.result?.data ?? []) as any[], prosesBisnis: (prosesBisnis.result?.data ?? []) as any[],
@@ -193,7 +199,26 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     return Number.isFinite(value) ? value : null;
   }, [seleraRisiko.result?.data]);
   const rows = useMemo(() => data.map((item) => toRow(item, referenceLists, { analisis: analisisByRisk.get(item.id), evaluasi: evaluasiByRisk.get(item.id), rencana: rencanaByRisk.get(item.id), selera: seleraNilai })), [data, referenceLists, analisisByRisk, evaluasiByRisk, rencanaByRisk, seleraNilai]);
-  const loading = [records, sasaran, kegiatan, prosesBisnis, jenisRisiko, sumberRisiko, kategoriRisiko, areaDampak, unitKerja, levelKemungkinan, levelDampak, levelRisiko, matriks, analisisRecords, evaluasiRecords, rencanaRecords, seleraRisiko, teams].some((query) => query.query?.isPending);
+  const loading = [
+    records,
+    sasaran,
+    kegiatan,
+    prosesBisnis,
+    jenisRisiko,
+    sumberRisiko,
+    kategoriRisiko,
+    areaDampak,
+    unitKerja,
+    levelKemungkinan,
+    levelDampak,
+    levelRisiko,
+    matriks,
+    analisisRecords,
+    evaluasiRecords,
+    rencanaRecords,
+    seleraRisiko,
+    ...(isAdmin ? [teams] : []),
+  ].some((query) => query.query?.isPending);
   const archived = useList({ resource: "identifikasi-risiko/archive", pagination: { pageSize: 1000 }, queryOptions: { enabled: view === "archived" }, filters: [{ field: "tahun", operator: "gte", value: tahunDari }, { field: "tahun", operator: "lte", value: tahunSampai }] });
   const lastColumn = columnLetter(headers.length - 1);
   const readRows = () => { const sheet = sheetRef.current; return sheet && sheet.getMaxRows() > 1 ? sheet.getRange(`A2:${lastColumn}${sheet.getMaxRows()}`).getValues() as unknown[][] : []; };
@@ -790,7 +815,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   if (loading) return <Loader />;
   const identificationStage = stage === "identifikasi";
   return <Stack gap="md">
-    <Group justify="space-between" align="end"><Box><Text size="xl" fw={700}>{view === "active" ? "Register Risiko" : "Arsip Risiko"}</Text><Text size="sm" c="dimmed">{view === "active" ? `Tahap aktif: ${stageLabels[stage]} · ` : ""}Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`} · {data.length} risiko.</Text></Box>{identificationStage && <SegmentedControl value={view} onChange={(value) => { if (hasUnsavedChanges()) { notifications.show({ title: "Perubahan belum disimpan", message: "Simpan perubahan sebelum membuka arsip.", color: "orange" }); return; } setView(value); }} data={[{ value: "active", label: "Risiko Aktif" }, { value: "archived", label: "Arsip" }]} />}</Group>
+    <Group justify="space-between" align="end"><Box><Text size="xl" fw={700}>{view === "active" ? "Risk Register" : "Arsip Risiko"}</Text><Text size="sm" c="dimmed">{view === "active" ? `Tahap aktif: ${stageLabels[stage]} · ` : ""}Periode {tahunDari === tahunSampai ? tahunDari : `${tahunDari}–${tahunSampai}`} · {data.length} risiko.</Text></Box>{identificationStage && <SegmentedControl value={view} onChange={(value) => { if (hasUnsavedChanges()) { notifications.show({ title: "Perubahan belum disimpan", message: "Simpan perubahan sebelum membuka arsip.", color: "orange" }); return; } setView(value); }} data={[{ value: "active", label: "Risiko Aktif" }, { value: "archived", label: "Arsip" }]} />}</Group>
     {view === "active" && <Box style={{ position: "sticky", top: 60, zIndex: 10, background: "var(--mantine-color-body)", paddingBlock: 8, borderBottom: "1px solid var(--mantine-color-default-border)" }}>
       <Group justify="space-between" gap="md" wrap="wrap">
         <Group gap="xs" wrap="wrap"><SegmentedControl value={stage} onChange={(value) => switchStage(value as RiskRegisterStage)} data={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))} /><Switch checked={fullRegister} onChange={(event) => setFullRegister(event.currentTarget.checked)} label="Full Register" /></Group>

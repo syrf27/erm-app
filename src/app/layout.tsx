@@ -213,7 +213,7 @@ export default async function RootLayout({
                       name: "risk-register",
                       list: "/manajemen-risiko/risk-register",
                       meta: {
-                        label: "Register Risiko",
+                        label: "Risk Register",
                         parent: "manajemen-risiko",
                       },
                     },

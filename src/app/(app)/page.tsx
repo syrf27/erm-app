@@ -115,20 +115,6 @@ export default function DashboardPage() {
           label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} /> */}
       </SimpleGrid>
 
-      {/* Siklus pemantauan triwulanan */}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 2 }} spacing="md">
-        <Paper withBorder radius="md" p="md" component="a" href="/pemantauan-risiko" style={{ textDecoration: "none" }}>
-          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Belum Dipantau</Text>
-          <Text fw={800} fz={26}>{stats.riskCycle?.belumDipantau ?? 0}</Text>
-          <Text size="xs" c="dimmed">Risiko aktif dengan RTP tanpa hasil final</Text>
-        </Paper>
-        <Paper withBorder radius="md" p="md" component="a" href="/pemantauan-risiko" style={{ textDecoration: "none" }}>
-          <Text size="xs" tt="uppercase" fw={700} c="dimmed">Menunggu Validasi</Text>
-          <Text fw={800} fz={26}>{stats.riskCycle?.menungguValidasi ?? 0}</Text>
-          <Text size="xs" c="dimmed">Pemantauan diajukan ke Admin</Text>
-        </Paper>
-      </SimpleGrid>
-
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         {/* Risk Heatmap */}
         <Paper withBorder radius="md" p="lg" shadow="xs" data-tour="tour-heatmap">

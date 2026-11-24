@@ -108,7 +108,7 @@ const menuItems: MenuItem[] = [
         href: "/manajemen-risiko/penetapan-konteks",
       },
       {
-        label: "Register Risiko",
+        label: "Risk Register",
         icon: <IconListSearch size={16} />,
         href: "/manajemen-risiko/risk-register",
       },
