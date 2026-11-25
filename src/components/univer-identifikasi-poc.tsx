@@ -24,7 +24,7 @@ const headers = [
   "Unit Kerja", "Sasaran", "Kegiatan", "Proses Bisnis", "Pernyataan Risiko", "Jenis Risiko", "Sumber Risiko", "Kategori", "Area Dampak", "Penyebab", "Dampak", "Tahun",
   "Aktual: Level Kemungkinan", "Aktual: Level Dampak", "Aktual: Besaran Risiko", "Aktual: Level Risiko", "Pengendalian: Uraian", "Pengendalian: Keefektifan",
   "Residual: Level Kemungkinan", "Residual: Level Dampak", "Residual: Besaran Risiko", "Residual: Level Risiko", "Selera Risiko", "Respon Risiko", "Prioritas Risiko",
-  "Harapan: Level Kemungkinan", "Harapan: Level Dampak", "Harapan: Besaran Risiko", "Harapan: Level Risiko", "Rencana Tindak Penanganan", "Jenis Penanganan", "Target Output", "Target Waktu", "Penanggung Jawab",
+  "Rencana Tindak Penanganan", "Jenis Penanganan", "Target Output", "Target Waktu", "Penanggung Jawab", "Harapan: Level Kemungkinan", "Harapan: Level Dampak", "Harapan: Besaran Risiko", "Harapan: Level Risiko",
 ];
 const IDENT_END = 11;
 const ANALISIS_START = 12;
@@ -33,8 +33,8 @@ const EVALUASI_START = 18;
 const EVALUASI_END = 24;
 const RENCANA_START = 25;
 const RENCANA_END = 33;
-const dropdownColumns = [0, 1, 2, 3, 5, 6, 7, 8, 12, 13, 17, 18, 19, 23, 25, 26, 30, 33];
-const computedColumns = [14, 15, 20, 21, 22, 24, 27, 28];
+const dropdownColumns = [0, 1, 2, 3, 5, 6, 7, 8, 12, 13, 17, 18, 19, 23, 26, 29, 30, 31];
+const computedColumns = [14, 15, 20, 21, 22, 24, 32, 33];
 const stageRanges: Record<RiskRegisterStage, { start: number; end: number }> = {
   identifikasi: { start: 0, end: IDENT_END },
   analisis: { start: ANALISIS_START, end: EVALUASI_END },
@@ -84,7 +84,7 @@ function toRow(item: RiskRecord, lists: Record<string, any[]>, stageData: { anal
     label(unitKerja), label(sasaran), label(kegiatan), label(proses), label(item.risiko), rel("jenisRisiko", "jenisRisikoId"), rel("sumberRisiko", "sumberRisikoId"), rel("kategoriRisiko", "kategoriRisikoId"), rel("areaDampak", "areaDampakId"), label(item.penyebab), label(item.dampak), label(item.tahun),
     label(analisis.levelKemungkinan ?? byId("levelKemungkinan", analisis.levelKemungkinanId)), label(analisis.levelDampak ?? byId("levelDampak", analisis.levelDampakId)), label(aktual.besaran), aktual.level, label(analisis.pengendalianUraian), effectivenessLabels[analisis.pengendalianEfektivitas] ?? label(analisis.pengendalianEfektivitas),
     label(evaluasi.residualLevelKemungkinan ?? byId("levelKemungkinan", evaluasi.residualLevelKemungkinanId)), label(evaluasi.residualLevelDampak ?? byId("levelDampak", evaluasi.residualLevelDampakId)), label(residual.besaran), residual.level, label(stageData.selera), responseLabels[evaluasi.responRisiko] ?? label(evaluasi.responRisiko), label(evaluasi.prioritasRisiko),
-    label(rencana.targetResidualLevelKemungkinan ?? byId("levelKemungkinan", rencana.targetResidualLevelKemungkinanId)), label(rencana.targetResidualLevelDampak ?? byId("levelDampak", rencana.targetResidualLevelDampakId)), label(harapan.besaran), harapan.level, label(rencana.rencanaTidakPenanganan), treatmentLabels[rencana.jenisPenanganan] ?? label(rencana.jenisPenanganan), label(rencana.targetOutput), label(rencana.targetWaktu), label(rencana.penanggungJawab),
+    label(rencana.rencanaTidakPenanganan), treatmentLabels[rencana.jenisPenanganan] ?? label(rencana.jenisPenanganan), label(rencana.targetOutput), label(rencana.targetWaktu), label(rencana.penanggungJawab), label(rencana.targetResidualLevelKemungkinan ?? byId("levelKemungkinan", rencana.targetResidualLevelKemungkinanId)), label(rencana.targetResidualLevelDampak ?? byId("levelDampak", rencana.targetResidualLevelDampakId)), label(harapan.besaran), harapan.level,
   ];
 }
 const findByName = (list: any[], name: string) => list.find((item) => item.nama === name);
@@ -688,11 +688,11 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
           const id = evaluationIdsRef.current[index];
           evaluationEntries.push({ kind: id ? "update" : "create", index, item: id ? { id, data: payload } : { data: payload } });
         }
-        if (changed(row, index, [25, 26, 29, 30, 31, 32, 33])) {
-          const kemungkinan = findByName(lists.levelKemungkinan, row[25]);
-          const dampak = findByName(lists.levelDampak, row[26]);
+        if (changed(row, index, [25, 26, 27, 28, 29, 30, 31])) {
+          const kemungkinan = findByName(lists.levelKemungkinan, row[30]);
+          const dampak = findByName(lists.levelDampak, row[31]);
           const treatmentMap: Record<string, string> = { Pencegahan: "pencegahan", Perbaikan: "perbaikan" };
-          const payload = { identifikasiRisikoId: riskId, targetResidualLevelKemungkinanId: kemungkinan?.id ?? null, targetResidualLevelDampakId: dampak?.id ?? null, rencanaTidakPenanganan: row[29] || null, jenisPenanganan: (treatmentMap[row[30]] ?? row[30]) || null, targetOutput: row[31] || null, targetWaktu: row[32] || null, penanggungJawab: row[33] || null };
+          const payload = { identifikasiRisikoId: riskId, targetResidualLevelKemungkinanId: kemungkinan?.id ?? null, targetResidualLevelDampakId: dampak?.id ?? null, rencanaTidakPenanganan: row[25] || null, jenisPenanganan: (treatmentMap[row[26]] ?? row[26]) || null, targetOutput: row[27] || null, targetWaktu: row[28] || null, penanggungJawab: row[29] || null };
           const id = treatmentIdsRef.current[index];
           treatmentEntries.push({ kind: id ? "update" : "create", index, item: id ? { id, data: payload } : { data: payload } });
         }
@@ -726,10 +726,11 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     }
     const { start, end } = stageRanges[stage];
     if (stage === "rencana") {
-      // Evaluation result is useful context while defining the target residual and RTP.
+      // Show the risk statement next to the treatment plan, then the target residual.
       sheet.hideColumns(0, 4);
-      sheet.hideColumns(5, EVALUASI_START - 5);
+      sheet.hideColumns(5, RENCANA_START - 5);
       sheet.setFrozenColumns(4, 4);
+      sheet.scrollToCell(1, RENCANA_START);
       return;
     }
     sheet.hideColumns(0, 4);
@@ -774,9 +775,10 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     sheet.getRange(`A1:${lastColumn}1`).setFontWeight("bold").setBackgroundColor("#e8f1fb");
     sheet.getRange(`M1:R1`).setBackgroundColor("#e8f5e9");
     sheet.getRange(`S1:Y1`).setBackgroundColor("#fff3e0");
-    sheet.getRange(`Z1:${lastColumn}1`).setBackgroundColor("#f3e5f5");
+    sheet.getRange("Z1:AD1").setBackgroundColor("#f3e5f5");
+    sheet.getRange(`AE1:${lastColumn}1`).setBackgroundColor("#eee8f6");
     sheet.getRange(`A1:${lastColumn}${values.length}`).setWrap(true);
-    [220, 300, 300, 320, 680, 170, 170, 220, 220, 380, 380, 100, 220, 200, 160, 180, 420, 190, 220, 200, 170, 180, 150, 190, 140, 230, 210, 170, 180, 460, 180, 320, 170, 260].forEach((width, index) => sheet.setColumnWidth(index, width));
+    [220, 300, 300, 320, 680, 170, 170, 220, 220, 380, 380, 100, 220, 200, 160, 180, 420, 190, 220, 200, 170, 180, 150, 190, 140, 460, 180, 320, 170, 260, 230, 210, 170, 180].forEach((width, index) => sheet.setColumnWidth(index, width));
     sheet.setRowHeight(0, 40);
     sheet.setFrozenRows(1);
     const optionLists: Record<number, string[]> = {
@@ -784,7 +786,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       5: referenceLists.jenisRisiko.map((x: any) => x.nama), 6: referenceLists.sumberRisiko.map((x: any) => x.nama), 7: referenceLists.kategoriRisiko.map((x: any) => x.nama), 8: referenceLists.areaDampak.map((x: any) => x.nama),
       12: referenceLists.levelKemungkinan.map((x: any) => x.nama), 13: referenceLists.levelDampak.map((x: any) => x.nama), 17: ["Efektif", "Cukup Efektif", "Kurang Efektif", "Tidak Efektif"],
       18: referenceLists.levelKemungkinan.map((x: any) => x.nama), 19: referenceLists.levelDampak.map((x: any) => x.nama), 23: ["Menerima Risiko", "Menghindari Risiko", "Mengurangi Risiko", "Mengalihkan Risiko"],
-      25: referenceLists.levelKemungkinan.map((x: any) => x.nama), 26: referenceLists.levelDampak.map((x: any) => x.nama), 30: ["Pencegahan", "Perbaikan"], 33: referenceLists.teams.map((x: any) => x.nama),
+      26: ["Pencegahan", "Perbaikan"], 29: referenceLists.teams.map((x: any) => x.nama), 30: referenceLists.levelKemungkinan.map((x: any) => x.nama), 31: referenceLists.levelDampak.map((x: any) => x.nama),
     };
     dropdownColumns.forEach((column) => { const options = optionLists[column]; if (!options?.length) return; const letter = columnLetter(column); const rule = univerAPI.newDataValidation().requireValueInList(options, false, true).setOptions({ showDropDown: true, showErrorMessage: true, error: "Pilih nilai dari daftar." }).build(); validationRulesRef.current[column] = rule; if (values.length >= 2) sheet.getRange(`${letter}2:${letter}${values.length}`).setDataValidation(rule); });
     const updateDerivedRows = () => {
@@ -798,10 +800,10 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
           const resolveLevel = (column: number, key: "levelKemungkinan" | "levelDampak") => findByName(referenceLists[key], current[column]);
           const actual = matrixResult(referenceLists, resolveLevel(12, "levelKemungkinan")?.id, resolveLevel(13, "levelDampak")?.id);
           const residual = matrixResult(referenceLists, resolveLevel(18, "levelKemungkinan")?.id, resolveLevel(19, "levelDampak")?.id);
-          const target = matrixResult(referenceLists, resolveLevel(25, "levelKemungkinan")?.id, resolveLevel(26, "levelDampak")?.id);
+          const target = matrixResult(referenceLists, resolveLevel(30, "levelKemungkinan")?.id, resolveLevel(31, "levelDampak")?.id);
           sheet.getRange(`${columnLetter(14)}${rowIndex + 2}:${columnLetter(15)}${rowIndex + 2}`).setValues([[actual.besaran, actual.level]]);
           sheet.getRange(`${columnLetter(20)}${rowIndex + 2}:${columnLetter(22)}${rowIndex + 2}`).setValues([[residual.besaran, residual.level, seleraNilai ?? ""]]);
-          sheet.getRange(`${columnLetter(27)}${rowIndex + 2}:${columnLetter(28)}${rowIndex + 2}`).setValues([[target.besaran, target.level]]);
+          sheet.getRange(`${columnLetter(32)}${rowIndex + 2}:${columnLetter(33)}${rowIndex + 2}`).setValues([[target.besaran, target.level]]);
           const score = Number(residual.besaran);
           if (Number.isFinite(score) && seleraNilai != null && score > seleraNilai) residualScores.push({ row: rowIndex, score });
         });
@@ -816,7 +818,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       const shouldRecalculate = params.effectedRanges?.some((range: any) => {
         const start = range.getColumn();
         const end = start + Math.max(1, range.getColumnCount?.() ?? 1) - 1;
-        return [12, 13, 18, 19, 25, 26].some((column) => column >= start && column <= end);
+        return [12, 13, 18, 19, 30, 31].some((column) => column >= start && column <= end);
       });
       if (shouldRecalculate) updateDerivedRows();
     }));
