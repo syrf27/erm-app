@@ -17,7 +17,6 @@ import {
   Modal,
   SegmentedControl,
   Select,
-  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -44,7 +43,6 @@ import {
 } from "@/lib/risk-assessment";
 import {
   PEMANTAUAN_STATUS_LABEL,
-  PELAKSANAAN_LABEL,
   RISK_CYCLE_LABEL,
 } from "@/lib/risk-cycle";
 
@@ -91,21 +89,11 @@ interface MonitoringData {
 }
 
 const emptyForm = {
-  statusPelaksanaan: "",
-  uraianPelaksanaan: "",
-  pekerjaanTertunda: "",
   realisasiWaktu: "",
   realisasiOutput: "",
   keterjadianRisiko: "",
-  efektivitas: "",
-  catatanEfektivitas: "",
   levelKemungkinanId: "",
   levelDampakId: "",
-  responRisiko: "",
-  responAlasan: "",
-  targetOutput: "",
-  targetWaktu: "",
-  penanggungJawab: "",
 };
 
 export default function PemantauanRisikoPage() {
@@ -211,21 +199,11 @@ export default function PemantauanRisikoPage() {
         setVersion(m.version);
         setHistory(payload.history ?? []);
         setForm({
-          statusPelaksanaan: m.statusPelaksanaan ?? "",
-          uraianPelaksanaan: m.uraianPelaksanaan ?? "",
-          pekerjaanTertunda: m.pekerjaanTertunda ?? "",
           realisasiWaktu: m.realisasiWaktu ?? "",
           realisasiOutput: m.realisasiOutput ?? "",
           keterjadianRisiko: m.keterjadianRisiko ?? "",
-          efektivitas: m.efektivitas ?? "",
-          catatanEfektivitas: m.catatanEfektivitas ?? "",
           levelKemungkinanId: m.levelKemungkinanId ? String(m.levelKemungkinanId) : "",
           levelDampakId: m.levelDampakId ? String(m.levelDampakId) : "",
-          responRisiko: m.responRisiko ?? "",
-          responAlasan: m.responAlasan ?? "",
-          targetOutput: m.targetOutput ?? "",
-          targetWaktu: m.targetWaktu ?? "",
-          penanggungJawab: m.penanggungJawab ?? "",
         });
         setDocs(
           (m.dokumens ?? []).map((doc: any) => ({
@@ -242,13 +220,7 @@ export default function PemantauanRisikoPage() {
     } else {
       setMonitoringId(null);
       setVersion(0);
-      setForm({
-        ...emptyForm,
-        responRisiko: row.responEvaluasi ?? "",
-        targetOutput: row.rtp?.targetOutput ?? "",
-        targetWaktu: row.rtp?.targetWaktu ?? "",
-        penanggungJawab: row.rtp?.penanggungJawab ?? "",
-      });
+      setForm({ ...emptyForm });
       setDocs([]);
     }
     setOpened(true);
@@ -263,21 +235,11 @@ export default function PemantauanRisikoPage() {
       ));
 
   const payloadBody = () => ({
-    statusPelaksanaan: form.statusPelaksanaan || null,
-    uraianPelaksanaan: form.uraianPelaksanaan || null,
-    pekerjaanTertunda: form.pekerjaanTertunda || null,
     realisasiWaktu: form.realisasiWaktu || null,
     realisasiOutput: form.realisasiOutput || null,
     keterjadianRisiko: form.keterjadianRisiko || null,
-    efektivitas: form.efektivitas || null,
-    catatanEfektivitas: form.catatanEfektivitas || null,
     levelKemungkinanId: form.levelKemungkinanId ? Number(form.levelKemungkinanId) : null,
     levelDampakId: form.levelDampakId ? Number(form.levelDampakId) : null,
-    responRisiko: form.responRisiko || null,
-    responAlasan: form.responAlasan || null,
-    targetOutput: form.targetOutput || null,
-    targetWaktu: form.targetWaktu || null,
-    penanggungJawab: form.penanggungJawab || null,
     dokumens: docs
       .filter((doc) => doc.url.trim())
       .map((doc) => ({ title: doc.title.trim() || "Bukti Dukung", url: doc.url.trim() })),
@@ -486,8 +448,6 @@ export default function PemantauanRisikoPage() {
   }
 
   const rows = data?.rows ?? [];
-  const counts = data?.counts;
-
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-end">
@@ -540,21 +500,6 @@ export default function PemantauanRisikoPage() {
         </Group>
       </Group>
 
-      <SimpleGrid cols={{ base: 2, md: 5 }}>
-        {[
-          [triwulan === "all" ? "Catatan setahun" : "Wajib pantau", counts?.totalWajibPantau ?? 0, "gray"],
-          ["Belum diisi", counts?.belumDiisi ?? 0, "orange"],
-          ["Menunggu validasi", counts?.menungguValidasi ?? 0, "blue"],
-          ["Dikembalikan", counts?.kembali ?? 0, "red"],
-          ["Final", counts?.final ?? 0, "green"],
-        ].map(([label, value, color]) => (
-          <Card key={String(label)} withBorder padding="sm">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700}>{label}</Text>
-            <Text fw={800} fz={24} c={String(color)}>{value}</Text>
-          </Card>
-        ))}
-      </SimpleGrid>
-
       <Card withBorder padding="0" radius="md" style={{ overflowX: "auto" }}>
         <Table
           striped
@@ -563,7 +508,7 @@ export default function PemantauanRisikoPage() {
           withColumnBorders
           style={{
             fontSize: 13,
-            minWidth: 2380,
+            minWidth: 2180,
             tableLayout: "fixed",
           }}
           styles={{
@@ -589,15 +534,15 @@ export default function PemantauanRisikoPage() {
               <Table.Th rowSpan={2} ta="center" style={{ width: 110 }}>Periode</Table.Th>
               <Table.Th rowSpan={2} style={{ width: 370 }}>Rencana Tindak Penanganan</Table.Th>
               <Table.Th colSpan={2} ta="center">Target</Table.Th>
-              <Table.Th colSpan={5} ta="center">Realisasi</Table.Th>
-              <Table.Th colSpan={2} ta="center">Risiko Residual Hasil Pemantauan</Table.Th>
+              <Table.Th colSpan={4} ta="center">Realisasi</Table.Th>
+              <Table.Th colSpan={2} ta="center">Risiko Residual Harapan</Table.Th>
+              <Table.Th rowSpan={2} ta="center" style={{ width: 160 }}>Status Pemantauan</Table.Th>
               <Table.Th rowSpan={2} ta="center" style={{ width: 100 }}>Aksi</Table.Th>
             </Table.Tr>
             <Table.Tr>
               <Table.Th ta="center" style={{ width: 150 }}>Waktu</Table.Th>
               <Table.Th ta="center" style={{ width: 340 }}>Output</Table.Th>
               <Table.Th ta="center" style={{ width: 190 }}>Keterjadian Risiko</Table.Th>
-              <Table.Th ta="center" style={{ width: 210 }}>Status Pelaksanaan</Table.Th>
               <Table.Th ta="center" style={{ width: 150 }}>Waktu</Table.Th>
               <Table.Th style={{ width: 340 }}>Output</Table.Th>
               <Table.Th style={{ width: 300 }}>Dokumen Pendukung</Table.Th>
@@ -638,7 +583,6 @@ export default function PemantauanRisikoPage() {
                       </Badge>
                     ) : "-"}
                   </Table.Td>
-                  <Table.Td ta="center">{m?.statusPelaksanaan ?? "-"}</Table.Td>
                   <Table.Td ta="center">{m?.realisasiWaktu ?? "-"}</Table.Td>
                   <Table.Td>{m?.realisasiOutput ?? "-"}</Table.Td>
                   <Table.Td>
@@ -732,74 +676,15 @@ export default function PemantauanRisikoPage() {
             </Card>
           )}
 
-          <Divider label="Pelaksanaan dan residual hasil pemantauan" labelPosition="left" />
+          <Divider label="Realisasi" labelPosition="left" />
           <Grid>
-            <Grid.Col span={{ base: 12, md: 6 }}>
+            <Grid.Col span={{ base: 12, md: 4 }}>
               <Select
-                label="Status pelaksanaan"
-                value={form.statusPelaksanaan}
-                onChange={(v) => setForm({ ...form, statusPelaksanaan: v ?? "" })}
-                data={Object.entries(PELAKSANAAN_LABEL).map(([value, label]) => ({ value, label }))}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 6, md: 3 }}>
-              <Select
-                label="Residual hasil — kemungkinan"
-                value={form.levelKemungkinanId}
-                onChange={(v) => setForm({ ...form, levelKemungkinanId: v ?? "" })}
-                data={lkData.map((x) => ({ value: String(x.id), label: x.nama }))}
-                disabled={!canEdit}
-                searchable
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 6, md: 3 }}>
-              <Select
-                label="Residual hasil — dampak"
-                value={form.levelDampakId}
-                onChange={(v) => setForm({ ...form, levelDampakId: v ?? "" })}
-                data={ldData.map((x) => ({ value: String(x.id), label: x.nama }))}
-                disabled={!canEdit}
-                searchable
-              />
-            </Grid.Col>
-            <Grid.Col span={12}>
-              <Group gap="sm">
-                {assessment.status === "OK" ? (
-                  <>
-                    <Badge color={warnaToMantine(assessment.warna)}>Besaran {assessment.besaran}</Badge>
-                    <Badge variant="light">{assessment.level}</Badge>
-                    <Text size="xs" c="dimmed">
-                      Selera risiko: {monitoringId ? (selected?.monitoring?.seleraSnapshot ?? selera ?? "-") : (selera ?? "belum tersedia")}
-                    </Text>
-                    <Badge color={comparison === "BELUM_DI_BAWAH" ? "red" : comparison === "DI_BAWAH" ? "green" : "gray"} variant="light">
-                      {comparison === "BELUM_DI_BAWAH"
-                        ? "Belum di bawah selera"
-                        : comparison === "DI_BAWAH"
-                        ? "Sudah di bawah selera"
-                        : "Belum dapat dinilai"}
-                    </Badge>
-                  </>
-                ) : (
-                  <Text size="sm" c="dimmed">{assessment.label}</Text>
-                )}
-              </Group>
-            </Grid.Col>
-            <Grid.Col span={12}>
-              <Textarea
-                label="Uraian realisasi / progres *"
-                minRows={2}
-                value={form.uraianPelaksanaan}
-                onChange={(e) => setForm({ ...form, uraianPelaksanaan: e.currentTarget.value })}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={12}>
-              <Textarea
-                label="Pekerjaan yang belum selesai"
-                minRows={2}
-                value={form.pekerjaanTertunda}
-                onChange={(e) => setForm({ ...form, pekerjaanTertunda: e.currentTarget.value })}
+                label="Keterjadian risiko"
+                value={form.keterjadianRisiko}
+                onChange={(v) => setForm({ ...form, keterjadianRisiko: v ?? "" })}
+                data={[{ value: "Terjadi", label: "Terjadi" }, { value: "Tidak Terjadi", label: "Tidak Terjadi" }]}
+                clearable
                 disabled={!canEdit}
               />
             </Grid.Col>
@@ -812,96 +697,11 @@ export default function PemantauanRisikoPage() {
                 disabled={!canEdit}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 8 }}>
+            <Grid.Col span={{ base: 12, md: 4 }}>
               <TextInput
                 label="Realisasi output"
                 value={form.realisasiOutput}
                 onChange={(e) => setForm({ ...form, realisasiOutput: e.currentTarget.value })}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Select
-                label="Keterjadian risiko"
-                value={form.keterjadianRisiko}
-                onChange={(v) => setForm({ ...form, keterjadianRisiko: v ?? "" })}
-                data={[{ value: "Terjadi", label: "Terjadi" }, { value: "Tidak Terjadi", label: "Tidak Terjadi" }]}
-                clearable
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={12}>
-              <Divider label="Informasi target RTP" labelPosition="left" />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Textarea
-                label="Target output (RTP)"
-                value={form.targetOutput}
-                readOnly
-                minRows={2}
-                autosize
-                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <TextInput
-                label="Target waktu (RTP)"
-                value={form.targetWaktu}
-                readOnly
-                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <TextInput
-                label="Penanggung jawab (RTP)"
-                value={form.penanggungJawab}
-                readOnly
-                styles={{ input: { backgroundColor: "var(--mantine-color-gray-light)" } }}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Select
-                label="Efektivitas"
-                value={form.efektivitas}
-                onChange={(v) => setForm({ ...form, efektivitas: v ?? "" })}
-                data={[
-                  { value: "efektif", label: "Efektif" },
-                  { value: "cukup_efektif", label: "Cukup efektif" },
-                  { value: "kurang_efektif", label: "Kurang efektif" },
-                  { value: "tidak_efektif", label: "Tidak efektif" },
-                ]}
-                clearable
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={12}>
-              <Textarea
-                label="Catatan evaluasi efektivitas *"
-                minRows={2}
-                value={form.catatanEfektivitas}
-                onChange={(e) => setForm({ ...form, catatanEfektivitas: e.currentTarget.value })}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Select
-                label="Respons risiko"
-                value={form.responRisiko}
-                onChange={(v) => setForm({ ...form, responRisiko: v ?? "" })}
-                data={[
-                  { value: "mengurangi", label: "Mengurangi" },
-                  { value: "mentransfer", label: "Mengalihkan" },
-                  { value: "menghindari", label: "Menghindari" },
-                  { value: "menerima", label: "Menerima" },
-                ]}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <TextInput
-                label="Alasan perubahan respons"
-                value={form.responAlasan}
-                onChange={(e) => setForm({ ...form, responAlasan: e.currentTarget.value })}
                 disabled={!canEdit}
               />
             </Grid.Col>
@@ -954,6 +754,52 @@ export default function PemantauanRisikoPage() {
               </Card>
             ))}
           </Stack>
+
+          <Divider label="Risiko Residual Harapan" labelPosition="left" />
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Level kemungkinan harapan"
+                value={form.levelKemungkinanId}
+                onChange={(v) => setForm({ ...form, levelKemungkinanId: v ?? "" })}
+                data={lkData.map((x) => ({ value: String(x.id), label: x.nama }))}
+                disabled={!canEdit}
+                searchable
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Select
+                label="Level dampak harapan"
+                value={form.levelDampakId}
+                onChange={(v) => setForm({ ...form, levelDampakId: v ?? "" })}
+                data={ldData.map((x) => ({ value: String(x.id), label: x.nama }))}
+                disabled={!canEdit}
+                searchable
+              />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <Group gap="sm">
+                {assessment.status === "OK" ? (
+                  <>
+                    <Badge color={warnaToMantine(assessment.warna)}>Besaran {assessment.besaran}</Badge>
+                    <Badge variant="light">{assessment.level}</Badge>
+                    <Text size="xs" c="dimmed">
+                      Selera risiko: {monitoringId ? (selected?.monitoring?.seleraSnapshot ?? selera ?? "-") : (selera ?? "belum tersedia")}
+                    </Text>
+                    <Badge color={comparison === "BELUM_DI_BAWAH" ? "red" : comparison === "DI_BAWAH" ? "green" : "gray"} variant="light">
+                      {comparison === "BELUM_DI_BAWAH"
+                        ? "Belum di bawah selera"
+                        : comparison === "DI_BAWAH"
+                        ? "Sudah di bawah selera"
+                        : "Belum dapat dinilai"}
+                    </Badge>
+                  </>
+                ) : (
+                  <Text size="sm" c="dimmed">{assessment.label}</Text>
+                )}
+              </Group>
+            </Grid.Col>
+          </Grid>
 
           {history.length > 0 && (
             <>

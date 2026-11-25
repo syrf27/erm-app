@@ -92,11 +92,9 @@ export async function buildMonitoringSnapshot(
 
 export function validateMonitoringForSubmit(
   monitoring: {
-    statusPelaksanaan?: string | null;
-    uraianPelaksanaan?: string | null;
+    realisasiWaktu?: string | null;
     realisasiOutput?: string | null;
-    catatanEfektivitas?: string | null;
-    responRisiko?: string | null;
+    keterjadianRisiko?: string | null;
     levelKemungkinanId?: number | null;
     levelDampakId?: number | null;
   },
@@ -109,11 +107,15 @@ export function validateMonitoringForSubmit(
   }
 ): string[] {
   const errors: string[] = [];
-  const status = monitoring.statusPelaksanaan;
 
-  if (!status) errors.push("Status pelaksanaan wajib diisi.");
-  if (!monitoring.uraianPelaksanaan?.trim()) {
-    errors.push("Uraian realisasi/progres wajib diisi.");
+  if (!monitoring.keterjadianRisiko) {
+    errors.push("Keterjadian risiko wajib diisi.");
+  }
+  if (!monitoring.realisasiWaktu?.trim()) {
+    errors.push("Realisasi waktu wajib diisi.");
+  }
+  if (!monitoring.realisasiOutput?.trim()) {
+    errors.push("Realisasi output wajib diisi.");
   }
   if (!monitoring.levelKemungkinanId || !monitoring.levelDampakId) {
     errors.push("Kemungkinan dan dampak hasil pemantauan wajib diisi berpasangan.");
@@ -125,30 +127,6 @@ export function validateMonitoringForSubmit(
   if (options.selera == null) {
     errors.push("Selera risiko belum tersedia sehingga hasil belum dapat dinilai.");
   }
-  if (!monitoring.catatanEfektivitas?.trim()) {
-    errors.push("Catatan evaluasi efektivitas wajib diisi.");
-  }
-  if (!monitoring.responRisiko) {
-    errors.push("Respons risiko wajib diisi.");
-  } else if (
-    options.baselineRespon &&
-    monitoring.responRisiko !== options.baselineRespon &&
-    !options.responAlasan?.trim()
-  ) {
-    errors.push(
-      "Alasan perubahan respons wajib diisi karena berbeda dari Evaluasi Risiko."
-    );
-  }
-
-  if (status === PELAKSANAAN.SEBAGIAN || status === PELAKSANAAN.SELESAI) {
-    if (!monitoring.realisasiOutput?.trim()) {
-      errors.push("Realisasi output wajib diisi untuk RTP yang sudah dilaksanakan.");
-    }
-    if (options.documentCount === 0) {
-      errors.push("Bukti pendukung wajib dilampirkan untuk RTP yang sudah dilaksanakan.");
-    }
-  }
-
   return errors;
 }
 
