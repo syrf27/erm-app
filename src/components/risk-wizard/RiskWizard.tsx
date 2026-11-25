@@ -310,9 +310,9 @@ export function RiskWizard({
 
   const step1Valid = !!levelKemungkinanId && !!levelDampakId;
 
-  const step2Valid =
-    !!responRisiko &&
-    (responRisiko !== "mengurangi" || rencanaTidakPenanganan.trim().length > 0);
+  // A risk treatment plan is recorded only when there is a concrete plan to
+  // enter. A response and its residual evaluation may stand on their own.
+  const step2Valid = !!responRisiko;
 
   const next = () => {
     if (active === 0 && !step0Valid) {
@@ -324,7 +324,7 @@ export function RiskWizard({
       return;
     }
     if (active === 2 && !step2Valid) {
-      notifications.show({ title: "Belum lengkap", message: "Isi Respon + Rencana Penanganan (untuk Mengurangi)", color: "orange" });
+      notifications.show({ title: "Belum lengkap", message: "Pilih respons risiko", color: "orange" });
       return;
     }
     setActive((a) => Math.min(a + 1, 3));
@@ -382,6 +382,17 @@ export function RiskWizard({
     try {
       const tahunRisiko =
         Number(initialData?.identifikasi?.tahun) || tahunDari;
+      const hasRtp = Boolean(
+        rencanaTidakPenanganan.trim() ||
+        targetOutput.trim() ||
+        targetWaktu.trim() ||
+        penanggungJawab.trim() ||
+        jenisPenanganan ||
+        alasanPenguatan.trim() ||
+        targetKemungkinanId ||
+        targetDampakId
+      );
+
       const payload = {
         identifikasi: {
           risiko: risiko.trim(),
@@ -408,15 +419,13 @@ export function RiskWizard({
           ...(residualKemungkinanId ? { residualLevelKemungkinanId: Number(residualKemungkinanId) } : {}),
           ...(residualDampakId ? { residualLevelDampakId: Number(residualDampakId) } : {}),
         },
-        rencana: responRisiko === "mengurangi" ? {
+        rencana: responRisiko === "mengurangi" && hasRtp ? {
           rencanaTidakPenanganan: rencanaTidakPenanganan.trim() || null,
           targetOutput: targetOutput.trim() || null,
           targetWaktu: targetWaktu.trim() || null,
           penanggungJawab: penanggungJawab.trim() || null,
           jenisPenanganan: (jenisPenanganan as any) || null,
           alasanPenguatan: alasanPenguatan.trim() || null,
-          ...(residualKemungkinanId ? { residualLevelKemungkinanId: Number(residualKemungkinanId) } : {}),
-          ...(residualDampakId ? { residualLevelDampakId: Number(residualDampakId) } : {}),
           ...(targetKemungkinanId ? { targetResidualLevelKemungkinanId: Number(targetKemungkinanId) } : {}),
           ...(targetDampakId ? { targetResidualLevelDampakId: Number(targetDampakId) } : {}),
         } : null,
@@ -554,8 +563,7 @@ export function RiskWizard({
 
         <Stepper.Step label="Evaluasi & RTP" description="Respon + Rencana">
           <Card withBorder padding="md" radius="md" mt="md">
-            <Select label="Respon Risiko *" data={[{ value: "mengurangi", label: "Mengurangi Risiko" }, { value: "mentransfer", label: "Mengalihkan Risiko" }, { value: "menghindari", label: "Menghindari Risiko" }, { value: "menerima", label: "Menerima Risiko" }]} value={responRisiko} onChange={(v) => setResponRisiko(v || "mengurangi")} />
-            <Grid mt="xs">
+            <Grid>
               <Grid.Col span={{ base: 12, md: 6 }}>
                 <Select label="Residual Evaluasi — Kemungkinan" data={lkData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualKemungkinanId} onChange={(v) => setResidualKemungkinanId(v || "")} clearable />
               </Grid.Col>
@@ -563,11 +571,12 @@ export function RiskWizard({
                 <Select label="Residual Evaluasi — Dampak" data={ldData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={residualDampakId} onChange={(v) => setResidualDampakId(v || "")} clearable />
               </Grid.Col>
             </Grid>
+            <Select mt="xs" label="Respon Risiko *" data={[{ value: "mengurangi", label: "Mengurangi Risiko" }, { value: "mentransfer", label: "Mengalihkan Risiko" }, { value: "menghindari", label: "Menghindari Risiko" }, { value: "menerima", label: "Menerima Risiko" }]} value={responRisiko} onChange={(v) => setResponRisiko(v || "mengurangi")} />
           </Card>
           {responRisiko === "mengurangi" ? (
             <Card withBorder padding="md" radius="md" mt="md">
-              <Title order={6} mb="xs">Rencana Tindak Penanganan (RTP)</Title>
-              <Textarea label="Rencana Penanganan *" placeholder="Tuliskan tindak penanganan" minRows={2} value={rencanaTidakPenanganan} onChange={(e) => setRencanaTidakPenanganan(e.currentTarget.value)} />
+              <Title order={6} mb="xs">Rencana Tindak Penanganan (RTP) <Text component="span" size="sm" fw={400} c="dimmed">— opsional</Text></Title>
+              <Textarea label="Rencana Penanganan" placeholder="Tuliskan tindak penanganan" minRows={2} value={rencanaTidakPenanganan} onChange={(e) => setRencanaTidakPenanganan(e.currentTarget.value)} />
               <Grid mt="xs">
                 <Grid.Col span={{ base: 12, md: 6 }}>
                   <TextInput label="Target Output" value={targetOutput} onChange={(e) => setTargetOutput(e.currentTarget.value)} />
