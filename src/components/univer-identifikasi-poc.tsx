@@ -225,7 +225,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const archived = useList({ resource: "identifikasi-risiko/archive", pagination: { pageSize: 1000 }, queryOptions: { enabled: view === "archived" }, filters: [{ field: "tahun", operator: "gte", value: tahunDari }, { field: "tahun", operator: "lte", value: tahunSampai }] });
   const lastColumn = columnLetter(headers.length - 1);
   const readRows = () => { const sheet = sheetRef.current; return sheet && sheet.getMaxRows() > 1 ? sheet.getRange(`A2:${lastColumn}${sheet.getMaxRows()}`).getValues() as unknown[][] : []; };
-  const hasUnsavedChanges = () => readRows().some((value, index) => {
+  const hasUnsavedChanges = () => readRows().filter((value) => normalizeRow(value).slice(0, 12).some(Boolean)).length < savedRowsRef.current.length || readRows().some((value, index) => {
     const row = normalizeRow(value);
     return rowIdsRef.current[index] ? row.some((cell, column) => cell !== savedRowsRef.current[index]?.[column]) : row.slice(0, 11).some(Boolean);
   });
@@ -563,6 +563,39 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
         : [];
       const lists = referenceLists;
       const rows = values.map(normalizeRow);
+      const originalRows = savedRowsRef.current;
+      const remaining = rows.filter((row) => row.slice(0, 12).some(Boolean));
+      if (remaining.length < originalRows.length) {
+        const originalKeys = originalRows.map((row) => JSON.stringify(row.slice(0, 12)));
+        if (new Set(originalKeys).size !== originalKeys.length) throw new Error("Ada baris risiko yang identik sehingga penghapusan tidak dapat dipastikan. Gunakan Arsipkan Risiko Terpilih.");
+        const deletedIds: number[] = [];
+        let currentIndex = 0;
+        for (let originalIndex = 0; originalIndex < originalRows.length; originalIndex++) {
+          const original = originalRows[originalIndex];
+          const matches = remaining[currentIndex]?.slice(0, 12).every((cell, column) => cell === original[column]);
+          if (matches) {
+            currentIndex++;
+          } else if (rowIdsRef.current[originalIndex]) {
+            deletedIds.push(rowIdsRef.current[originalIndex]!);
+          }
+        }
+        if (currentIndex !== remaining.length) throw new Error("Baris yang dihapus tidak dapat dipastikan. Muat ulang lalu hapus baris tanpa mengubah isi baris lain.");
+        if (!deletedIds.length) {
+          notifications.show({ title: "Draf dihapus", message: "Baris baru yang belum disimpan telah dibuang.", color: "blue" });
+          await refresh();
+          return;
+        }
+        if (!canArchive) throw new Error("Anda tidak memiliki izin untuk mengarsipkan risiko.");
+        if (!window.confirm(`Arsipkan ${deletedIds.length} risiko yang barisnya dihapus? Risiko dapat dipulihkan dari Arsip.`)) return;
+        for (const id of deletedIds) {
+          const response = await fetch("/api/identifikasi-risiko/archive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "archive", id, reason: "Dihapus dari Risk Register spreadsheet" }) });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || `Gagal mengarsipkan risiko #${id}`);
+        }
+        notifications.show({ title: "Risiko diarsipkan", message: `${deletedIds.length} risiko dipindahkan ke Arsip.`, color: "green" });
+        await refresh();
+        return;
+      }
       const changed = (row: string[], index: number, columns: number[]) => columns.some((column) => row[column] !== savedRowsRef.current[index]?.[column]);
       const findMatrix = (kemungkinan: any, dampak: any) => lists.matriks.find((entry) => entry.levelKemungkinanId === kemungkinan?.id && entry.levelDampakId === dampak?.id);
       const sendBatch = async (resource: string, entries: { kind: "create" | "update"; index: number; item: any }[], ids: (number | undefined)[]) => {
@@ -705,7 +738,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
 
   useEffect(() => {
     if (!containerRef.current || loading || univerRef.current || [sasaran, kegiatan, prosesBisnis, jenisRisiko, sumberRisiko, kategoriRisiko, areaDampak].some((query) => query.query?.isPending)) return;
-    const { univer, univerAPI } = createUniver({ locale: LocaleType.EN_US, locales: { [LocaleType.EN_US]: UniverPresetSheetsCoreEnUS }, presets: [UniverSheetsCorePreset({ container: containerRef.current, header: true, toolbar: true, formulaBar: true, footer: { sheetBar: true, menus: true, zoomSlider: true } })], plugins: [UniverSheetsDataValidationPlugin, UniverSheetsDataValidationUIPlugin] });
+    const { univer, univerAPI } = createUniver({ locale: LocaleType.EN_US, locales: { [LocaleType.EN_US]: UniverPresetSheetsCoreEnUS }, presets: [UniverSheetsCorePreset({ container: containerRef.current, header: true, toolbar: true, formulaBar: true, footer: { sheetBar: false, menus: false, zoomSlider: true } })], plugins: [UniverSheetsDataValidationPlugin, UniverSheetsDataValidationUIPlugin] });
     univerRef.current = univer;
     const workbook = univerAPI.createWorkbook({ id: "risk-register", name: "Risk Register" });
     const sheet = workbook.getActiveSheet();
