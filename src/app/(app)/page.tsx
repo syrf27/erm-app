@@ -29,13 +29,13 @@ const fmtColor = (warna?: string | null, fallback = "#868e96") => {
 function KpiCard({ icon, label, value, sub, color }: any) {
   return (
     <Paper withBorder radius="md" p="lg" shadow="xs">
-      <Group justify="space-between" align="flex-start">
-        <Box>
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Box style={{ minWidth: 0 }}>
           <Text size="xs" tt="uppercase" fw={700} c="dimmed">{label}</Text>
           <Text fw={800} fz={30} lh={1.1} mt={6}>{value}</Text>
           {sub && <Text size="xs" c="dimmed" mt={4}>{sub}</Text>}
         </Box>
-        <ThemeIcon size={46} radius="md" variant="light" color={color}>
+        <ThemeIcon size={46} radius="md" variant="light" color={color} style={{ flexShrink: 0 }}>
           {icon}
         </ThemeIcon>
       </Group>
@@ -151,8 +151,8 @@ export default function DashboardPage() {
         <KpiCard icon={<IconChartBar size={26} />} color="blue"
           label="Dianalisis" value={k.dianalisis} sub={"Cakupan " + k.analysisCoverage + "% dari identifikasi"} />
         <KpiCard icon={<IconClipboardList size={26} />} color="grape"
-          label="Hasil Penanganan" value={stats.treatmentOutcomes.comparable ? `${stats.treatmentOutcomes.decreased}/${stats.treatmentOutcomes.comparable}` : "Belum dinilai"}
-          sub={stats.treatmentOutcomes.comparable ? "RTP dengan besaran risiko menurun setelah pemantauan final" : `${stats.treatmentOutcomes.totalPlans} RTP · belum ada hasil pemantauan final yang dapat dibandingkan`} />
+          label="Hasil Penanganan" value={`${stats.treatmentOutcomes.assessed}/${stats.treatmentOutcomes.totalPlans}`}
+          sub="RTP dengan hasil pemantauan final" />
         {/* <KpiCard icon={<IconActivity size={26} />} color="teal"
           label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} /> */}
       </SimpleGrid>
