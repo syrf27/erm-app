@@ -12,6 +12,7 @@ import {
   Table,
   Badge,
   TextInput,
+  Textarea,
   Modal,
   Card,
   Loader,
@@ -36,6 +37,9 @@ export default function RegisterRisikoPage() {
   const [tab, setTab] = useState<TabKey>("identifikasi");
   const [search, setSearch] = useState("");
   const [modalOpened, setModalOpened] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<any | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [editSaving, setEditSaving] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
   const [bankQuery, setBankQuery] = useState("");
   const [bankResults, setBankResults] = useState<any[]>([]);
@@ -140,6 +144,35 @@ export default function RegisterRisikoPage() {
   const handleWizardSuccess = () => {
     setModalOpened(false);
     refetchAll();
+  };
+
+  const openEdit = (risk: any) => {
+    const record = tab === "analisis" ? analisisById.get(risk.id) : tab === "evaluasi" ? evaluasiById.get(risk.id) : tab === "rencana" ? rencanaById.get(risk.id) : risk;
+    setEditingRisk(risk);
+    setEditValues(Object.fromEntries(Object.entries(record ?? {}).map(([key, value]) => [key, value == null ? "" : String(value)])));
+  };
+
+  const saveEdit = async () => {
+    if (!editingRisk) return;
+    const record = tab === "analisis" ? analisisById.get(editingRisk.id) : tab === "evaluasi" ? evaluasiById.get(editingRisk.id) : tab === "rencana" ? rencanaById.get(editingRisk.id) : editingRisk;
+    const resource = tab === "identifikasi" ? "identifikasi-risiko" : tab === "rencana" ? "rencana-penanganan" : `${tab}-risiko`;
+    const fields: Record<TabKey, string[]> = {
+      identifikasi: ["risiko", "penyebab", "dampak"],
+      analisis: ["levelKemungkinanId", "levelDampakId", "pengendalianUraian", "pengendalianEfektivitas"],
+      evaluasi: ["residualLevelKemungkinanId", "residualLevelDampakId", "responRisiko"],
+      rencana: ["rencanaTidakPenanganan", "targetOutput", "targetWaktu", "penanggungJawab"],
+    };
+    const body = Object.fromEntries(fields[tab].map((field) => [field, field.endsWith("Id") ? (editValues[field] ? Number(editValues[field]) : null) : editValues[field] || null]));
+    setEditSaving(true);
+    try {
+      const response = await fetch(`/api/${resource}${record?.id ? `/${record.id}` : ""}`, { method: record?.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(record?.id ? body : { ...body, identifikasiRisikoId: editingRisk.id }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Gagal menyimpan perubahan");
+      setEditingRisk(null);
+      refetchAll();
+      notifications.show({ title: "Tersimpan", message: "Perubahan risiko berhasil disimpan.", color: "green" });
+    } catch (error: any) { notifications.show({ title: "Gagal menyimpan", message: error.message, color: "red" }); }
+    finally { setEditSaving(false); }
   };
 
   const openChain = async (riskId: number) => {
@@ -331,7 +364,7 @@ export default function RegisterRisikoPage() {
               {paged.map((r: any, i: number) => (
                 <Table.Tr key={r.id}>
                   <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                  <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                  <Table.Td><Group gap="xs" justify="space-between" align="flex-start"><Text fw={600} size="sm">{r.risiko}</Text><Button size="compact-xs" variant="light" onClick={() => openEdit(r)}>Edit</Button></Group></Table.Td>
                   <Table.Td>{r.sasaran?.nama ?? "-"}</Table.Td>
                   <Table.Td>{r.kegiatan?.nama ?? "-"}</Table.Td>
                   <Table.Td>{r.jenisRisiko?.nama ?? "-"}</Table.Td>
@@ -388,7 +421,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td><Group gap="xs" justify="space-between" align="flex-start"><Text fw={600} size="sm">{r.risiko}</Text><Button size="compact-xs" variant="light" onClick={() => openEdit(r)}>Edit</Button></Group></Table.Td>
                     <Table.Td>{an ? lkById.get(an.levelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{an ? ldById.get(an.levelDampakId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{b.status === "OK" ? <Badge color={getBadgeColor(b.warna)}>{b.besaran}</Badge> : <Text size="xs" c="dimmed">{b.level}</Text>}</Table.Td>
@@ -424,7 +457,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td><Group gap="xs" justify="space-between" align="flex-start"><Text fw={600} size="sm">{r.risiko}</Text><Button size="compact-xs" variant="light" onClick={() => openEdit(r)}>Edit</Button></Group></Table.Td>
                     <Table.Td>{ev?.responRisiko ?? "-"}</Table.Td>
                     <Table.Td>{ev ? lkById.get(ev.residualLevelKemungkinanId)?.nama ?? "-" : "-"}</Table.Td>
                     <Table.Td>{ev ? ldById.get(ev.residualLevelDampakId)?.nama ?? "-" : "-"}</Table.Td>
@@ -457,7 +490,7 @@ export default function RegisterRisikoPage() {
                 return (
                   <Table.Tr key={r.id}>
                     <Table.Td>{(page - 1) * pageSize + i + 1}</Table.Td>
-                    <Table.Td style={{ fontWeight: 600 }}>{r.risiko}</Table.Td>
+                    <Table.Td><Group gap="xs" justify="space-between" align="flex-start"><Text fw={600} size="sm">{r.risiko}</Text><Button size="compact-xs" variant="light" onClick={() => openEdit(r)}>Edit</Button></Group></Table.Td>
                     <Table.Td>{rp?.rencanaTidakPenanganan ?? "-"}</Table.Td>
                     <Table.Td>{rp?.targetOutput ?? "-"}</Table.Td>
                     <Table.Td>{rp?.targetWaktu ?? "-"}</Table.Td>
@@ -486,6 +519,19 @@ export default function RegisterRisikoPage() {
           showTotal
         />
       )}
+
+      <Modal opened={editingRisk !== null} onClose={() => setEditingRisk(null)} title={`Edit ${tab === "rencana" ? "Rencana Penanganan" : tab === "identifikasi" ? "Identifikasi Risiko" : tab === "analisis" ? "Analisis Risiko" : "Evaluasi Risiko"}`} size="lg" centered>
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">Risiko #{editingRisk?.id}: {editingRisk?.risiko}</Text>
+          {(tab === "identifikasi" ? [["risiko", "Pernyataan risiko"], ["penyebab", "Penyebab"], ["dampak", "Dampak"]] : tab === "analisis" ? [["levelKemungkinanId", "Level kemungkinan"], ["levelDampakId", "Level dampak"], ["pengendalianUraian", "Pengendalian"], ["pengendalianEfektivitas", "Efektivitas pengendalian"]] : tab === "evaluasi" ? [["residualLevelKemungkinanId", "Level kemungkinan residual"], ["residualLevelDampakId", "Level dampak residual"], ["responRisiko", "Respon risiko"]] : [["rencanaTidakPenanganan", "Rencana tindak penanganan"], ["targetOutput", "Target output"], ["targetWaktu", "Target waktu"], ["penanggungJawab", "Penanggung jawab"]]).map(([field, fieldLabel]) => {
+            const options = field.toLowerCase().includes("kemungkinanid") ? lkData.map((item) => ({ value: String(item.id), label: item.nama })) : field.toLowerCase().includes("dampakid") ? ldData.map((item) => ({ value: String(item.id), label: item.nama })) : field === "pengendalianEfektivitas" ? [{ value: "efektif", label: "Efektif" }, { value: "cukup_efektif", label: "Cukup Efektif" }, { value: "kurang_efektif", label: "Kurang Efektif" }, { value: "tidak_efektif", label: "Tidak Efektif" }] : field === "responRisiko" ? [{ value: "menerima", label: "Menerima" }, { value: "menghindari", label: "Menghindari" }, { value: "mengurangi", label: "Mengurangi" }, { value: "mentransfer", label: "Mentransfer" }] : null;
+            if (options) return <Select key={field} label={fieldLabel} data={options} value={editValues[field] || null} onChange={(value) => setEditValues((current) => ({ ...current, [field]: value ?? "" }))} clearable searchable />;
+            const onChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const value = event.currentTarget.value; setEditValues((current) => ({ ...current, [field]: value })); };
+            return ["risiko", "penyebab", "dampak", "pengendalianUraian", "rencanaTidakPenanganan", "targetOutput"].includes(field) ? <Textarea key={field} label={fieldLabel} value={editValues[field] ?? ""} onChange={onChange} autosize minRows={2} maxRows={6} /> : <TextInput key={field} label={fieldLabel} value={editValues[field] ?? ""} onChange={onChange} />;
+          })}
+          <Group justify="flex-end"><Button variant="default" onClick={() => setEditingRisk(null)}>Batal</Button><Button loading={editSaving} onClick={saveEdit}>Simpan Perubahan</Button></Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={modalOpened}

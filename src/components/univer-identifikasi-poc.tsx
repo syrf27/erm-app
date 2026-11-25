@@ -715,8 +715,8 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     if (!sheetReady || !sheet) return;
     sheet.showColumns(0, headers.length);
     if (fullRegister) {
-      // In the complete register, keep the identification context through Risk visible.
-      sheet.setFrozenColumns(5);
+      // Five frozen columns exceed the viewport and prevent horizontal scrolling.
+      sheet.setFrozenColumns(1);
       return;
     }
     if (stage === "identifikasi") {
@@ -756,7 +756,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
 
   useEffect(() => {
     if (!containerRef.current || loading || univerRef.current || [sasaran, kegiatan, prosesBisnis, jenisRisiko, sumberRisiko, kategoriRisiko, areaDampak].some((query) => query.query?.isPending)) return;
-    const { univer, univerAPI } = createUniver({ locale: LocaleType.EN_US, locales: { [LocaleType.EN_US]: UniverPresetSheetsCoreEnUS }, presets: [UniverSheetsCorePreset({ container: containerRef.current, header: true, toolbar: true, formulaBar: true, footer: { sheetBar: false, menus: false, zoomSlider: true } })], plugins: [UniverSheetsDataValidationPlugin, UniverSheetsDataValidationUIPlugin] });
+    const { univer, univerAPI } = createUniver({ locale: LocaleType.EN_US, locales: { [LocaleType.EN_US]: UniverPresetSheetsCoreEnUS }, presets: [UniverSheetsCorePreset({ container: containerRef.current, header: true, toolbar: true, formulaBar: true, footer: { sheetBar: true, menus: false, zoomSlider: true } })], plugins: [UniverSheetsDataValidationPlugin, UniverSheetsDataValidationUIPlugin] });
     univerRef.current = univer;
     const workbook = univerAPI.createWorkbook({ id: "risk-register", name: "Risk Register" });
     const sheet = workbook.getActiveSheet();
@@ -898,7 +898,8 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
         </Menu.Dropdown></Menu>}
       </Group>
     </Box>}
-    <Box ref={containerRef} style={{ display: view === "active" ? "block" : "none", height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} />
+    <style>{`#risk-register-sheet [title="Add sheet"], #risk-register-sheet [aria-label="Add sheet"] { display: none !important; }`}</style>
+    <Box id="risk-register-sheet" ref={containerRef} style={{ display: view === "active" ? "block" : "none", height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} />
     <Modal opened={pendingDeletedIds.length > 0} onClose={() => setPendingDeletedIds([])} title="Arsipkan risiko yang dihapus?" centered>
       <Stack gap="md">
         <Text size="sm">{pendingDeletedIds.length} risiko yang barisnya dihapus akan dipindahkan ke Arsip. Data terkait tetap tersimpan dan dapat dipulihkan.</Text>
