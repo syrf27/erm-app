@@ -133,7 +133,19 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ monitoring, history });
+    const events = await prisma.auditLog.findMany({
+      where: {
+        resource: "PemantauanRisiko",
+        resourceId: { in: history.map((entry) => String(entry.id)) },
+        action: { in: ["UPDATE", "REJECT", "APPROVE"] },
+      },
+      orderBy: { timestamp: "desc" },
+    });
+
+    return NextResponse.json({ monitoring, history, events: events.filter((event) => {
+      const details = event.details as Record<string, unknown> | null;
+      return details?.aksi === "submit" || event.action === "REJECT" || event.action === "APPROVE";
+    }) });
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -452,6 +464,7 @@ export async function POST(
       }
       const updated = await prisma.pemantauanRisiko.findUniqueOrThrow({
         where: { id: monitoring.id },
+        include: { dokumens: true },
       });
       await logAudit({
         userId: actor.email,
@@ -459,7 +472,21 @@ export async function POST(
         action: "UPDATE",
         resource: "PemantauanRisiko",
         resourceId: monitoring.id,
-        details: { aksi: "submit" },
+        details: {
+          aksi: "submit",
+          snapshot: {
+            targetWaktu: updated.targetWaktu,
+            targetOutput: updated.targetOutput,
+            penanggungJawab: updated.penanggungJawab,
+            keterjadianRisiko: updated.keterjadianRisiko,
+            realisasiWaktu: updated.realisasiWaktu,
+            realisasiOutput: updated.realisasiOutput,
+            kemungkinanLabel: updated.kemungkinanLabel,
+            dampakLabel: updated.dampakLabel,
+            besaran: updated.besaran,
+            dokumens: updated.dokumens.map((doc) => ({ title: doc.title, url: doc.url })),
+          },
+        },
       });
       await invalidateResourceCache("pemantauan-risiko");
       return NextResponse.json(updated);

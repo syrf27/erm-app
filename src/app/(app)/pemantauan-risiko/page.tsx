@@ -124,6 +124,7 @@ export default function PemantauanRisikoPage() {
   const [actionModal, setActionModal] = useState<"return" | "revise" | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [history, setHistory] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [mode, setMode] = useState<"active" | "history">("active");
   const [confirmModal, setConfirmModal] = useState<
@@ -195,6 +196,7 @@ export default function PemantauanRisikoPage() {
   const openForm = async (row: MonitoringRow) => {
     setSelected(row);
     setHistory([]);
+    setEvents([]);
     setShowHistory(false);
     setMeetingKeyword("");
     setMeetingResults([]);
@@ -207,6 +209,7 @@ export default function PemantauanRisikoPage() {
         setMonitoringId(m.id);
         setVersion(m.version);
         setHistory(payload.history ?? []);
+        setEvents(payload.events ?? []);
         setForm({
           realisasiWaktu: m.realisasiWaktu ?? "",
           realisasiOutput: m.realisasiOutput ?? "",
@@ -881,34 +884,36 @@ export default function PemantauanRisikoPage() {
             </Alert>
           )}
 
-          {history.length > 0 && (
+          {(events.length > 0 || history.length > 0) && (
             <>
               <Button variant="subtle" size="xs" onClick={() => setShowHistory((v) => !v)}>
-                {showHistory ? "Sembunyikan riwayat" : `Lihat riwayat (${history.length})`}
+                {showHistory ? "Sembunyikan riwayat" : "Lihat riwayat pengajuan"}
               </Button>
               <Collapse in={showHistory}>
-                <Table withTableBorder withColumnBorders>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Versi</Table.Th>
-                      <Table.Th>Status</Table.Th>
-                      <Table.Th>Besaran risiko</Table.Th>
-                      <Table.Th>Catatan Admin</Table.Th>
-                      <Table.Th>Tanggal persetujuan</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {history.map((h) => (
-                      <Table.Tr key={h.id}>
-                        <Table.Td>Versi {h.revision}</Table.Td>
-                        <Table.Td>{PEMANTAUAN_STATUS_LABEL[h.status] ?? h.status}</Table.Td>
-                        <Table.Td>{h.besaran ?? "-"}</Table.Td>
-                        <Table.Td>{h.returnReason ?? "-"}</Table.Td>
-                        <Table.Td>{h.finalizedAt ? new Date(h.finalizedAt).toLocaleDateString("id-ID") : "-"}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                <Stack gap="sm" mt="sm">
+                  {events.length === 0 && <Text size="sm" c="dimmed">Riwayat pengajuan lama belum memiliki salinan isi dan bukti pendukung.</Text>}
+                  {events.map((event) => {
+                    const details = event.details ?? {};
+                    const snapshot = details.snapshot;
+                    const label = event.action === "REJECT" ? "Ditolak" : event.action === "APPROVE" ? "Disetujui" : "Diajukan";
+                    return <Card key={event.id} withBorder padding="sm">
+                      <Group justify="space-between"><Text fw={700}>{label}</Text><Text size="xs" c="dimmed">{new Date(event.timestamp).toLocaleString("id-ID")}</Text></Group>
+                      <Text size="xs" c="dimmed">Oleh {event.userName}</Text>
+                      {details.alasan && <Text size="sm" mt="xs">Catatan: {details.alasan}</Text>}
+                      {snapshot && <Stack gap={4} mt="xs">
+                        <Text size="sm">Target waktu: {snapshot.targetWaktu || "-"}</Text>
+                        <Text size="sm">Target output: {snapshot.targetOutput || "-"}</Text>
+                        <Text size="sm">Penanggung jawab: {snapshot.penanggungJawab || "-"}</Text>
+                        <Text size="sm">Kejadian risiko: {snapshot.keterjadianRisiko || "-"}</Text>
+                        <Text size="sm">Realisasi waktu: {snapshot.realisasiWaktu || "-"}</Text>
+                        <Text size="sm">Realisasi output: {snapshot.realisasiOutput || "-"}</Text>
+                        <Text size="sm">Risiko residual harapan: {snapshot.kemungkinanLabel || "-"} · {snapshot.dampakLabel || "-"} (besaran {snapshot.besaran ?? "-"})</Text>
+                        <Text size="sm" fw={600}>Bukti pendukung</Text>
+                        {(snapshot.dokumens ?? []).length === 0 ? <Text size="sm" c="dimmed">Tidak ada</Text> : snapshot.dokumens.map((doc: { title: string; url: string }, index: number) => <Text key={index} size="sm" component="a" href={getSafeDocumentHref(doc.url) ?? undefined} target="_blank" rel="noopener noreferrer" c="blue">{doc.title}</Text>)}
+                      </Stack>}
+                    </Card>;
+                  })}
+                </Stack>
               </Collapse>
             </>
           )}
