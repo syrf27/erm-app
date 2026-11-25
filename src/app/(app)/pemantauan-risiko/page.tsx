@@ -14,6 +14,7 @@ import {
   Grid,
   Group,
   Loader,
+  Menu,
   Modal,
   SegmentedControl,
   Select,
@@ -115,14 +116,13 @@ export default function PemantauanRisikoPage() {
   const [form, setForm] = useState({ ...emptyForm });
   const [docs, setDocs] = useState<DocForm[]>([]);
   const [evidenceSource, setEvidenceSource] = useState<"link" | "file" | "office" | null>(null);
-  const [evidencePickerOpened, setEvidencePickerOpened] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [meetingKeyword, setMeetingKeyword] = useState("");
   const [meetingResults, setMeetingResults] = useState<any[]>([]);
   const [meetingSearching, setMeetingSearching] = useState(false);
   const [importingMeetingId, setImportingMeetingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [actionModal, setActionModal] = useState<"return" | "revise" | null>(null);
+  const [actionModal, setActionModal] = useState<"return" | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [history, setHistory] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -196,13 +196,14 @@ export default function PemantauanRisikoPage() {
 
   const openForm = async (row: MonitoringRow) => {
     setSelected(row);
+    setActionModal(null);
+    setActionReason("");
     setHistory([]);
     setEvents([]);
     setShowHistory(false);
     setMeetingKeyword("");
     setMeetingResults([]);
     setEvidenceSource(null);
-    setEvidencePickerOpened(false);
     if (row.monitoring) {
       const res = await fetch(`/api/pemantauan-risiko/${row.monitoring.id}`);
       const payload = await res.json().catch(() => ({}));
@@ -419,7 +420,7 @@ export default function PemantauanRisikoPage() {
     }
     try {
       await runAction(monitoringId, actionModal, actionReason.trim());
-      notifications.show({ title: "Berhasil", message: actionModal === "return" ? "Pemantauan ditolak dan catatan disimpan" : "Tindakan tersimpan", color: "green" });
+      notifications.show({ title: "Berhasil", message: "Pemantauan ditolak dan catatan disimpan", color: "green" });
       setActionModal(null);
       setActionReason("");
       setOpened(false);
@@ -732,7 +733,7 @@ export default function PemantauanRisikoPage() {
 
           <Divider label="Realisasi" labelPosition="left" />
           <Grid>
-            <Grid.Col span={{ base: 12, md: 4 }}>
+            <Grid.Col span={{ base: 12, md: 6 }}>
               <Select
                 label="Keterjadian risiko"
                 value={form.keterjadianRisiko}
@@ -742,7 +743,7 @@ export default function PemantauanRisikoPage() {
                 disabled={!canEdit}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
+            <Grid.Col span={{ base: 12, md: 6 }}>
               <TextInput
                 type="date"
                 label="Realisasi waktu"
@@ -779,7 +780,15 @@ export default function PemantauanRisikoPage() {
               </Card>
             ))}
           </Stack>
-          {canEdit && <Button variant="outline" onClick={() => setEvidencePickerOpened(true)}>+ Tambah bukti pendukung</Button>}
+          {canEdit && <Menu shadow="md" width={250} position="bottom-start" withinPortal>
+            <Menu.Target><Button variant="outline">+ Tambah bukti pendukung</Button></Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Pilih sumber bukti</Menu.Label>
+              <Menu.Item onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "link" }]); setEvidenceSource(null); }}>Tautan</Menu.Item>
+              <Menu.Item onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "file" }]); setEvidenceSource(null); }}>Unggah berkas</Menu.Item>
+              <Menu.Item onClick={() => setEvidenceSource("office")}>Ambil dari GOJAGS Office</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>}
           {evidenceSource === "office" && <Card withBorder padding="sm">
             <Stack gap="sm">
               <Text size="sm" fw={700}>Ambil bukti dari GOJAGS Office</Text>
@@ -887,12 +896,22 @@ export default function PemantauanRisikoPage() {
             </>
           )}
 
+          {actionModal === "return" && <Card withBorder padding="sm">
+            <Stack gap="sm">
+              <Text fw={600}>Catatan penolakan untuk pengguna</Text>
+              <Textarea label="Alasan penolakan *" placeholder="Jelaskan bagian yang perlu diperbaiki" minRows={3} value={actionReason} onChange={(e) => setActionReason(e.currentTarget.value)} />
+              <Group justify="flex-end">
+                <Button variant="default" onClick={() => { setActionModal(null); setActionReason(""); }}>Batal</Button>
+                <Button color="orange" onClick={submitActionModal}>Kirim penolakan</Button>
+              </Group>
+            </Stack>
+          </Card>}
           <Group justify="space-between" mt="md">
             <Group>
               {mode === "active" && isAdmin && monitoringId && selected?.monitoring?.status === "SUBMITTED" && (
                 <>
                   <Button color="green" onClick={() => finalize()}>Setujui</Button>
-                  <Button color="orange" variant="light" onClick={() => setActionModal("return")}>Tolak &amp; beri catatan</Button>
+                  {actionModal !== "return" && <Button color="orange" variant="light" onClick={() => { setActionReason(""); setActionModal("return"); }}>Tolak &amp; beri catatan</Button>}
                 </>
               )}
             </Group>
@@ -905,15 +924,6 @@ export default function PemantauanRisikoPage() {
               )}
             </Group>
           </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={evidencePickerOpened} onClose={() => setEvidencePickerOpened(false)} title="Tambah bukti pendukung" centered>
-        <Stack gap="sm">
-          <Text size="sm" c="dimmed">Pilih sumber bukti yang ingin ditambahkan.</Text>
-          <Button variant="light" onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "link" }]); setEvidenceSource(null); setEvidencePickerOpened(false); }}>Tautan</Button>
-          <Button variant="light" onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "file" }]); setEvidenceSource(null); setEvidencePickerOpened(false); }}>Unggah berkas</Button>
-          <Button variant="light" onClick={() => { setEvidenceSource("office"); setEvidencePickerOpened(false); }}>Ambil dari GOJAGS Office</Button>
         </Stack>
       </Modal>
 
@@ -976,24 +986,6 @@ export default function PemantauanRisikoPage() {
         )}
       </Modal>
 
-      <Modal
-        opened={actionModal !== null}
-        onClose={() => setActionModal(null)}
-        title={actionModal === "return" ? "Tolak Pemantauan" : "Buat Revisi Koreksi"}
-      >
-        <Stack>
-          <Textarea
-            label={actionModal === "return" ? "Catatan untuk pengguna *" : "Alasan *"}
-            minRows={3}
-            value={actionReason}
-            onChange={(e) => setActionReason(e.currentTarget.value)}
-          />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setActionModal(null)}>Batal</Button>
-            <Button onClick={submitActionModal}>Kirim</Button>
-          </Group>
-        </Stack>
-      </Modal>
     </Stack>
   );
 }
