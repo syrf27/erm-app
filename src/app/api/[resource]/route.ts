@@ -60,6 +60,11 @@ function getCacheHeaders() {
   };
 }
 
+function referenceCacheKey(resource: string, suffix: string) {
+  const version = resource === "level-risiko" || resource === "matriks-analisis-risiko" ? ":v2" : "";
+  return `ref:${resource}${version}:${suffix}`;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ resource: string }> }
@@ -220,7 +225,7 @@ export async function GET(
     if (ids.length > 0) {
       const delegate = getDelegate(resource);
       if (isReferenceResource(resource)) {
-        const cacheKey = `ref:${resource}:ids:${[...ids].sort().join(",")}`;
+        const cacheKey = referenceCacheKey(resource, `ids:${[...ids].sort().join(",")}`);
         const data = await getOrSet(
           cacheKey,
           () =>
@@ -252,7 +257,7 @@ export async function GET(
     const include = includeMap[resource];
 
     if (isReferenceResource(resource)) {
-      const cacheKey = `ref:${resource}:list:${_sort}:${_order}`;
+      const cacheKey = referenceCacheKey(resource, `list:${_sort}:${_order}`);
       const cached = await getOrSet(
         cacheKey,
         async () => {

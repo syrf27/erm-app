@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
-        `dashboard:stats:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
+        `dashboard:stats:v2:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
         async () => {
           const [
             levelKemungkinan,

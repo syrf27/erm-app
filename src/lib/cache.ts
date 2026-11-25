@@ -144,7 +144,7 @@ export async function invalidateResourceCache(resource: string): Promise<void> {
   ];
 
   if (shouldInvalidateDashboard(resource)) {
-    invalidations.push(delCache("dashboard:stats"));
+    invalidations.push(delCacheByPattern("dashboard:stats:*"));
   }
 
   if (isAuthResource(resource)) {

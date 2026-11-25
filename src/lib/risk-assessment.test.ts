@@ -32,8 +32,8 @@ const matrix: MatrixEntry[] = [
     levelKemungkinanId: 1, // Jarang Terjadi
     levelDampakId: 12,
     besaran: 11,
-    levelRisikoId: 3,
-    levelRisiko: { nama: "Sedang", warna: "Kuning" },
+    levelRisikoId: 2,
+    levelRisiko: { nama: "Rendah", warna: "Hijau" },
   },
 ];
 
@@ -49,6 +49,11 @@ test("level dan warna berasal dari relasi matriks", () => {
   assert.equal(result.level, "Tinggi");
   assert.equal(result.warna, "Jingga");
   assert.equal(result.levelRisikoId, 4);
+
+  const greenEleven = assessRisk(matrix, 1, 12);
+  assert.equal(greenEleven.besaran, 11);
+  assert.equal(greenEleven.level, "Rendah");
+  assert.equal(greenEleven.warna, "Hijau");
 });
 
 test("pasangan tidak ditemukan berarti belum dapat dihitung, bukan nol", () => {
