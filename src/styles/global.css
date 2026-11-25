@@ -74,13 +74,47 @@ body {
   overflow-wrap: anywhere;
 }
 
-.context-group-switcher-scroll {
-  width: 100%;
-  max-width: 100%;
+.risk-reference-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
 }
 
-.context-group-switcher {
-  min-width: 620px;
+.risk-reference-nav,
+.risk-reference-content {
+  min-width: 0;
+}
+
+.risk-reference-nav-scroll {
+  max-height: min(70vh, 640px);
+}
+
+.risk-reference-nav-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-sm);
+  text-align: left;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.risk-reference-nav-item:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.risk-reference-nav-item:focus-visible {
+  outline: 2px solid var(--mantine-color-blue-filled);
+  outline-offset: -2px;
+}
+
+.risk-reference-nav-item--active {
+  background: var(--mantine-color-blue-light);
+  color: var(--mantine-color-blue-light-color);
+  font-weight: 600;
 }
 
 .mantine-Tabs-root {
@@ -105,8 +139,12 @@ body {
 }
 
 @media (max-width: 48em) {
-  .context-group-switcher {
-    min-width: 620px;
+  .risk-reference-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .risk-reference-nav-scroll {
+    max-height: 220px;
   }
 
   .repository-desktop-table {
