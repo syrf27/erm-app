@@ -65,9 +65,6 @@ import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
 import { useFcm } from "@/hooks/useFcm";
 import { WelcomeTour } from "@/components/tour/WelcomeTour";
-import { HelpChatWidget } from "@/components/help-chat-widget";
-import { RiskAiWidget } from "@/components/risk-ai-widget";
-import { FloatingToolsMenu } from "@/components/floating-tools-menu";
 import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 
 interface MenuItem {
@@ -1179,9 +1176,6 @@ function LayoutContent({ children }: PropsWithChildren) {
         {children}
       </AppShell.Main>
 
-      <HelpChatWidget />
-      <RiskAiWidget />
-      <FloatingToolsMenu />
       <WelcomeTour
         onBeforeStart={handleTourBeforeStart}
         onAfterEnd={handleTourEnd}

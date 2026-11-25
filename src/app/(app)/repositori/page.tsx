@@ -63,6 +63,10 @@ interface RepositoryResponse {
   totalPages: number;
 }
 
+// Keep AI-assisted search and summaries available in the codebase, but do not
+// expose them to end users until the feature is formally enabled again.
+const AI_FEATURES_ENABLED = false;
+
 export default function RepositoryPage() {
   const { tahunDari } = useYear();
   const [search, setSearch] = useState("");
@@ -415,35 +419,27 @@ export default function RepositoryPage() {
         ))}
       </Group>
 
-      {/* AI Search and filters */}
+      {/* Standard search and filters. AI-assisted capabilities are hidden. */}
       <Card
         withBorder
         padding="lg"
         radius="lg"
-        style={{
-          overflow: "hidden",
-          background:
-            "linear-gradient(135deg, color-mix(in srgb, var(--mantine-color-blue-light), transparent 10%), color-mix(in srgb, var(--mantine-color-grape-light), transparent 24%))",
-          borderColor: "color-mix(in srgb, var(--mantine-color-blue-filled), transparent 72%)",
-        }}
       >
         <Group justify="space-between" align="flex-start" gap="md" mb="md">
           <Group gap="sm" align="flex-start">
-            <ThemeIcon color="blue" size="lg" radius="md">
-              <IconSparkles size={20} />
-            </ThemeIcon>
+            {AI_FEATURES_ENABLED && <ThemeIcon color="blue" size="lg" radius="md"><IconSparkles size={20} /></ThemeIcon>}
             <div>
               <Group gap="xs">
                 <Text size="sm" fw={700}>
-                  Pencarian Cerdas
+                  Cari Dokumen
                 </Text>
               </Group>
               <Text size="xs" c="dimmed" mt={3}>
-                Cari dengan bahasa sehari-hari, misalnya “dokumen yang membahas SOP manajemen risiko” atau “bukti mitigasi gangguan layanan”.
+                Cari berdasarkan judul dokumen atau risiko terkait.
               </Text>
             </div>
           </Group>
-          {isSearching && (
+          {AI_FEATURES_ENABLED && isSearching && (
             <Badge leftSection={<IconBulb size={12} />} variant="light" color="yellow">
               {totalFiles} hasil terkurasi
             </Badge>
@@ -452,9 +448,9 @@ export default function RepositoryPage() {
 
         <Group justify="space-between" align="flex-end" gap="md">
           <TextInput
-            label="Apa yang ingin dicari?"
-            description="Sistem membaca judul, risiko terkait, ringkasan AI, dan isi dokumen yang sudah pernah diproses."
-            placeholder="Contoh: dokumen yang membahas pengendalian risiko pelatihan"
+            label="Kata kunci"
+            description="Masukkan judul dokumen atau nama risiko terkait."
+            placeholder="Cari dokumen"
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
             leftSection={<IconSearch size={16} />}
@@ -478,7 +474,7 @@ export default function RepositoryPage() {
       <div
         className="repository-search-layout"
         style={{
-          gridTemplateColumns: isSearching && files.length > 0 ? "minmax(0, 1fr) minmax(280px, 360px)" : "1fr",
+          gridTemplateColumns: AI_FEATURES_ENABLED && isSearching && files.length > 0 ? "minmax(0, 1fr) minmax(280px, 360px)" : "1fr",
           gap: 16,
           alignItems: "start",
         }}
@@ -524,12 +520,12 @@ export default function RepositoryPage() {
                       <Table.Tr
                         key={file.id}
                         onClick={() => {
-                          if (isSearching) setSelectedSearchFileId(file.id);
+                          if (AI_FEATURES_ENABLED && isSearching) setSelectedSearchFileId(file.id);
                         }}
                         style={{
-                          cursor: isSearching ? "pointer" : undefined,
+                          cursor: AI_FEATURES_ENABLED && isSearching ? "pointer" : undefined,
                           outline:
-                            isSearching && selectedSearchFile?.id === file.id
+                            AI_FEATURES_ENABLED && isSearching && selectedSearchFile?.id === file.id
                               ? "2px solid color-mix(in srgb, var(--mantine-color-blue-filled), transparent 35%)"
                               : undefined,
                           outlineOffset: -2,
@@ -543,7 +539,7 @@ export default function RepositoryPage() {
                               <Text size="sm" fw={600}>
                                 {file.title}
                               </Text>
-                              {isSearching && (
+                              {AI_FEATURES_ENABLED && isSearching && (
                                 <Text size="xs" c="dimmed" mt={4}>
                                   Klik baris untuk melihat alasan rekomendasi
                                 </Text>
@@ -610,14 +606,14 @@ export default function RepositoryPage() {
                             >
                               <IconExternalLink size={16} />
                             </ActionIcon>
-                            <ActionIcon
+                            {AI_FEATURES_ENABLED && <ActionIcon
                               color="grape"
                               variant="subtle"
                               onClick={() => handleViewSummary(file)}
                               title="Lihat Ringkasan AI"
                             >
                               <IconSparkles size={16} />
-                            </ActionIcon>
+                            </ActionIcon>}
                             {(() => {
                               const isCreator = file.id.startsWith("manual-") && (
                                 file.uploader === identity?.name ||
@@ -703,14 +699,14 @@ export default function RepositoryPage() {
                     padding="sm"
                     radius="md"
                     onClick={() => {
-                      if (isSearching) setSelectedSearchFileId(file.id);
+                      if (AI_FEATURES_ENABLED && isSearching) setSelectedSearchFileId(file.id);
                     }}
                     style={{
                       borderColor:
-                        isSearching && selectedSearchFile?.id === file.id
+                        AI_FEATURES_ENABLED && isSearching && selectedSearchFile?.id === file.id
                           ? "var(--mantine-color-blue-filled)"
                           : "var(--mantine-color-default-border)",
-                      cursor: isSearching ? "pointer" : undefined,
+                      cursor: AI_FEATURES_ENABLED && isSearching ? "pointer" : undefined,
                     }}
                   >
                     <Stack gap="sm">
@@ -753,7 +749,7 @@ export default function RepositoryPage() {
                         </Badge>
                       </Group>
 
-                      {isSearching && (
+                      {AI_FEATURES_ENABLED && isSearching && (
                         <Text size="xs" c="dimmed">
                           Tap kartu untuk melihat alasan rekomendasi.
                         </Text>
@@ -772,7 +768,7 @@ export default function RepositoryPage() {
                         >
                           Buka
                         </Button>
-                        <Button
+                        {AI_FEATURES_ENABLED && <Button
                           variant="light"
                           color="grape"
                           size="xs"
@@ -783,7 +779,7 @@ export default function RepositoryPage() {
                           }}
                         >
                           Ringkasan
-                        </Button>
+                        </Button>}
                         {isCreator && (
                           <>
                             <ActionIcon
@@ -834,7 +830,7 @@ export default function RepositoryPage() {
           )}
         </Stack>
 
-        {isSearching && selectedSearchFile && (
+        {AI_FEATURES_ENABLED && isSearching && selectedSearchFile && (
           <Card
             className="repository-search-insight-pane"
             withBorder
@@ -1023,7 +1019,7 @@ export default function RepositoryPage() {
       </Modal>
 
       {/* Document Summary Modal */}
-      <Modal opened={summaryOpened} onClose={() => setSummaryOpened(false)} title="Ringkasan Dokumen AI" size="lg" radius="md">
+      <Modal opened={AI_FEATURES_ENABLED && summaryOpened} onClose={() => setSummaryOpened(false)} title="Ringkasan Dokumen AI" size="lg" radius="md">
         <Stack gap="md">
           <Text fw={600} size="sm">{summaryDocTitle}</Text>
           {summaryLoading ? (

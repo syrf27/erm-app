@@ -1158,22 +1158,6 @@ export default function IdentifikasiRisikoPage() {
         </Group>
         <Group>
           <Button
-            variant="gradient"
-            gradient={{ from: "violet", to: "blue", deg: 100 }}
-            color="violet"
-            size="sm"
-            leftSection={<IconSparkles size={16} />}
-            onClick={() => {
-              setAssistSuggestion(null);
-              setAssistStep(1);
-              setAssistControl("");
-              setAssistEffectiveness(null);
-              setAssistOpened(true);
-            }}
-          >
-            Bantu Isi dengan AI
-          </Button>
-          <Button
             variant="light"
             leftSection={<IconDatabase size={16} />}
             onClick={openBank}

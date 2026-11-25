@@ -497,10 +497,7 @@ export function RiskWizard({
             </Card>
 
             <Card withBorder padding="md" radius="md">
-              <Group justify="space-between" mb="xs">
-                <Title order={6}>B. Detail Risiko — Apa risikonya?</Title>
-                <Button size="xs" variant="light" onClick={handleAiAssist} loading={aiLoading}>✨ Bantu AI</Button>
-              </Group>
+              <Title order={6} mb="xs">B. Detail Risiko — Apa risikonya?</Title>
               <Textarea label="Risiko *" placeholder="Contoh: Data survei terlambat dikumpulkan sehingga laporan terlambat" minRows={2} value={risiko} onChange={(e) => setRisiko(e.currentTarget.value)} />
               <Grid mt="xs">
                 <Grid.Col span={{ base: 12, md: 6 }}>

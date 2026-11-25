@@ -23,7 +23,7 @@ import {
   FileButton,
   Select,
 } from "@mantine/core";
-import { IconPlus, IconChevronDown, IconDatabase, IconSparkles, IconDeviceFloppy, IconAdjustments, IconDownload, IconUpload } from "@tabler/icons-react";
+import { IconPlus, IconChevronDown, IconDatabase, IconDeviceFloppy, IconAdjustments, IconDownload, IconUpload } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
 import { RiskWizard } from "@/components/risk-wizard/RiskWizard";
@@ -271,7 +271,6 @@ export default function RegisterRisikoPage() {
               <Menu.Label>Pilih cara menambahkan risiko</Menu.Label>
               <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => setModalOpened(true)}>Isi Manual</Menu.Item>
               <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Pilih dari Bank Risiko</Menu.Item>
-              <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => setModalOpened(true)}>Bantu Isi dengan AI</Menu.Item>
             </Menu.Dropdown>
           </Menu>
           <Button variant="light" leftSection={<IconDeviceFloppy size={16} />} onClick={refetchAll}>

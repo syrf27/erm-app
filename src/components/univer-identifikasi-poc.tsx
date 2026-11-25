@@ -5,7 +5,7 @@ import { ActionIcon, Alert, Badge, Box, Button, FileButton, Group, Loader, Menu,
 import { useList } from "@refinedev/core";
 import { notifications } from "@mantine/notifications";
 import { useYear } from "@/lib/year-context";
-import { IconAdjustments, IconArchive, IconChevronDown, IconChevronUp, IconDatabase, IconDeviceFloppy, IconDownload, IconListCheck, IconPlus, IconSearch, IconSparkles, IconUpload, IconUsersGroup } from "@tabler/icons-react";
+import { IconAdjustments, IconArchive, IconChevronDown, IconChevronUp, IconDatabase, IconDeviceFloppy, IconDownload, IconListCheck, IconPlus, IconSearch, IconUpload, IconUsersGroup } from "@tabler/icons-react";
 import { useGetIdentity } from "@refinedev/core";
 import { hasClientPermission, isAdminIdentity } from "@/lib/client-permissions";
 import { RegisterModeSwitcher } from "@/components/register-mode-switcher";
@@ -881,7 +881,6 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
             <Menu.Label>Pilih cara menambahkan risiko</Menu.Label>
             <Menu.Item leftSection={<IconPlus size={16} />} onClick={addRow}>Isi Manual</Menu.Item>
             <Menu.Item leftSection={<IconDatabase size={16} />} onClick={() => setBankOpen(true)}>Pilih dari Bank Risiko</Menu.Item>
-            <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => { setAssistSuggestion(null); setAssistOpen(true); }}>Bantu Isi dengan AI</Menu.Item>
           </Menu.Dropdown></Menu>}
           <Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} disabled={!sheetReady} onClick={save}>{saving && saveProgress ? `Tersimpan ${saveProgress} baris...` : "Simpan Perubahan"}</Button>
           {dirtyCount > 0 && <Badge color="orange">{dirtyCount} belum disimpan</Badge>}
