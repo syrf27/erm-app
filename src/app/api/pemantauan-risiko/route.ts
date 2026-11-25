@@ -4,7 +4,6 @@ import { ZodError } from "zod";
 import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import {
-  canAccessRiskIds,
   checkPermission,
   getAuthUserContext,
   isAdminRole,
@@ -374,12 +373,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Periode tidak valid" }, { status: 400 });
     }
     if (!isAdminRole(ctx.roleName)) {
-      if (ctx.teamIds.length === 0) {
-        return NextResponse.json(
-          { error: "Akun belum memiliki Tim Kerja." },
-          { status: 403 }
-        );
-      }
       const start = await getMonitoringStartPeriode(prisma as never);
       if (periodeKey(input.tahun, input.triwulan) < periodeKey(start.tahun, start.triwulan)) {
         return NextResponse.json(
@@ -387,13 +380,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    }
-
-    if (!await canAccessRiskIds(ctx, [input.riskId])) {
-      return NextResponse.json(
-        { error: "Risiko berada di luar Tim Kerja Anda." },
-        { status: 403 }
-      );
     }
 
     const risk = await prisma.identifikasiRisiko.findUnique({

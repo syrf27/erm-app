@@ -51,6 +51,7 @@ type DocForm = {
   title: string;
   url: string;
   uploadedName: string;
+  kind: "link" | "file";
 };
 
 interface MonitoringRow {
@@ -113,6 +114,7 @@ export default function PemantauanRisikoPage() {
   const [version, setVersion] = useState<number>(0);
   const [form, setForm] = useState({ ...emptyForm });
   const [docs, setDocs] = useState<DocForm[]>([]);
+  const [evidenceSource, setEvidenceSource] = useState<"link" | "file" | "office" | null>(null);
   const [uploading, setUploading] = useState(false);
   const [meetingKeyword, setMeetingKeyword] = useState("");
   const [meetingResults, setMeetingResults] = useState<any[]>([]);
@@ -196,6 +198,7 @@ export default function PemantauanRisikoPage() {
     setShowHistory(false);
     setMeetingKeyword("");
     setMeetingResults([]);
+    setEvidenceSource(null);
     if (row.monitoring) {
       const res = await fetch(`/api/pemantauan-risiko/${row.monitoring.id}`);
       const payload = await res.json().catch(() => ({}));
@@ -217,6 +220,7 @@ export default function PemantauanRisikoPage() {
             title: doc.title,
             url: doc.url,
             uploadedName: doc.title,
+            kind: doc.url?.startsWith("http") ? "link" : "file",
           }))
         );
       } else {
@@ -476,7 +480,7 @@ export default function PemantauanRisikoPage() {
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || "Gagal mengambil presensi dari GOJAGS Office");
-      setDocs((prev) => [...prev, { title: payload.title || title, url: payload.url, uploadedName: payload.filename || `${title}.pdf` }]);
+      setDocs((prev) => [...prev, { title: payload.title || title, url: payload.url, uploadedName: payload.filename || `${title}.pdf`, kind: "file" }]);
       notifications.show({ title: "Presensi ditambahkan", message: "PDF daftar hadir GOJAGS Office masuk ke Bukti Pendukung.", color: "green" });
     } catch (e: any) {
       notifications.show({ title: "Gagal mengambil presensi", message: e?.message ?? "Gagal mengambil PDF", color: "red" });
@@ -753,7 +757,15 @@ export default function PemantauanRisikoPage() {
           </Grid>
 
           <Divider label="Bukti pendukung" labelPosition="left" />
-          <Card withBorder padding="sm">
+          <Text size="sm" c="dimmed">Pilih cara menambahkan bukti pendukung.</Text>
+          <SegmentedControl
+            value={evidenceSource ?? ""}
+            onChange={(value) => setEvidenceSource(value as "link" | "file" | "office")}
+            data={[{ label: "Tautan", value: "link" }, { label: "Unggah berkas", value: "file" }, { label: "GOJAGS Office", value: "office" }]}
+            fullWidth
+            disabled={!canEdit}
+          />
+          {evidenceSource === "office" && <Card withBorder padding="sm">
             <Stack gap="sm">
               <Text size="sm" fw={700}>Ambil bukti dari GOJAGS Office</Text>
               <Group align="flex-end" wrap="nowrap">
@@ -772,15 +784,13 @@ export default function PemantauanRisikoPage() {
                 </Card>
               ))}
             </Stack>
-          </Card>
-          <Group>
-            <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "" }])}>
+          </Card>}
+          {evidenceSource === "link" && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "link" }])}>
               + Tambah tautan
-            </Button>
-            <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "" }])}>
+            </Button>}
+          {evidenceSource === "file" && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "file" }])}>
               + Upload berkas
-            </Button>
-          </Group>
+            </Button>}
           <Stack gap="sm">
             {docs.map((doc, idx) => (
               <Card key={idx} withBorder padding="sm">
@@ -796,26 +806,25 @@ export default function PemantauanRisikoPage() {
                   onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, title: v } : d)); }}
                   disabled={!canEdit}
                 />
-                <TextInput
+                {doc.kind === "link" ? <TextInput
                   mt="xs"
                   label="URL"
                   value={doc.url}
                   onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, url: v } : d)); }}
                   disabled={!canEdit}
-                />
-                <Stack mt="xs" gap={4}>
-                  <FileDropUpload
+                /> : <Stack mt="xs" gap={4}>
+                  {canEdit && <FileDropUpload
                     size="sm"
                     loading={uploading}
                     currentFileName={doc.uploadedName || undefined}
                     onFileSelect={(file) => uploadDoc(file, idx)}
-                  />
+                  />}
                   {doc.url && (
                     <Text size="xs" component="a" href={getSafeDocumentHref(doc.url) ?? undefined} target="_blank" rel="noopener noreferrer" c="blue">
                       <IconFileText size={12} /> {doc.uploadedName || "Buka dokumen"} <IconExternalLink size={10} />
                     </Text>
                   )}
-                </Stack>
+                </Stack>}
               </Card>
             ))}
           </Stack>
