@@ -414,7 +414,7 @@ export default function PemantauanRisikoPage() {
     }
     try {
       await runAction(monitoringId, actionModal, actionReason.trim());
-      notifications.show({ title: "Berhasil", message: "Tindakan tersimpan", color: "green" });
+      notifications.show({ title: "Berhasil", message: actionModal === "return" ? "Pemantauan ditolak dan catatan disimpan" : "Tindakan tersimpan", color: "green" });
       setActionModal(null);
       setActionReason("");
       setOpened(false);
@@ -875,6 +875,12 @@ export default function PemantauanRisikoPage() {
             </Grid.Col>
           </Grid>
 
+          {selected?.monitoring?.returnReason && (
+            <Alert color="orange" title="Catatan penolakan dari Admin">
+              {selected.monitoring.returnReason}
+            </Alert>
+          )}
+
           {history.length > 0 && (
             <>
               <Button variant="subtle" size="xs" onClick={() => setShowHistory((v) => !v)}>
@@ -884,20 +890,20 @@ export default function PemantauanRisikoPage() {
                 <Table withTableBorder withColumnBorders>
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>Revisi</Table.Th>
+                      <Table.Th>Versi</Table.Th>
                       <Table.Th>Status</Table.Th>
-                      <Table.Th>Besaran</Table.Th>
-                      <Table.Th>Rekonsiliasi</Table.Th>
-                      <Table.Th>Finalisasi</Table.Th>
+                      <Table.Th>Besaran risiko</Table.Th>
+                      <Table.Th>Catatan Admin</Table.Th>
+                      <Table.Th>Tanggal persetujuan</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {history.map((h) => (
                       <Table.Tr key={h.id}>
-                        <Table.Td>Revisi {h.revision}</Table.Td>
+                        <Table.Td>Versi {h.revision}</Table.Td>
                         <Table.Td>{PEMANTAUAN_STATUS_LABEL[h.status] ?? h.status}</Table.Td>
                         <Table.Td>{h.besaran ?? "-"}</Table.Td>
-                        <Table.Td>{h.reconciliationDecision ?? "-"}</Table.Td>
+                        <Table.Td>{h.returnReason ?? "-"}</Table.Td>
                         <Table.Td>{h.finalizedAt ? new Date(h.finalizedAt).toLocaleDateString("id-ID") : "-"}</Table.Td>
                       </Table.Tr>
                     ))}
@@ -911,12 +917,9 @@ export default function PemantauanRisikoPage() {
             <Group>
               {mode === "active" && isAdmin && monitoringId && selected?.monitoring?.status === "SUBMITTED" && (
                 <>
-                  <Button color="green" onClick={() => finalize()}>Finalisasi</Button>
-                  <Button color="orange" variant="light" onClick={() => setActionModal("return")}>Kembalikan</Button>
+                  <Button color="green" onClick={() => finalize()}>Setujui</Button>
+                  <Button color="orange" variant="light" onClick={() => setActionModal("return")}>Tolak &amp; beri catatan</Button>
                 </>
-              )}
-              {mode === "active" && isAdmin && monitoringId && selected?.monitoring?.status === "FINAL" && (
-                <Button variant="light" onClick={() => setActionModal("revise")}>Buat Revisi Koreksi</Button>
               )}
             </Group>
             <Group>
@@ -993,11 +996,11 @@ export default function PemantauanRisikoPage() {
       <Modal
         opened={actionModal !== null}
         onClose={() => setActionModal(null)}
-        title={actionModal === "return" ? "Kembalikan Pemantauan" : "Buat Revisi Koreksi"}
+        title={actionModal === "return" ? "Tolak Pemantauan" : "Buat Revisi Koreksi"}
       >
         <Stack>
           <Textarea
-            label="Alasan *"
+            label={actionModal === "return" ? "Catatan untuk pengguna *" : "Alasan *"}
             minRows={3}
             value={actionReason}
             onChange={(e) => setActionReason(e.currentTarget.value)}
