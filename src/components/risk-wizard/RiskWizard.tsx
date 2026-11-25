@@ -102,17 +102,21 @@ export function RiskWizard({
   const [alasanPenguatan, setAlasanPenguatan] = useState("");
 
   // ---- Reference lists ----
-  const sasaranList = useList({ resource: "sasaran", pagination: { mode: "off" } });
-  const kegiatanList = useList({ resource: "kegiatan", pagination: { mode: "off" } });
-  const prosesList = useList({ resource: "proses-bisnis", pagination: { mode: "off" } });
-  const jenisList = useList({ resource: "jenis-risiko", pagination: { mode: "off" } });
-  const sumberList = useList({ resource: "sumber-risiko", pagination: { mode: "off" } });
-  const kategoriList = useList({ resource: "kategori-risiko", pagination: { mode: "off" } });
-  const areaList = useList({ resource: "area-dampak", pagination: { mode: "off" } });
-  const lkList = useList({ resource: "level-kemungkinan", pagination: { mode: "off" } });
-  const ldList = useList({ resource: "level-dampak", pagination: { mode: "off" } });
+  // The generic API defaults to ten rows when pagination bounds are absent.
+  // Context/reference fields must receive the complete list, otherwise a
+  // selected Sasaran can appear to have no Kegiatan.
+  const referencePagination = { pageSize: 1000 };
+  const sasaranList = useList({ resource: "sasaran", pagination: referencePagination });
+  const kegiatanList = useList({ resource: "kegiatan", pagination: referencePagination });
+  const prosesList = useList({ resource: "proses-bisnis", pagination: referencePagination });
+  const jenisList = useList({ resource: "jenis-risiko", pagination: referencePagination });
+  const sumberList = useList({ resource: "sumber-risiko", pagination: referencePagination });
+  const kategoriList = useList({ resource: "kategori-risiko", pagination: referencePagination });
+  const areaList = useList({ resource: "area-dampak", pagination: referencePagination });
+  const lkList = useList({ resource: "level-kemungkinan", pagination: referencePagination });
+  const ldList = useList({ resource: "level-dampak", pagination: referencePagination });
   const matriksList = useList({ resource: "matriks-analisis-risiko", pagination: { pageSize: 1000 } });
-  const teamList = useList({ resource: "teams", pagination: { mode: "off" } });
+  const teamList = useList({ resource: "teams", pagination: referencePagination });
 
   const loadingLists =
     sasaranList.query?.isPending ||
@@ -154,6 +158,35 @@ export function RiskWizard({
     if (!kegiatanId) return prosesData;
     return prosesData.filter((p: any) => String(p.kegiatanId) === String(kegiatanId));
   }, [prosesData, kegiatanId]);
+
+  const selectKegiatan = (value: string | null) => {
+    const nextId = value || "";
+    const selected = kegiatanData.find((item: any) => String(item.id) === nextId);
+    setKegiatanId(nextId);
+    setProsesBisnisId("");
+
+    // Kegiatan is subordinate to Sasaran. Keep the context consistent even
+    // when a user starts their selection from Kegiatan.
+    if (selected?.sasaranId != null) setSasaranId(String(selected.sasaranId));
+  };
+
+  const selectProsesBisnis = (value: string | null) => {
+    const nextId = value || "";
+    const selected = prosesData.find((item: any) => String(item.id) === nextId);
+    setProsesBisnisId(nextId);
+
+    // Proses Bisnis may be selected directly. Derive its parent context so
+    // users do not have to guess the activity first.
+    if (selected?.kegiatanId != null) {
+      const parentKegiatan = kegiatanData.find(
+        (item: any) => String(item.id) === String(selected.kegiatanId)
+      );
+      setKegiatanId(String(selected.kegiatanId));
+      if (parentKegiatan?.sasaranId != null) {
+        setSasaranId(String(parentKegiatan.sasaranId));
+      }
+    }
+  };
 
   // Nilai resmi selalu berasal dari pasangan matriks, bukan perkalian skala.
   const assessment = useMemo(
@@ -449,10 +482,10 @@ export function RiskWizard({
                   <Select label="Sasaran" placeholder="Pilih sasaran" data={sasaranData.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={sasaranId} onChange={(v) => { setSasaranId(v || ""); setKegiatanId(""); setProsesBisnisId(""); }} searchable clearable />
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Select label="Kegiatan" placeholder={sasaranId ? "Pilih kegiatan" : "Pilih sasaran dulu"} data={filteredKegiatan.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={kegiatanId} onChange={(v) => { setKegiatanId(v || ""); setProsesBisnisId(""); }} searchable clearable />
+                  <Select label="Kegiatan" placeholder="Pilih kegiatan" data={filteredKegiatan.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={kegiatanId} onChange={selectKegiatan} searchable clearable />
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Select label="Proses Bisnis" placeholder={kegiatanId ? "Pilih proses" : "Pilih kegiatan dulu"} data={filteredProses.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={prosesBisnisId} onChange={(v) => setProsesBisnisId(v || "")} searchable clearable />
+                  <Select label="Proses Bisnis" placeholder="Pilih proses bisnis" data={filteredProses.map((x: any) => ({ value: String(x.id), label: x.nama }))} value={prosesBisnisId} onChange={selectProsesBisnis} searchable clearable />
                 </Grid.Col>
                 {isAdmin && (
                   <Grid.Col span={{ base: 12, md: 4 }}>
