@@ -114,6 +114,10 @@ export default function PemantauanRisikoPage() {
   const [form, setForm] = useState({ ...emptyForm });
   const [docs, setDocs] = useState<DocForm[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [meetingKeyword, setMeetingKeyword] = useState("");
+  const [meetingResults, setMeetingResults] = useState<any[]>([]);
+  const [meetingSearching, setMeetingSearching] = useState(false);
+  const [importingMeetingId, setImportingMeetingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionModal, setActionModal] = useState<"return" | "revise" | null>(null);
   const [actionReason, setActionReason] = useState("");
@@ -190,6 +194,8 @@ export default function PemantauanRisikoPage() {
     setSelected(row);
     setHistory([]);
     setShowHistory(false);
+    setMeetingKeyword("");
+    setMeetingResults([]);
     if (row.monitoring) {
       const res = await fetch(`/api/pemantauan-risiko/${row.monitoring.id}`);
       const payload = await res.json().catch(() => ({}));
@@ -437,6 +443,45 @@ export default function PemantauanRisikoPage() {
       notifications.show({ title: "Gagal upload", message: e?.message ?? "Gagal upload", color: "red" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const searchOfficeMeetings = async () => {
+    if (meetingKeyword.trim().length < 2) {
+      notifications.show({ title: "Kata kunci terlalu pendek", message: "Masukkan minimal 2 karakter untuk mencari rapat.", color: "orange" });
+      return;
+    }
+    setMeetingSearching(true);
+    try {
+      const res = await fetch(`/api/gojags-office/rapat?keyword=${encodeURIComponent(meetingKeyword.trim())}`);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || "Gagal mencari rapat di GOJAGS Office");
+      setMeetingResults(payload.data ?? []);
+      if (!(payload.data ?? []).length) notifications.show({ title: "Tidak ada rapat", message: "Tidak ditemukan rapat yang cocok.", color: "gray" });
+    } catch (e: any) {
+      notifications.show({ title: "Pencarian gagal", message: e?.message ?? "Gagal mencari rapat", color: "red" });
+    } finally {
+      setMeetingSearching(false);
+    }
+  };
+
+  const importMeetingAttendance = async (meeting: any) => {
+    setImportingMeetingId(meeting.id);
+    try {
+      const title = `Daftar Hadir - ${meeting.agenda || `Rapat ${meeting.id}`}`;
+      const res = await fetch(`/api/gojags-office/rapat/${meeting.id}/presensi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || "Gagal mengambil presensi dari GOJAGS Office");
+      setDocs((prev) => [...prev, { title: payload.title || title, url: payload.url, uploadedName: payload.filename || `${title}.pdf` }]);
+      notifications.show({ title: "Presensi ditambahkan", message: "PDF daftar hadir GOJAGS Office masuk ke Bukti Pendukung.", color: "green" });
+    } catch (e: any) {
+      notifications.show({ title: "Gagal mengambil presensi", message: e?.message ?? "Gagal mengambil PDF", color: "red" });
+    } finally {
+      setImportingMeetingId(null);
     }
   };
 
@@ -708,6 +753,26 @@ export default function PemantauanRisikoPage() {
           </Grid>
 
           <Divider label="Bukti pendukung" labelPosition="left" />
+          <Card withBorder padding="sm">
+            <Stack gap="sm">
+              <Text size="sm" fw={700}>Ambil bukti dari GOJAGS Office</Text>
+              <Group align="flex-end" wrap="nowrap">
+                <TextInput label="Cari rapat" placeholder="Agenda atau nama rapat" value={meetingKeyword} onChange={(e) => setMeetingKeyword(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void searchOfficeMeetings(); } }} style={{ flex: 1 }} disabled={!canEdit} />
+                <Button variant="light" loading={meetingSearching} onClick={searchOfficeMeetings} disabled={!canEdit}>Cari</Button>
+              </Group>
+              {meetingResults.map((meeting) => (
+                <Card key={meeting.id} withBorder padding="xs">
+                  <Group justify="space-between" align="center" wrap="wrap">
+                    <Stack gap={2}>
+                      <Text size="sm" fw={600}>{meeting.agenda}</Text>
+                      <Text size="xs" c="dimmed">{meeting.tanggal} · {meeting.waktuMulai || ""} · {meeting.pesertaCount} peserta</Text>
+                    </Stack>
+                    <Button size="xs" loading={importingMeetingId === meeting.id} disabled={!canEdit || importingMeetingId !== null} onClick={() => void importMeetingAttendance(meeting)}>Ambil PDF presensi</Button>
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
+          </Card>
           <Group>
             <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "" }])}>
               + Tambah tautan
