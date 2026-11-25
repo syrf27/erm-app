@@ -94,7 +94,7 @@ export default function PelaporanRisikoPage() {
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
-  const [filterMode, setFilterMode] = useState<"all" | "ditangani">("all");
+  const [filterMode, setFilterMode] = useState<"all" | "ditangani">("ditangani");
   const { tahunDari, tahunSampai } = useYear();
 
   // Form State
@@ -758,7 +758,7 @@ export default function PelaporanRisikoPage() {
               { value: "all", label: `Semua Risiko (${reportData.length})` },
               {
                 value: "ditangani",
-                label: `Sedang Ditangani (${handledCount})`,
+                label: `Fokus Penanganan (${handledCount})`,
               },
             ]}
           />
@@ -887,7 +887,7 @@ export default function PelaporanRisikoPage() {
                 >
                   {totalRows === 0
                     ? filterMode === "ditangani"
-                      ? "Tidak ada risiko yang memiliki Rencana Penanganan dan Pemantauan pada tahun ini."
+                      ? "Tidak ada risiko dengan rencana penanganan pada tahun ini."
                       : "Belum ada data risiko teridentifikasi."
                     : "Tidak ada data pada halaman ini."}
                 </Table.Td>

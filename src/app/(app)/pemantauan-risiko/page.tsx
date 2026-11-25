@@ -127,7 +127,6 @@ export default function PemantauanRisikoPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [mode, setMode] = useState<"active" | "history">("active");
   const [confirmModal, setConfirmModal] = useState<
     | null
     | {
@@ -178,7 +177,7 @@ export default function PemantauanRisikoPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/pemantauan-risiko?tahun=${tahun}&triwulan=${triwulan === "all" ? "all" : triwulan}&mode=${mode}`
+        `/api/pemantauan-risiko?tahun=${tahun}&triwulan=${triwulan === "all" ? "all" : triwulan}`
       );
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || "Gagal memuat pemantauan");
@@ -188,7 +187,7 @@ export default function PemantauanRisikoPage() {
     } finally {
       setLoading(false);
     }
-  }, [tahun, triwulan, mode]);
+  }, [tahun, triwulan]);
 
   useEffect(() => {
     load();
@@ -243,7 +242,6 @@ export default function PemantauanRisikoPage() {
   };
 
   const canEdit =
-    mode === "active" &&
     triwulan !== "all" &&
     (monitoringId == null ||
       ["DRAFT", "RETURNED"].includes(
@@ -515,15 +513,6 @@ export default function PemantauanRisikoPage() {
           </Text>
         </div>
         <Group gap="xs" align="flex-end">
-          <SegmentedControl
-            size="xs"
-            value={mode}
-            onChange={(value) => setMode(value as "active" | "history")}
-            data={[
-              { label: "Aktif", value: "active" },
-              { label: "Historis", value: "history" },
-            ]}
-          />
           <Select
             size="xs"
             label="Tahun"
@@ -676,7 +665,7 @@ export default function PemantauanRisikoPage() {
                   </Table.Td>
                   <Table.Td ta="center">
                     <Group gap={4} justify="center" wrap="nowrap">
-                      {mode === "active" && triwulan !== "all" ? (
+                      {triwulan !== "all" ? (
                         <ActionIcon variant="light" onClick={() => openForm(row)} title="Isi pemantauan">
                           <IconPencil size={15} />
                         </ActionIcon>
@@ -908,7 +897,7 @@ export default function PemantauanRisikoPage() {
           </Card>}
           <Group justify="space-between" mt="md">
             <Group>
-              {mode === "active" && isAdmin && monitoringId && selected?.monitoring?.status === "SUBMITTED" && (
+              {isAdmin && monitoringId && selected?.monitoring?.status === "SUBMITTED" && (
                 <>
                   <Button color="green" onClick={() => finalize()}>Setujui</Button>
                   {actionModal !== "return" && <Button color="orange" variant="light" onClick={() => { setActionReason(""); setActionModal("return"); }}>Tolak &amp; beri catatan</Button>}
