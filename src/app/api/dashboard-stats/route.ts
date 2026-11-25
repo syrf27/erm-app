@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 import { getAuthUserContext, shouldScopeRiskByTeam } from "@/lib/access-control";
+import { summarizePairedScores, summarizeTreatment } from "@/lib/dashboard-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
-        `dashboard:stats:v2:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
+        `dashboard:stats:v3:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
         async () => {
           const [
             levelKemungkinan,
@@ -41,7 +42,6 @@ export async function GET(request: Request) {
             identifikasiScope,
             countAnalisis,
             countEvaluasi,
-            countRencana,
             countKri,
             analisis,
             evaluasi,
@@ -51,6 +51,7 @@ export async function GET(request: Request) {
             menungguValidasi,
             tindakLanjutWajib,
             followUpDrafts,
+            seleraGlobal,
           ] = await Promise.all([
             prisma.levelKemungkinan.findMany({
               orderBy: { skala: "asc" },
@@ -73,11 +74,10 @@ export async function GET(request: Request) {
             }),
             prisma.identifikasiRisiko.findMany({
               where: riskScope,
-              select: { sasaranId: true, prosesBisnisId: true },
+              select: { sasaranId: true, prosesBisnisId: true, kategoriRisiko: { select: { nama: true } } },
             }),
             prisma.analisisRisiko.count({ where: relatedRiskScope }),
             prisma.evaluasiRisiko.count({ where: relatedRiskScope }),
-            prisma.rencanaPenanganan.count({ where: relatedRiskScope }),
             prisma.kri.count({ where: relatedRiskScope }),
             prisma.analisisRisiko.findMany({
               where: relatedRiskScope,
@@ -103,10 +103,18 @@ export async function GET(request: Request) {
                 responRisiko: true,
                 residualLevelKemungkinanId: true,
                 residualLevelDampakId: true,
+                identifikasiRisiko: {
+                  select: { risiko: true, kategoriRisiko: { select: { nama: true } } },
+                },
               },
             }),
             prisma.rencanaPenanganan.findMany({
               where: relatedRiskScope,
+              select: {
+                identifikasiRisikoId: true,
+                targetResidualLevelKemungkinanId: true,
+                targetResidualLevelDampakId: true,
+              },
             }),
             prisma.kri.findMany({
               where: relatedRiskScope,
@@ -151,6 +159,7 @@ export async function GET(request: Request) {
                 ...teamScope,
               },
             }),
+            prisma.seleraRisikoGlobal.findFirst({ orderBy: { id: "desc" }, select: { nilai: true } }),
           ]);
 
           const countIdentifikasi = identifikasiScope.length;
@@ -179,28 +188,30 @@ export async function GET(request: Request) {
             return matriksMap.get(matriksKey(k, d)) ?? null;
           };
 
-          // ---- Heatmap (Kemungkinan x Dampak) ----
-          const cellCounts = new Map<string, number>();
-          for (const a of analisis) {
-            if (a.levelKemungkinanId != null && a.levelDampakId != null) {
-              const key = matriksKey(a.levelKemungkinanId, a.levelDampakId);
-              cellCounts.set(key, (cellCounts.get(key) ?? 0) + 1);
+          // Both matrices use the same configured cells and currently scoped risks.
+          const buildHeatmap = (pairs: readonly { k: number | null; d: number | null }[]) => {
+            const counts = new Map<string, number>();
+            for (const { k, d } of pairs) {
+              if (!resolveCell(k, d)) continue;
+              const key = matriksKey(k!, d!);
+              counts.set(key, (counts.get(key) ?? 0) + 1);
             }
-          }
-          const heatmap = levelKemungkinan.map((k) =>
-            levelDampak.map((d) => {
-              const cell = matriksMap.get(matriksKey(k.id, d.id));
+            return levelKemungkinan.map((k) => levelDampak.map((d) => {
+              const key = matriksKey(k.id, d.id);
+              const cell = matriksMap.get(key);
               const lr = cell ? levelRisikoMap.get(cell.levelRisikoId) : null;
               return {
                 kemungkinanId: k.id,
                 dampakId: d.id,
-                count: cellCounts.get(matriksKey(k.id, d.id)) ?? 0,
+                count: counts.get(key) ?? 0,
                 besaran: cell?.besaran ?? null,
                 levelRisikoNama: lr?.nama ?? null,
                 warna: lr?.warna ?? null,
               };
-            })
-          );
+            }));
+          };
+          const heatmapAktual = buildHeatmap(analisis.map((a) => ({ k: a.levelKemungkinanId, d: a.levelDampakId })));
+          const heatmapResidual = buildHeatmap(evaluasi.map((e) => ({ k: e.residualLevelKemungkinanId, d: e.residualLevelDampakId })));
 
           // ---- Risk distribution by level ----
           const byLevelMap = new Map<number, number>();
@@ -230,9 +241,7 @@ export async function GET(request: Request) {
               .map(([nama, count]) => ({ nama, count }))
               .sort((a, b) => b.count - a.count);
           };
-          const byCategory = tally(
-            analisis.map((a) => a.identifikasiRisiko?.kategoriRisiko?.nama)
-          );
+          const byCategory = tally(identifikasiScope.map((risk) => risk.kategoriRisiko?.nama));
           const byType = tally(
             analisis.map((a) => a.identifikasiRisiko?.jenisRisiko?.nama)
           );
@@ -240,36 +249,27 @@ export async function GET(request: Request) {
           // ---- Risk response distribution ----
           const byResponse = tally(evaluasi.map((e) => e.responRisiko));
 
-          // ---- Inherent vs Residual ----
-          let inherentSum = 0,
-            inherentN = 0;
-          for (const a of analisis) {
-            const c = resolveCell(a.levelKemungkinanId, a.levelDampakId);
-            if (c) {
-              inherentSum += c.besaran;
-              inherentN++;
-            }
-          }
-          let residualSum = 0,
-            residualN = 0;
-          // Residual terkini berasal dari Evaluasi (hasil final pemantauan
-          // disinkronkan ke sini oleh layanan pemantauan).
-          for (const e of evaluasi) {
-            const c = resolveCell(
-              e.residualLevelKemungkinanId,
-              e.residualLevelDampakId
-            );
-            if (c) {
-              residualSum += c.besaran;
-              residualN++;
-            }
-          }
-          const inherentAvg = inherentN
-            ? +(inherentSum / inherentN).toFixed(2)
-            : 0;
-          const residualAvg = residualN
-            ? +(residualSum / residualN).toFixed(2)
-            : 0;
+          const analysisByRiskId = new Map(analisis.map((a) => [a.identifikasiRisikoId, a]));
+          const planByRiskId = new Map(rencana.map((plan) => [plan.identifikasiRisikoId, plan]));
+          const riskScores = evaluasi.map((evaluation) => {
+            const analysis = analysisByRiskId.get(evaluation.identifikasiRisikoId);
+            return {
+              id: evaluation.identifikasiRisikoId,
+              actual: analysis ? resolveCell(analysis.levelKemungkinanId, analysis.levelDampakId)?.besaran ?? null : null,
+              residual: resolveCell(evaluation.residualLevelKemungkinanId, evaluation.residualLevelDampakId)?.besaran ?? null,
+              hasPlan: planByRiskId.has(evaluation.identifikasiRisikoId),
+            };
+          });
+          const pairedScores = summarizePairedScores(riskScores);
+          const treatment = summarizeTreatment(riskScores, seleraGlobal?.nilai ?? null);
+          const targetScores = rencana
+            .map((plan) => resolveCell(plan.targetResidualLevelKemungkinanId, plan.targetResidualLevelDampakId)?.besaran ?? null)
+            .filter((score): score is number => score != null);
+          const targetResidual = {
+            count: targetScores.length,
+            planCount: rencana.length,
+            average: targetScores.length ? +(targetScores.reduce((sum, score) => sum + score, 0) / targetScores.length).toFixed(2) : null,
+          };
 
           // ---- KRI status ----
           const kriStatus = kris.map((k) => {
@@ -291,70 +291,60 @@ export async function GET(request: Request) {
           };
 
           // ---- Top risks ----
-          const evaluationByRiskId = new Map(
-            evaluasi.map((item) => [item.identifikasiRisikoId, item])
-          );
-          const topRisks = analisis
-            .map((a) => {
-              const evaluation = evaluationByRiskId.get(a.identifikasiRisikoId);
-              const c = evaluation
-                ? resolveCell(
-                    evaluation.residualLevelKemungkinanId,
-                    evaluation.residualLevelDampakId
-                  )
-                : null;
+          const topRisks = evaluasi
+            .map((evaluation) => {
+              const c = resolveCell(evaluation.residualLevelKemungkinanId, evaluation.residualLevelDampakId);
               const lr = c ? levelRisikoMap.get(c.levelRisikoId) : null;
               return {
-                risiko: a.identifikasiRisiko?.risiko ?? "-",
-                kategori: a.identifikasiRisiko?.kategoriRisiko?.nama ?? "-",
+                id: evaluation.identifikasiRisikoId,
+                risiko: evaluation.identifikasiRisiko?.risiko ?? "-",
+                kategori: evaluation.identifikasiRisiko?.kategoriRisiko?.nama ?? "-",
                 besaran: c?.besaran ?? null,
                 level: lr?.nama ?? "-",
                 warna: lr?.warna ?? null,
               };
             })
-            .filter((risk) => risk.besaran != null)
+            .filter((risk) => treatment.appetite != null && risk.besaran != null && risk.besaran > treatment.appetite)
             .sort((a, b) => (b.besaran ?? 0) - (a.besaran ?? 0))
             .slice(0, 8);
 
-          // ---- Process funnel / maturity ----
-          const funnel = [
-            { tahap: "Identifikasi", count: countIdentifikasi },
-            { tahap: "Analisis", count: countAnalisis },
-            { tahap: "Evaluasi", count: countEvaluasi },
-            { tahap: "Penanganan", count: countRencana },
-          ];
-          const treatmentCoverage = countIdentifikasi
-            ? Math.round((countRencana / countIdentifikasi) * 100)
-            : 0;
           const analysisCoverage = countIdentifikasi
             ? Math.round((countAnalisis / countIdentifikasi) * 100)
-            : 0;
+            : null;
+          const evaluationCoverage = countIdentifikasi
+            ? Math.round((countEvaluasi / countIdentifikasi) * 100)
+            : null;
+          const funnel = [
+            { tahap: "Identifikasi", count: countIdentifikasi, total: countIdentifikasi, coveragePercent: countIdentifikasi ? 100 : null },
+            { tahap: "Analisis", count: countAnalisis, total: countIdentifikasi, coveragePercent: analysisCoverage },
+            { tahap: "Evaluasi", count: countEvaluasi, total: countIdentifikasi, coveragePercent: evaluationCoverage },
+            { tahap: "Rencana penanganan", count: treatment.planned, total: treatment.eligible, coveragePercent: treatment.coveragePercent },
+          ];
 
           return {
             kpi: {
               totalRisiko: countIdentifikasi,
               dianalisis: countAnalisis,
               dievaluasi: countEvaluasi,
-              ditangani: countRencana,
+              ditangani: treatment.planned,
               kri: countKri,
               sasaran: countSasaran,
               prosesBisnis: countProsesBisnis,
               analysisCoverage,
-              treatmentCoverage,
+              evaluationCoverage,
+              treatmentCoverage: treatment.coveragePercent,
             },
             levelKemungkinan,
             levelDampak,
-            heatmap,
+            heatmapAktual,
+            heatmapResidual,
             byLevel,
             byCategory,
             byType,
             byResponse,
-            inherentVsResidual: {
-              inherentAvg,
-              residualAvg,
-              residualN,
-              rencanaN: rencana.length,
-            },
+            pairedScores,
+            targetResidual,
+            treatment,
             kriStatus,
             kriSummary,
             topRisks,
