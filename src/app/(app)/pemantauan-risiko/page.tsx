@@ -115,6 +115,7 @@ export default function PemantauanRisikoPage() {
   const [form, setForm] = useState({ ...emptyForm });
   const [docs, setDocs] = useState<DocForm[]>([]);
   const [evidenceSource, setEvidenceSource] = useState<"link" | "file" | "office" | null>(null);
+  const [evidencePickerOpened, setEvidencePickerOpened] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [meetingKeyword, setMeetingKeyword] = useState("");
   const [meetingResults, setMeetingResults] = useState<any[]>([]);
@@ -201,6 +202,7 @@ export default function PemantauanRisikoPage() {
     setMeetingKeyword("");
     setMeetingResults([]);
     setEvidenceSource(null);
+    setEvidencePickerOpened(false);
     if (row.monitoring) {
       const res = await fetch(`/api/pemantauan-risiko/${row.monitoring.id}`);
       const payload = await res.json().catch(() => ({}));
@@ -636,7 +638,7 @@ export default function PemantauanRisikoPage() {
                     ) : "-"}
                   </Table.Td>
                   <Table.Td ta="center">{m?.realisasiWaktu ?? "-"}</Table.Td>
-                  <Table.Td>{m?.realisasiOutput ?? "-"}</Table.Td>
+                  <Table.Td style={{ whiteSpace: "pre-wrap" }}>{m?.realisasiOutput ?? "-"}</Table.Td>
                   <Table.Td>
                     {m?.dokumens?.length ? (
                       <Stack gap={4}>
@@ -749,25 +751,35 @@ export default function PemantauanRisikoPage() {
                 disabled={!canEdit}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput
-                label="Realisasi output"
-                value={form.realisasiOutput}
-                onChange={(e) => setForm({ ...form, realisasiOutput: e.currentTarget.value })}
-                disabled={!canEdit}
-              />
-            </Grid.Col>
           </Grid>
-
-          <Divider label="Bukti pendukung" labelPosition="left" />
-          <Text size="sm" c="dimmed">Pilih cara menambahkan bukti pendukung.</Text>
-          <SegmentedControl
-            value={evidenceSource ?? ""}
-            onChange={(value) => setEvidenceSource(value as "link" | "file" | "office")}
-            data={[{ label: "Tautan", value: "link" }, { label: "Unggah berkas", value: "file" }, { label: "GOJAGS Office", value: "office" }]}
-            fullWidth
+          <Textarea
+            label="Realisasi output"
+            description="Tulis satu atau beberapa hasil. Gunakan baris baru, tanda •, atau nomor untuk membuat daftar."
+            placeholder={"1. Hasil pertama\n2. Hasil berikutnya"}
+            value={form.realisasiOutput}
+            onChange={(e) => setForm({ ...form, realisasiOutput: e.currentTarget.value })}
+            minRows={3}
+            autosize
             disabled={!canEdit}
           />
+
+          <Divider label="Bukti pendukung" labelPosition="left" />
+          <Stack gap="sm">
+            {docs.map((doc, idx) => (
+              <Card key={idx} withBorder padding="sm">
+                <Group justify="space-between" mb={6}>
+                  <Text size="xs" fw={700} c="dimmed">Bukti pendukung #{idx + 1} · {doc.kind === "link" ? "Tautan" : "Berkas"}</Text>
+                  <Button size="compact-xs" variant="subtle" color="red" disabled={!canEdit} onClick={() => setDocs((p) => p.filter((_, i) => i !== idx))}>Hapus</Button>
+                </Group>
+                <TextInput label="Judul" value={doc.title} onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, title: v } : d)); }} disabled={!canEdit} />
+                {doc.kind === "link" ? <TextInput mt="xs" label="URL" value={doc.url} onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, url: v } : d)); }} disabled={!canEdit} /> : <Stack mt="xs" gap={4}>
+                  {canEdit && <FileDropUpload size="sm" loading={uploading} currentFileName={doc.uploadedName || undefined} onFileSelect={(file) => uploadDoc(file, idx)} />}
+                  {doc.url && <Text size="xs" component="a" href={getSafeDocumentHref(doc.url) ?? undefined} target="_blank" rel="noopener noreferrer" c="blue"><IconFileText size={12} /> {doc.uploadedName || "Buka dokumen"} <IconExternalLink size={10} /></Text>}
+                </Stack>}
+              </Card>
+            ))}
+          </Stack>
+          {canEdit && <Button variant="outline" onClick={() => setEvidencePickerOpened(true)}>+ Tambah bukti pendukung</Button>}
           {evidenceSource === "office" && <Card withBorder padding="sm">
             <Stack gap="sm">
               <Text size="sm" fw={700}>Ambil bukti dari GOJAGS Office</Text>
@@ -788,49 +800,6 @@ export default function PemantauanRisikoPage() {
               ))}
             </Stack>
           </Card>}
-          {evidenceSource === "link" && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "link" }])}>
-              + Tambah tautan
-            </Button>}
-          {evidenceSource === "file" && <Button size="xs" variant="outline" disabled={!canEdit} onClick={() => setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "file" }])}>
-              + Upload berkas
-            </Button>}
-          <Stack gap="sm">
-            {docs.map((doc, idx) => (
-              <Card key={idx} withBorder padding="sm">
-                <Group justify="space-between" mb={6}>
-                  <Text size="xs" fw={700} c="dimmed">Dokumen #{idx + 1}</Text>
-                  <Button size="compact-xs" variant="subtle" color="red" disabled={!canEdit} onClick={() => setDocs((p) => p.filter((_, i) => i !== idx))}>
-                    Hapus
-                  </Button>
-                </Group>
-                <TextInput
-                  label="Judul"
-                  value={doc.title}
-                  onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, title: v } : d)); }}
-                  disabled={!canEdit}
-                />
-                {doc.kind === "link" ? <TextInput
-                  mt="xs"
-                  label="URL"
-                  value={doc.url}
-                  onChange={(e) => { const v = e.currentTarget.value; setDocs((p) => p.map((d, i) => i === idx ? { ...d, url: v } : d)); }}
-                  disabled={!canEdit}
-                /> : <Stack mt="xs" gap={4}>
-                  {canEdit && <FileDropUpload
-                    size="sm"
-                    loading={uploading}
-                    currentFileName={doc.uploadedName || undefined}
-                    onFileSelect={(file) => uploadDoc(file, idx)}
-                  />}
-                  {doc.url && (
-                    <Text size="xs" component="a" href={getSafeDocumentHref(doc.url) ?? undefined} target="_blank" rel="noopener noreferrer" c="blue">
-                      <IconFileText size={12} /> {doc.uploadedName || "Buka dokumen"} <IconExternalLink size={10} />
-                    </Text>
-                  )}
-                </Stack>}
-              </Card>
-            ))}
-          </Stack>
 
           <Divider label="Risiko Residual Harapan" labelPosition="left" />
           <Grid>
@@ -906,7 +875,7 @@ export default function PemantauanRisikoPage() {
                         <Text size="sm">Penanggung jawab: {snapshot.penanggungJawab || "-"}</Text>
                         <Text size="sm">Kejadian risiko: {snapshot.keterjadianRisiko || "-"}</Text>
                         <Text size="sm">Realisasi waktu: {snapshot.realisasiWaktu || "-"}</Text>
-                        <Text size="sm">Realisasi output: {snapshot.realisasiOutput || "-"}</Text>
+                        <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>Realisasi output: {snapshot.realisasiOutput || "-"}</Text>
                         <Text size="sm">Risiko residual harapan: {snapshot.kemungkinanLabel || "-"} · {snapshot.dampakLabel || "-"} (besaran {snapshot.besaran ?? "-"})</Text>
                         <Text size="sm" fw={600}>Bukti pendukung</Text>
                         {(snapshot.dokumens ?? []).length === 0 ? <Text size="sm" c="dimmed">Tidak ada</Text> : snapshot.dokumens.map((doc: { title: string; url: string }, index: number) => <Text key={index} size="sm" component="a" href={getSafeDocumentHref(doc.url) ?? undefined} target="_blank" rel="noopener noreferrer" c="blue">{doc.title}</Text>)}
@@ -936,6 +905,15 @@ export default function PemantauanRisikoPage() {
               )}
             </Group>
           </Group>
+        </Stack>
+      </Modal>
+
+      <Modal opened={evidencePickerOpened} onClose={() => setEvidencePickerOpened(false)} title="Tambah bukti pendukung" centered>
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">Pilih sumber bukti yang ingin ditambahkan.</Text>
+          <Button variant="light" onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "link" }]); setEvidenceSource(null); setEvidencePickerOpened(false); }}>Tautan</Button>
+          <Button variant="light" onClick={() => { setDocs((p) => [...p, { title: "", url: "", uploadedName: "", kind: "file" }]); setEvidenceSource(null); setEvidencePickerOpened(false); }}>Unggah berkas</Button>
+          <Button variant="light" onClick={() => { setEvidenceSource("office"); setEvidencePickerOpened(false); }}>Ambil dari GOJAGS Office</Button>
         </Stack>
       </Modal>
 
