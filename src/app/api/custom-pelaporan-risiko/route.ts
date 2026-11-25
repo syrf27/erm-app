@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
       request.headers.get("x-real-ip") ||
       "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
-    const isAllowed = await checkPermission("pelaporan-risiko", "read", {
+    // Pelaporan adalah ringkasan read-only dari Rencana Penanganan dan
+    // register risiko. Gunakan permission sumber datanya: resource
+    // `pelaporan-risiko` belum menjadi permission mandiri pada role lama,
+    // sehingga pemeriksaan terhadapnya selalu menolak pengguna non-Admin.
+    const isAllowed = await checkPermission("rencana-penanganan", "read", {
       ipAddress,
       userAgent,
     });
