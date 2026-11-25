@@ -103,7 +103,7 @@ const menuItems: MenuItem[] = [
     dataTour: "nav-manajemen-risiko",
     children: [
       {
-        label: "Data Referensi Risiko",
+        label: "Penetapan Konteks",
         icon: <IconLibrary size={16} />,
         href: "/manajemen-risiko/penetapan-konteks",
       },

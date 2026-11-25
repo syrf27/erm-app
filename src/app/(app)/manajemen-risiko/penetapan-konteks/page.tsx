@@ -40,7 +40,7 @@ function PageContent() {
   return (
     <Stack gap="lg">
       <div>
-        <Title order={3}>Data Referensi Risiko</Title>
+        <Title order={3}>Penetapan Konteks</Title>
         <Text c="dimmed" size="sm" mt={4}>
           Kelola data yang digunakan dalam risk register dan penilaian risiko.
         </Text>
