@@ -176,6 +176,9 @@ const menuItems: MenuItem[] = [
 ];
 
 function matchesPath(pathname: string, href: string) {
+  if (href === "/manajemen-risiko/risk-register" && pathname === "/manajemen-risiko/register") {
+    return true;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -521,7 +524,7 @@ function SidebarLogoutItem({ onClick }: { onClick: () => void }) {
 function renderMiniNavItems(items: MenuItem[], pathname: string) {
   return items.flatMap((item) => {
     const isActive = item.href
-      ? pathname === item.href || pathname.startsWith(item.href + "/")
+      ? matchesPath(pathname, item.href)
       : false;
 
     if (item.children) {
@@ -533,12 +536,12 @@ function renderMiniNavItems(items: MenuItem[], pathname: string) {
               component={Link}
               href={child.href!}
               variant={
-                pathname === child.href || pathname.startsWith(child.href + "/")
+                matchesPath(pathname, child.href!)
                   ? "light"
                   : "subtle"
               }
               color={
-                pathname === child.href || pathname.startsWith(child.href + "/")
+                matchesPath(pathname, child.href!)
                   ? "blue"
                   : "gray"
               }
