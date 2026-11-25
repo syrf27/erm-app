@@ -242,16 +242,22 @@ export default function NotificationCenterPage() {
           </Alert>
 
           <Card withBorder padding="0" radius="md" style={{ overflow: "hidden" }}>
-            <ScrollArea type="auto">
-              <Table highlightOnHover verticalSpacing="md" horizontalSpacing="md" miw={860}>
+            <ScrollArea type="auto" scrollbarSize={12} offsetScrollbars>
+              <Table
+                highlightOnHover
+                verticalSpacing="md"
+                horizontalSpacing="md"
+                miw={1400}
+                style={{ tableLayout: "fixed" }}
+              >
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th style={{ width: 60 }}>No</Table.Th>
-                    <Table.Th>Risiko</Table.Th>
-                    <Table.Th>Penanggung Jawab (Tim)</Table.Th>
-                    <Table.Th>Rencana Penanganan (RTP)</Table.Th>
-                    <Table.Th>Target Waktu</Table.Th>
-                    <Table.Th>Status</Table.Th>
+                    <Table.Th style={{ width: 360 }}>Risiko</Table.Th>
+                    <Table.Th style={{ width: 210 }}>Penanggung Jawab (Tim)</Table.Th>
+                    <Table.Th style={{ width: 380 }}>Rencana Penanganan (RTP)</Table.Th>
+                    <Table.Th style={{ width: 150 }}>Target Waktu</Table.Th>
+                    <Table.Th style={{ width: 170 }}>Status</Table.Th>
                     <Table.Th style={{ width: 220 }} align="center">Aksi</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
@@ -264,13 +270,13 @@ export default function NotificationCenterPage() {
                     return (
                       <Table.Tr key={r.id}>
                         <Table.Td>{idx + 1}</Table.Td>
-                        <Table.Td style={{ fontWeight: 500 }}>{riskName}</Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ fontWeight: 500, whiteSpace: "normal", overflowWrap: "anywhere" }}>{riskName}</Table.Td>
+                        <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>
                           <Badge variant="light" color="blue">
                             {teamName}
                           </Badge>
                         </Table.Td>
-                        <Table.Td>{r.rencanaTidakPenanganan || "-"}</Table.Td>
+                        <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{r.rencanaTidakPenanganan || "-"}</Table.Td>
                         <Table.Td>{targetWaktu}</Table.Td>
                         <Table.Td>
                           <Badge variant="filled" color="orange">
@@ -433,33 +439,33 @@ export default function NotificationCenterPage() {
                 </Button>
               </Group>
             )}
-            <ScrollArea type="auto">
-              <Table miw={900} striped highlightOnHover>
+            <ScrollArea type="auto" scrollbarSize={12} offsetScrollbars>
+              <Table miw={1340} striped highlightOnHover style={{ tableLayout: "fixed" }}>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Waktu</Table.Th>
-                    <Table.Th>Risiko</Table.Th>
-                    <Table.Th>Kanal</Table.Th>
-                    <Table.Th>Penerima</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Pengirim</Table.Th>
-                    <Table.Th>Detail</Table.Th>
+                    <Table.Th style={{ width: 175 }}>Waktu</Table.Th>
+                    <Table.Th style={{ width: 330 }}>Risiko</Table.Th>
+                    <Table.Th style={{ width: 175 }}>Kanal</Table.Th>
+                    <Table.Th style={{ width: 230 }}>Penerima</Table.Th>
+                    <Table.Th style={{ width: 130 }}>Status</Table.Th>
+                    <Table.Th style={{ width: 160 }}>Pengirim</Table.Th>
+                    <Table.Th style={{ width: 250 }}>Detail</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {history.map((log) => (
                   <Table.Tr key={log.id}>
-                    <Table.Td>{new Date(log.createdAt).toLocaleString("id-ID")}</Table.Td>
-                    <Table.Td>{log.rencanaPenanganan?.identifikasiRisiko?.risiko || "-"}</Table.Td>
-                    <Table.Td>{log.channel === "whatsapp" ? "WhatsApp" : "Notifikasi aplikasi"}</Table.Td>
-                    <Table.Td>{log.recipientName || "-"}{log.recipientPhone ? ` (${log.recipientPhone})` : ""}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "nowrap" }}>{new Date(log.createdAt).toLocaleString("id-ID")}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{log.rencanaPenanganan?.identifikasiRisiko?.risiko || "-"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{log.channel === "whatsapp" ? "WhatsApp" : "Notifikasi aplikasi"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{log.recipientName || "-"}{log.recipientPhone ? ` (${log.recipientPhone})` : ""}</Table.Td>
                     <Table.Td>
                       <Badge color={log.status === "sent" ? "green" : log.status === "skipped" ? "yellow" : "red"}>
                         {log.status === "sent" ? "Terkirim" : log.status === "skipped" ? "Dilewati" : "Gagal"}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>{log.sentBy || "-"}</Table.Td>
-                    <Table.Td>{log.error || log.providerMessageId || "-"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{log.sentBy || "-"}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{log.error || log.providerMessageId || "-"}</Table.Td>
                   </Table.Tr>
                   ))}
                 </Table.Tbody>
