@@ -164,11 +164,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Parameter id tidak valid" }, { status: 400 });
     }
 
-    const isAllowed = await checkPermission("identifikasi-risiko", "delete", { ipAddress, userAgent });
+    const permissionAction = action === "permanent-delete" ? "delete" : "update";
+    const isAllowed = await checkPermission("identifikasi-risiko", permissionAction, { ipAddress, userAgent });
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-    if (!await checkRecordPermission("identifikasi-risiko", "delete", id, { ipAddress, userAgent })) {
+    if (action === "permanent-delete" && !await checkRecordPermission("identifikasi-risiko", "delete", id, { ipAddress, userAgent })) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

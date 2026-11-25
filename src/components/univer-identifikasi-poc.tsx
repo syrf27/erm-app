@@ -159,6 +159,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const [saving, setSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const [dirtyCount, setDirtyCount] = useState(0);
+  const [pendingDeletedIds, setPendingDeletedIds] = useState<number[]>([]);
   const [view, setView] = useState("active");
   const [bankOpen, setBankOpen] = useState(false);
   const [bankQuery, setBankQuery] = useState("");
@@ -187,7 +188,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
   const [teamAssignRiskIds, setTeamAssignRiskIds] = useState<number[]>([]);
   const [teamAssignId, setTeamAssignId] = useState<string | null>(null);
   const [teamAssigning, setTeamAssigning] = useState(false);
-  const canArchive = hasClientPermission(identity, "identifikasi-risiko:delete");
+  const canArchive = hasClientPermission(identity, "identifikasi-risiko:update");
   const data = useMemo(() => (records.result?.data ?? []) as RiskRecord[], [records.result?.data]);
   const referenceLists = useMemo(() => ({
     sasaran: (sasaran.result?.data ?? []) as any[], kegiatan: (kegiatan.result?.data ?? []) as any[], prosesBisnis: (prosesBisnis.result?.data ?? []) as any[],
@@ -477,6 +478,31 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
     finally { setArchiveSubmitting(false); }
   };
 
+  const confirmDeletedRows = async () => {
+    if (!pendingDeletedIds.length) return;
+    setArchiveSubmitting(true);
+    let archivedCount = 0;
+    try {
+      for (const id of pendingDeletedIds) {
+        const response = await fetch("/api/identifikasi-risiko/archive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "archive", id, reason: "Dihapus dari Risk Register spreadsheet" }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Gagal mengarsipkan risiko #${id}`);
+        archivedCount++;
+      }
+      notifications.show({ title: "Risiko diarsipkan", message: `${pendingDeletedIds.length} risiko dipindahkan ke Arsip.`, color: "green" });
+      setPendingDeletedIds([]);
+      await refresh();
+    } catch (error: any) {
+      notifications.show({ title: "Gagal mengarsipkan", message: `${error.message}${archivedCount ? ` · ${archivedCount} risiko sudah diarsipkan.` : ""}`, color: "red" });
+      if (archivedCount) {
+        setPendingDeletedIds([]);
+        await refresh();
+      }
+    } finally {
+      setArchiveSubmitting(false);
+    }
+  };
+
   const archiveSelectedRisk = () => {
     const selected = sheetRef.current?.getActiveRange()?.getRow();
     if (selected == null || selected < 1) {
@@ -585,15 +611,7 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
           await refresh();
           return;
         }
-        if (!canArchive) throw new Error("Anda tidak memiliki izin untuk mengarsipkan risiko.");
-        if (!window.confirm(`Arsipkan ${deletedIds.length} risiko yang barisnya dihapus? Risiko dapat dipulihkan dari Arsip.`)) return;
-        for (const id of deletedIds) {
-          const response = await fetch("/api/identifikasi-risiko/archive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "archive", id, reason: "Dihapus dari Risk Register spreadsheet" }) });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(result.error || `Gagal mengarsipkan risiko #${id}`);
-        }
-        notifications.show({ title: "Risiko diarsipkan", message: `${deletedIds.length} risiko dipindahkan ke Arsip.`, color: "green" });
-        await refresh();
+        setPendingDeletedIds(deletedIds);
         return;
       }
       const changed = (row: string[], index: number, columns: number[]) => columns.some((column) => row[column] !== savedRowsRef.current[index]?.[column]);
@@ -881,6 +899,15 @@ function UniverIdentifikasiSheet({ initialStage, tahunDari, tahunSampai, onReloa
       </Group>
     </Box>}
     <Box ref={containerRef} style={{ display: view === "active" ? "block" : "none", height: "720px", width: "100%", border: "1px solid var(--mantine-color-default-border)" }} />
+    <Modal opened={pendingDeletedIds.length > 0} onClose={() => setPendingDeletedIds([])} title="Arsipkan risiko yang dihapus?" centered>
+      <Stack gap="md">
+        <Text size="sm">{pendingDeletedIds.length} risiko yang barisnya dihapus akan dipindahkan ke Arsip. Data terkait tetap tersimpan dan dapat dipulihkan.</Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => setPendingDeletedIds([])} disabled={archiveSubmitting}>Batal</Button>
+          <Button color="orange" onClick={confirmDeletedRows} loading={archiveSubmitting}>Arsipkan risiko</Button>
+        </Group>
+      </Stack>
+    </Modal>
     {view === "archived" && <Stack><TextInput placeholder="Cari risiko arsip..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} /><Table striped withTableBorder><Table.Thead><Table.Tr><Table.Th>ID</Table.Th><Table.Th>Risiko</Table.Th><Table.Th>Tahun</Table.Th><Table.Th>Alasan</Table.Th><Table.Th>Aksi</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{(archived.result?.data ?? []).filter((item: any) => String(item.risiko).toLowerCase().includes(search.toLowerCase())).map((item: any) => <Table.Tr key={item.id}><Table.Td>{item.id}</Table.Td><Table.Td>{item.risiko}</Table.Td><Table.Td>{item.tahun}</Table.Td><Table.Td>{item.archiveReason || "-"}</Table.Td><Table.Td><Group gap="xs"><Button size="xs" variant="light" onClick={() => void openArchive(item.id, "restore")}>Pulihkan</Button>{isAdmin && <Button size="xs" color="red" variant="light" onClick={() => void openArchive(item.id, "permanent-delete")}>Hapus Permanen</Button>}</Group></Table.Td></Table.Tr>)}</Table.Tbody></Table></Stack>}
     <Modal opened={bankOpen} onClose={() => setBankOpen(false)} title="Cari dari Bank Risiko" size="xl"><Stack><Group><TextInput value={bankQuery} onChange={(event) => setBankQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchBank(); }} placeholder="Ketik kata kunci risiko..." style={{ flex: 1 }} /><Button loading={bankLoading} onClick={searchBank}>Cari</Button></Group>{bankMethod && <Text size="sm">Metode pencarian: {bankMethod === "semantic" ? "Semantik" : "Teks"}</Text>}{bankResults.map((risk) => <Group key={risk.id} justify="space-between" align="start" p="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}><Box style={{ flex: 1 }}><Text size="sm">{risk.risiko}</Text><Badge size="xs">{risk.kategori_risiko_nama}</Badge></Box><Button size="xs" onClick={() => void importBankRisk(risk)}>Tambahkan</Button></Group>)}</Stack></Modal>
     <Modal opened={assistOpen} onClose={() => setAssistOpen(false)} title="Bantu Isi dengan AI" size="lg"><Stack><Textarea label="Ceritakan kondisi atau risiko" minRows={4} value={assistDescription} onChange={(event) => setAssistDescription(event.currentTarget.value)} /><Button loading={assistLoading} onClick={suggestRisk}>Buat Saran</Button>{assistSuggestion && <><Text fw={600}>{assistSuggestion.risiko}</Text><Text size="sm">Penyebab: {assistSuggestion.penyebab || "-"}</Text><Text size="sm">Dampak: {assistSuggestion.dampak || "-"}</Text><Button color="violet" onClick={applySuggestion}>Terapkan ke Baris Baru</Button><Select label="Level Kemungkinan Aktual" data={(levelKemungkinan.result?.data ?? []).map((item: any) => item.nama)} value={assistLikelihood} onChange={(value) => setAssistLikelihood(value || "")} /><Select label="Level Dampak Aktual" data={(levelDampak.result?.data ?? []).map((item: any) => item.nama)} value={assistImpact} onChange={(value) => setAssistImpact(value || "")} /><Textarea label="Pengendalian yang pernah dilakukan" value={assistControl} onChange={(event) => setAssistControl(event.currentTarget.value)} /><Select label="Efektivitas Pengendalian" clearable data={[{ value: "efektif", label: "Efektif" }, { value: "cukup_efektif", label: "Cukup Efektif" }, { value: "kurang_efektif", label: "Kurang Efektif" }, { value: "tidak_efektif", label: "Tidak Efektif" }]} value={assistEffectiveness} onChange={setAssistEffectiveness} /><Select label="Respons Risiko" data={[{ value: "mengurangi", label: "Mengurangi" }, { value: "menerima", label: "Menerima" }, { value: "menghindari", label: "Menghindari" }, { value: "mentransfer", label: "Mentransfer" }]} value={assistResponse} onChange={(value) => setAssistResponse(value || "mengurangi")} /><Button color="green" loading={assistWorkflowLoading} onClick={createThroughEvaluation}>Simpan sampai Evaluasi</Button></>}</Stack></Modal>
