@@ -7,7 +7,6 @@ import {
   checkPermission,
   getAuthUserContext,
   isAdminRole,
-  shouldScopeRiskByTeam,
 } from "@/lib/access-control";
 import { invalidateResourceCache } from "@/lib/cache";
 import { logAudit } from "@/lib/audit-log";
@@ -62,13 +61,13 @@ async function canWriteMonitoring() {
 }
 
 function canAccessTeam(
-  ctx: { roleName: string; teamIds: number[] },
-  teamId: number | null,
-  action: "read" | "write" = "write"
+  _ctx: { roleName: string; teamIds: number[] },
+  _teamId: number | null,
+  _action: "read" | "write" = "write"
 ) {
-  if (action === "read" && !shouldScopeRiskByTeam(ctx)) return true;
-  if (isAdminRole(ctx.roleName)) return true;
-  return teamId != null && ctx.teamIds.includes(teamId);
+  // Pemantauan merupakan proses lintas tim. Aksesnya mengikuti permission
+  // pemantauan, bukan pembatasan team kerja pada risk register.
+  return true;
 }
 
 function toErrorResponse(error: unknown) {

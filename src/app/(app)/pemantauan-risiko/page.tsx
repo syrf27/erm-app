@@ -914,7 +914,6 @@ export default function PemantauanRisikoPage() {
               <Button variant="default" onClick={() => setOpened(false)}>Tutup</Button>
               {canEdit && (
                 <>
-                  <Button variant="light" loading={saving} onClick={saveDraft}>Simpan Draf</Button>
                   <Button loading={saving} onClick={submit}>Ajukan</Button>
                 </>
               )}
