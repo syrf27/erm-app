@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrSet, REVALIDATE_CACHE_CONTROL } from "@/lib/cache";
 import { getAuthUserContext, shouldScopeRiskByTeam } from "@/lib/access-control";
-import { summarizePairedScores, summarizeTreatment } from "@/lib/dashboard-metrics";
+import { summarizePairedScores, summarizeTreatment, summarizeTreatmentOutcomes } from "@/lib/dashboard-metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const relatedRiskScope = { identifikasiRisiko: riskScope };
 
     const stats = await getOrSet(
-        `dashboard:stats:v3:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
+        `dashboard:stats:v4:${yearRange.gte}:${yearRange.lte}:${teamScoped ? authContext.teamIds.sort((a, b) => a - b).join("-") || "no-team" : "all"}`,
         async () => {
           const [
             levelKemungkinan,
@@ -52,6 +52,7 @@ export async function GET(request: Request) {
             tindakLanjutWajib,
             followUpDrafts,
             seleraGlobal,
+            finalizedMonitorings,
           ] = await Promise.all([
             prisma.levelKemungkinan.findMany({
               orderBy: { skala: "asc" },
@@ -160,6 +161,15 @@ export async function GET(request: Request) {
               },
             }),
             prisma.seleraRisikoGlobal.findFirst({ orderBy: { id: "desc" }, select: { nilai: true } }),
+            prisma.pemantauanRisiko.findMany({
+              where: {
+                status: "FINAL",
+                tahun: yearRange,
+                risk: { is: { ...riskScope, rencanaPenanganan: { isNot: null } } },
+              },
+              orderBy: [{ tahun: "desc" }, { triwulan: "desc" }, { revision: "desc" }, { finalizedAt: "desc" }],
+              select: { riskId: true, besaran: true, residualAcuan: true },
+            }),
           ]);
 
           const countIdentifikasi = identifikasiScope.length;
@@ -262,6 +272,11 @@ export async function GET(request: Request) {
           });
           const pairedScores = summarizePairedScores(riskScores);
           const treatment = summarizeTreatment(riskScores, seleraGlobal?.nilai ?? null);
+          const treatmentOutcomes = summarizeTreatmentOutcomes(
+            rencana.map((plan) => plan.identifikasiRisikoId),
+            finalizedMonitorings,
+            seleraGlobal?.nilai ?? null
+          );
           const targetScores = rencana
             .map((plan) => resolveCell(plan.targetResidualLevelKemungkinanId, plan.targetResidualLevelDampakId)?.besaran ?? null)
             .filter((score): score is number => score != null);
@@ -318,7 +333,7 @@ export async function GET(request: Request) {
             { tahap: "Identifikasi", count: countIdentifikasi, total: countIdentifikasi, coveragePercent: countIdentifikasi ? 100 : null },
             { tahap: "Analisis", count: countAnalisis, total: countIdentifikasi, coveragePercent: analysisCoverage },
             { tahap: "Evaluasi", count: countEvaluasi, total: countIdentifikasi, coveragePercent: evaluationCoverage },
-            { tahap: "Rencana penanganan", count: treatment.planned, total: treatment.eligible, coveragePercent: treatment.coveragePercent },
+            { tahap: "Hasil pemantauan final", count: treatmentOutcomes.assessed, total: treatmentOutcomes.totalPlans, coveragePercent: treatmentOutcomes.totalPlans ? Math.round((treatmentOutcomes.assessed / treatmentOutcomes.totalPlans) * 100) : null },
           ];
 
           return {
@@ -345,6 +360,7 @@ export async function GET(request: Request) {
             pairedScores,
             targetResidual,
             treatment,
+            treatmentOutcomes,
             kriStatus,
             kriSummary,
             topRisks,

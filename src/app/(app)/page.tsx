@@ -151,8 +151,8 @@ export default function DashboardPage() {
         <KpiCard icon={<IconChartBar size={26} />} color="blue"
           label="Dianalisis" value={k.dianalisis} sub={"Cakupan " + k.analysisCoverage + "% dari identifikasi"} />
         <KpiCard icon={<IconClipboardList size={26} />} color="grape"
-          label="Rencana Penanganan" value={stats.treatment.appetite == null ? "–" : `${stats.treatment.planned}/${stats.treatment.eligible}`}
-          sub={stats.treatment.appetite == null ? "Selera risiko belum ditetapkan" : stats.treatment.eligible === 0 ? `Tidak ada residual di atas selera ${stats.treatment.appetite}` : `${k.treatmentCoverage}% risiko di atas selera ${stats.treatment.appetite} memiliki rencana`} />
+          label="Hasil Penanganan" value={stats.treatmentOutcomes.comparable ? `${stats.treatmentOutcomes.decreased}/${stats.treatmentOutcomes.comparable}` : "Belum dinilai"}
+          sub={stats.treatmentOutcomes.comparable ? "RTP dengan besaran risiko menurun setelah pemantauan final" : `${stats.treatmentOutcomes.totalPlans} RTP · belum ada hasil pemantauan final yang dapat dibandingkan`} />
         {/* <KpiCard icon={<IconActivity size={26} />} color="teal"
           label="Indikator Risiko (KRI)" value={k.kri} sub={stats.kriSummary.merah + " melewati ambang batas"} /> */}
       </SimpleGrid>
@@ -163,9 +163,6 @@ export default function DashboardPage() {
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-
-        {/* Risk distribution by level + inherent/residual */}
-        <Stack gap="lg">
           <Paper withBorder radius="md" p="lg" shadow="xs">
             <Text fw={700} mb="md">Distribusi Tingkat Risiko Aktual</Text>
             <Stack gap="sm">
@@ -183,7 +180,6 @@ export default function DashboardPage() {
               })}
             </Stack>
           </Paper>
-
           <Paper withBorder radius="md" p="lg" shadow="xs">
             <Group justify="space-between">
               <Box>
@@ -211,7 +207,6 @@ export default function DashboardPage() {
             </Group>
             {!stats.pairedScores.count && <Text size="xs" c="orange" mt="md">Belum ada risiko dengan penilaian aktual dan residual lengkap.</Text>}
           </Paper>
-        </Stack>
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
@@ -229,19 +224,28 @@ export default function DashboardPage() {
           </Stack>
         </Paper>
 
-        {/* Treatment focus */}
+        {/* Verified treatment outcomes */}
         <Paper withBorder radius="md" p="lg" shadow="xs">
-          <Text fw={700} mb="xs">Sorotan Risiko di Atas Selera</Text>
-          <Text size="xs" c="dimmed" mb="md">{stats.treatment.appetite == null ? "Selera risiko belum ditetapkan" : `Residual > ${stats.treatment.appetite} · ketersediaan rencana, bukan realisasi`}</Text>
-          {stats.treatment.appetite == null ? <Text size="sm" c="dimmed">Belum dapat dihitung.</Text> : (
-            <Stack gap="sm">
-              <Group justify="space-between"><Text size="sm">Perlu rencana penanganan</Text><Text fw={700}>{stats.treatment.eligible}</Text></Group>
-              <Group justify="space-between"><Text size="sm">Sudah memiliki rencana</Text><Text fw={700} c="teal">{stats.treatment.planned}</Text></Group>
-              <Group justify="space-between"><Text size="sm">Belum memiliki rencana</Text><Text fw={700} c={stats.treatment.unplanned ? "red" : "teal"}>{stats.treatment.unplanned}</Text></Group>
-              <Divider />
-              <Text size="xs" c="dimmed">Target Residual Harapan: {stats.targetResidual.count} dari {stats.targetResidual.planCount} rencana terisi{stats.targetResidual.average != null ? ` · rata-rata ${stats.targetResidual.average}` : ""}</Text>
-            </Stack>
-          )}
+          <Text fw={700} mb="xs">Hasil Penanganan RTP</Text>
+          <Text size="xs" c="dimmed" mb="md">Hasil pemantauan FINAL terakhir per risiko dalam periode terpilih; dibandingkan dengan residual acuan saat pemantauan.</Text>
+          <Stack gap="sm">
+            <Group justify="space-between"><Text size="sm">RTP pada risiko aktif</Text><Text fw={700}>{stats.treatmentOutcomes.totalPlans}</Text></Group>
+            <Group justify="space-between"><Text size="sm">Sudah ada hasil terverifikasi</Text><Text fw={700}>{stats.treatmentOutcomes.assessed}</Text></Group>
+            <Group justify="space-between"><Text size="sm">Belum dapat dinilai</Text><Text fw={700} c="dimmed">{stats.treatmentOutcomes.notAssessed}</Text></Group>
+            <Divider />
+            {stats.treatmentOutcomes.assessed === 0 ? (
+              <Text size="sm" c="dimmed">Belum ada hasil pemantauan final. Keberadaan RTP belum membuktikan besaran risiko sudah turun.</Text>
+            ) : (
+              <>
+                <Group justify="space-between"><Text size="sm">Besaran menurun</Text><Text fw={700} c="teal">{stats.treatmentOutcomes.decreased} dari {stats.treatmentOutcomes.comparable}</Text></Group>
+                <Group justify="space-between"><Text size="sm">Tetap / meningkat</Text><Text fw={700} c={stats.treatmentOutcomes.unchanged + stats.treatmentOutcomes.increased ? "orange" : "dimmed"}>{stats.treatmentOutcomes.unchanged} / {stats.treatmentOutcomes.increased}</Text></Group>
+                <Group justify="space-between"><Text size="sm">Sudah dalam selera{stats.treatment.appetite != null ? ` (≤${stats.treatment.appetite})` : ""}</Text><Text fw={700}>{stats.treatmentOutcomes.withinAppetite ?? "–"} dari {stats.treatmentOutcomes.assessed}</Text></Group>
+                {stats.treatmentOutcomes.comparable < stats.treatmentOutcomes.assessed && <Text size="xs" c="dimmed">{stats.treatmentOutcomes.assessed - stats.treatmentOutcomes.comparable} hasil final belum memiliki residual acuan untuk dibandingkan.</Text>}
+              </>
+            )}
+            <Divider />
+            <Text size="xs" c="dimmed">{stats.treatment.appetite == null ? "Selera risiko belum ditetapkan." : `${stats.treatment.eligible} risiko residual di atas selera ${stats.treatment.appetite}; ${stats.treatment.planned} sudah memiliki RTP.`}</Text>
+          </Stack>
         </Paper>
 
       </SimpleGrid>
@@ -307,9 +311,9 @@ export default function DashboardPage() {
           </Stack>
           <Divider my="md" />
           <Group justify="space-between">
-            <Text size="xs" c="dimmed">Cakupan rencana untuk residual di atas selera</Text>
-            <Badge color={k.treatmentCoverage == null ? "gray" : k.treatmentCoverage >= 80 ? "teal" : k.treatmentCoverage >= 50 ? "yellow" : "red"} variant="light">
-              {k.treatmentCoverage == null ? "Tidak berlaku" : `${k.treatmentCoverage}%`}
+            <Text size="xs" c="dimmed">RTP dengan hasil terverifikasi</Text>
+            <Badge color={stats.treatmentOutcomes.assessed ? "teal" : "gray"} variant="light">
+              {stats.treatmentOutcomes.totalPlans ? `${stats.treatmentOutcomes.assessed}/${stats.treatmentOutcomes.totalPlans}` : "Tidak ada RTP"}
             </Badge>
           </Group>
         </Paper>

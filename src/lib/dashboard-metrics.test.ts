@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { summarizePairedScores, summarizeTreatment } from "./dashboard-metrics";
+import { summarizePairedScores, summarizeTreatment, summarizeTreatmentOutcomes } from "./dashboard-metrics";
 
 test("treatment coverage counts only residual risk above appetite", () => {
   assert.deepEqual(
@@ -37,4 +37,23 @@ test("2026 scenario reports four planned risks out of four above appetite", () =
   assert.equal(summary.eligible, 4);
   assert.equal(summary.planned, 4);
   assert.equal(summary.coveragePercent, 100);
+});
+
+test("treatment outcomes count only latest final result per planned risk", () => {
+  const summary = summarizeTreatmentOutcomes(
+    [1, 2, 3, 4],
+    [
+      { riskId: 1, besaran: 8, residualAcuan: 14 },
+      { riskId: 1, besaran: 10, residualAcuan: 14 },
+      { riskId: 2, besaran: 12, residualAcuan: 12 },
+      { riskId: 3, besaran: 14, residualAcuan: 12 },
+      { riskId: 9, besaran: 5, residualAcuan: 15 },
+    ],
+    11
+  );
+  assert.deepEqual(summary, {
+    totalPlans: 4, assessed: 3, notAssessed: 1, comparable: 3,
+    decreased: 1, unchanged: 1, increased: 1, withinAppetite: 1,
+  });
+  assert.equal(summarizeTreatmentOutcomes([1], [], 11).notAssessed, 1);
 });
