@@ -42,12 +42,12 @@ test("mitigation budget rejects an over-limit selection", () => {
   assert.deepEqual(reducer(state, { type: "SELECT", id: "whatsapp" }), state);
 });
 test("inherent and residual scores are deterministic", () => {
-  assert.equal(score(4, 4), 16);
+  assert.equal(score(4, 4), 19);
   const state = at(7, { likelihood: 4, impact: 4, selected: ["capacity", "sop"], mitigationRun: true, retestRun: true });
   const first = calculate(state), second = calculate(state);
   assert.deepEqual(first, second);
-  assert.equal(first.inherentScore, 16);
-  assert.equal(first.residualScore, 6);
+  assert.equal(first.inherentScore, 19);
+  assert.equal(first.residualScore, 11);
   assert.equal(first.affectedUsers, 0);
 });
 test("pause, resume, replay, reset and step navigation", () => {

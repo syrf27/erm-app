@@ -1,3 +1,5 @@
+import { bpsRiskLevel, bpsRiskScore } from "./bps-risk-matrix";
+
 export type Phase = "normal" | "warning" | "incident" | "impact" | "inherent" | "planning" | "mitigation" | "retest" | "residual";
 export type Speed = 0.5 | 1 | 2;
 export type ControlId = "loadTest" | "capacity" | "autoscale" | "backup" | "sop" | "whatsapp";
@@ -29,8 +31,10 @@ export const initialSimulation = (): SimulationState => ({ step: 0, phase: "norm
 export const phases: Phase[] = ["normal", "warning", "incident", "impact", "inherent", "planning", "mitigation", "retest", "residual"];
 export const duration = [4, 4, 3, 4, 2, 2, 5, 5, 5];
 export const cost = (state: SimulationState) => state.selected.reduce((n, id) => n + controls[id].cost, 0);
-export const score = (likelihood: number, impact: number) => likelihood && impact ? likelihood * impact : 0;
-export const level = (n: number) => n <= 5 ? "Sangat rendah" : n <= 11 ? "Rendah" : n <= 17 ? "Sedang" : n <= 20 ? "Tinggi" : "Sangat tinggi";
+// Kept for the original engine. The score is deliberately a BPS matrix lookup,
+// not a multiplication of likelihood and impact.
+export const score = (likelihood: number, impact: number) => bpsRiskScore(likelihood, impact);
+export const level = (n: number) => bpsRiskLevel(n).toLowerCase();
 
 export function reducer(state: SimulationState, action: SimulationAction): SimulationState {
   switch (action.type) {

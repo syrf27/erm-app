@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { LessonPlayer } from "@/components/akademi-risiko/lesson-player";
-import { firstLesson } from "@/lib/akademi-risiko/lesson";
+import { BpsLessonPlayer } from "@/components/akademi-risiko/bps-lesson-player";
+import { academyLessonById } from "@/lib/akademi-risiko/curriculum";
 
 export default async function LessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
   const { lessonId } = await params;
-  if (lessonId !== firstLesson.id) notFound();
-  return <LessonPlayer lesson={firstLesson} />;
+  const lesson = academyLessonById(lessonId);
+  if (!lesson) notFound();
+  return <BpsLessonPlayer lesson={lesson} />;
 }
