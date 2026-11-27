@@ -60,6 +60,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconX,
+  IconSchool,
 } from "@tabler/icons-react";
 import { Breadcrumb } from "../breadcrumb";
 import { YearProvider, useYear } from "@/lib/year-context";
@@ -143,6 +144,11 @@ const menuItems: MenuItem[] = [
     icon: <IconFolders size={18} />,
     href: "/repositori",
     dataTour: "nav-repositori",
+  },
+  {
+    label: "Akademi Risiko",
+    icon: <IconSchool size={18} />,
+    href: "/akademi-risiko",
   },
   {
     label: "Admin",

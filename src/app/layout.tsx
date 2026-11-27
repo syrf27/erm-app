@@ -53,6 +53,11 @@ export default async function RootLayout({
                       meta: { label: "Dashboard" },
                     },
                     {
+                      name: "akademi-risiko",
+                      list: "/akademi-risiko",
+                      meta: { label: "Akademi Risiko" },
+                    },
+                    {
                       name: "manajemen-risiko",
                       meta: { label: "Manajemen Risiko" },
                     },
